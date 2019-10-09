@@ -68,11 +68,11 @@ func main() {
 	flag.Parse()
 	conf := loadConfig(flag.Arg(0))
 
-	router := mux.NewRouter().StrictSlash(true)
+	router := mux.NewRouter()
 	router.Use(actionMiddleware)
 	actions := NewActions(conf)
 	router.HandleFunc("/", actions.rootAction).Methods(http.MethodGet)
-	router.HandleFunc("/corpora/{corpusId}/", actions.getCorpusInfo).Methods(http.MethodGet)
-	router.HandleFunc("/textTypesDb/{dbName}/", actions.getTextTypeDbInfo).Methods(http.MethodGet)
+	router.HandleFunc("/corpora/{corpusId}", actions.getCorpusInfo).Methods(http.MethodGet)
+	router.HandleFunc("/textTypesDb/{dbName}", actions.getTextTypeDbInfo).Methods(http.MethodGet)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
 }

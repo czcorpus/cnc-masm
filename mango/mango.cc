@@ -57,3 +57,17 @@ CorpusSizeRetrval get_corpus_size(CorpusV corpus) {
         return ans;
     }
 }
+
+CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop) {
+    CorpusStringRetval ans;
+    string tmp(prop);
+    try {
+        const char * s = ((Corpus*)corpus)->get_conf(tmp).c_str();
+        ans.value = s;
+        return ans;
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+        return ans;
+    }
+}

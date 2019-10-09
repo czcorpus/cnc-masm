@@ -16,47 +16,46 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+package mango
 
-typedef void* PosAttrV;
-typedef void* CorpusV;
-typedef void* StructV;
+import (
+	"io/ioutil"
+	"os"
+	"sort"
+)
 
-/**
- * CorpusRetval wraps both
- * a returned Manatee corpus object
- * and possible error
- */
-typedef struct CorpusRetval {
-    CorpusV value;
-    const char * err;
-} CorpusRetval;
-
-
-typedef struct CorpusSizeRetrval {
-    int value;
-    const char * err;
-} CorpusSizeRetrval;
-
-
-typedef struct CorpusStringRetval {
-    const char * value;
-    const char * err;
-} CorpusStringRetval;
-
-/**
- * Create a Manatee corpus instance
- */
-CorpusRetval open_corpus(const char* corpusPath);
-
-void close_corpus(CorpusV corpus);
-
-CorpusSizeRetrval get_corpus_size(CorpusV corpus);
-
-CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
-
-#ifdef __cplusplus
+type FileList struct {
+	files []os.FileInfo
 }
-#endif
+
+func (f *FileList) Len() int {
+	return len(f.files)
+}
+
+func (f *FileList) Less(i, j int) bool {
+	return f.files[i].ModTime().After(f.files[j].ModTime())
+}
+
+func (f *FileList) Swap(i, j int) {
+	f.files[i], f.files[j] = f.files[j], f.files[i]
+}
+
+func (f *FileList) First() os.FileInfo {
+	return f.files[0]
+}
+
+func ListFilesInDir(path string, newestFirst bool) (FileList, error) {
+	var ans FileList
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return ans, err
+	}
+	ans.files = make([]os.FileInfo, len(files))
+	for i, v := range files {
+		ans.files[i] = v
+	}
+	if newestFirst {
+		sort.Sort(&ans)
+	}
+	return ans, nil
+}

@@ -49,3 +49,13 @@ func GetCorpusSize(corpus GoCorpus) (int, error) {
 	}
 	return int(ans.value), nil
 }
+
+func GetCorpusConf(corpus GoCorpus, prop string) (string, error) {
+	ans := (C.get_corpus_conf(corpus.corp, C.CString(prop)))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return "", err
+	}
+	return C.GoString(ans.value), nil
+}

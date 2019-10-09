@@ -25,6 +25,7 @@ import (
 	"masm/ttdb"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -38,8 +39,13 @@ func (me ActionError) MarshalJSON() ([]byte, error) {
 }
 
 type CorpusInfo struct {
-	ID    string       `json:"id"`
-	Size  int          `json:"size"`
+	ID          string `json:"id"`
+	Size        int    `json:"size"`
+	DataPath    string `json:"dataPath"`
+	LastUpdated string `json:"lastUpdated"`
+}
+
+type ErrorResponse struct {
 	Error *ActionError `json:"error"`
 }
 
@@ -48,6 +54,16 @@ func writeJSONResponse(w http.ResponseWriter, value interface{}) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	w.Write(jsonAns)
+}
+
+func writeJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int) {
+	ans := &ErrorResponse{Error: &aerr}
+	jsonAns, err := json.Marshal(ans)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	w.WriteHeader(status)
 	w.Write(jsonAns)
 }
 
@@ -68,16 +84,33 @@ func (a *Actions) getCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	regPath := filepath.Join(a.conf.RegistryDirPath, corpusId)
 	corp, err := mango.OpenCorpus(regPath)
 	if err != nil {
-		ans.Error = &ActionError{err}
-		writeJSONResponse(w, ans)
+		if strings.Contains(err.Error(), "CorpInfoNotFound") {
+			writeJSONErrorResponse(w, ActionError{err}, http.StatusNotFound)
+
+		} else {
+			writeJSONErrorResponse(w, ActionError{err}, http.StatusInternalServerError)
+		}
 		return
 	}
 	ans.Size, err = mango.GetCorpusSize(corp)
 	if err != nil {
-		ans.Error = &ActionError{err}
-		writeJSONResponse(w, ans)
+		writeJSONErrorResponse(w, ActionError{err}, http.StatusInternalServerError)
 		return
 	}
+
+	ans.DataPath, err = mango.GetCorpusConf(corp, "PATH")
+	if err != nil {
+		writeJSONErrorResponse(w, ActionError{err}, http.StatusInternalServerError)
+		return
+	}
+
+	items, err := mango.ListFilesInDir(ans.DataPath, true)
+	if err != nil {
+		writeJSONErrorResponse(w, ActionError{err}, http.StatusInternalServerError)
+		return
+	}
+	ans.LastUpdated = items.First().ModTime().Format("2006-01-02T15:04:05-0700")
+
 	defer mango.CloseCorpus(corp)
 	writeJSONResponse(w, ans)
 }
@@ -89,8 +122,9 @@ func (a *Actions) getTextTypeDbInfo(w http.ResponseWriter, req *http.Request) {
 	if ttdb.IsFile(absPath) {
 		ans := ttdb.TTDBRecord{Path: absPath, LastModified: ttdb.GetFileMtime(absPath)}
 		writeJSONResponse(w, ans)
+
 	} else {
-		http.Error(w, "{\"message\": \"File not found\"}", http.StatusNotFound)
+		writeJSONErrorResponse(w, ActionError{fmt.Errorf("Database file not found")}, http.StatusNotFound)
 	}
 }
 
