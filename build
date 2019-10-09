@@ -216,7 +216,7 @@ if __name__ == '__main__':
             fw.write('#!/usr/bin/env bash\n')
             fw.write('MYSELF=`which "$0" 2>/dev/null`\n')
             fw.write('export LD_LIBRARY_PATH="{0}"\n'.format(manatee_lib))
-            fw.write('`dirname $0`/{0}.bin "${@:1}"\n'.format(APP_NAME))
+            fw.write('`dirname $0`/{0}.bin "${{@:1}}"\n'.format(APP_NAME))
         os.chmod(rs_path, 0775)
         print('\nGenerated run script to handle non-standard libmanatee.so location.')
         print('\nTo install the application, copy files {0}.bin and {0}'.format(APP_NAME))
