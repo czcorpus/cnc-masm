@@ -45,6 +45,13 @@ type CorpusInfo struct {
 	LastUpdated string `json:"lastUpdated"`
 }
 
+type WordSketchConf struct {
+	ID     string  `json:"id"`
+	WSDef  *string `json:"wsdef"`
+	WSBase *string `json:"wsbase"`
+	WSThes *string `json:"wsthes"`
+}
+
 type ErrorResponse struct {
 	Error *ActionError `json:"error"`
 }
@@ -126,6 +133,29 @@ func (a *Actions) getTextTypeDbInfo(w http.ResponseWriter, req *http.Request) {
 	} else {
 		writeJSONErrorResponse(w, ActionError{fmt.Errorf("Database file not found")}, http.StatusNotFound)
 	}
+}
+
+func passPathIfExists(path string) *string {
+	if ttdb.IsFile(path) {
+		return &path
+	}
+	return nil
+}
+
+func (a *Actions) getWordSketchConfInfo(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusId := vars["corpusId"]
+	wsattr := req.URL.Query().Get("wsattr")
+	if wsattr == "" {
+		wsattr = "lemma"
+	}
+	ans := WordSketchConf{
+		ID:     corpusId,
+		WSDef:  passPathIfExists(filepath.Join(a.conf.CorpusSkeDefPath, GenWSDefFilename(corpusId))),
+		WSBase: passPathIfExists(filepath.Join(a.conf.CorpusDataPath, corpusId, GenWSBaseFilename(corpusId, wsattr))),
+		WSThes: passPathIfExists(filepath.Join(a.conf.CorpusDataPath, corpusId, GenWSThesFilename(corpusId, wsattr))),
+	}
+	writeJSONResponse(w, ans)
 }
 
 func NewActions(conf *Conf) *Actions {

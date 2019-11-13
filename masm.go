@@ -36,6 +36,8 @@ type Conf struct {
 	ListenPort         int    `json:"listenPort"`
 	RegistryDirPath    string `json:"registryDirPath"`
 	TextTypesDbDirPath string `json:"textTypesDbDirPath"`
+	CorpusDataPath     string `json:"corpusDataPath"`
+	CorpusSkeDefPath   string `json:"corpusSkeDefPath"`
 }
 
 func loadConfig(path string) *Conf {
@@ -74,5 +76,6 @@ func main() {
 	router.HandleFunc("/", actions.rootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", actions.getCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/textTypesDb/{dbName}", actions.getTextTypeDbInfo).Methods(http.MethodGet)
+	router.HandleFunc("/wordSketchConf/{corpusId}", actions.getWordSketchConfInfo).Methods(http.MethodGet)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
 }
