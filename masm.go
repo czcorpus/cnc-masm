@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"masm/corpus"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,13 +32,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
+const (
+	version = "0.0.2"
+)
+
+// Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress      string `json:"listenAddress"`
-	ListenPort         int    `json:"listenPort"`
-	RegistryDirPath    string `json:"registryDirPath"`
-	TextTypesDbDirPath string `json:"textTypesDbDirPath"`
-	CorpusDataPath     string `json:"corpusDataPath"`
-	CorpusSkeDefPath   string `json:"corpusSkeDefPath"`
+	ListenAddress string              `json:"listenAddress"`
+	ListenPort    int                 `json:"listenPort"`
+	CorporaSetup  corpus.CorporaSetup `json:"corporaSetup"`
 }
 
 func loadConfig(path string) *Conf {
@@ -72,10 +75,8 @@ func main() {
 
 	router := mux.NewRouter()
 	router.Use(actionMiddleware)
-	actions := NewActions(conf)
+	actions := NewActions(conf, version)
 	router.HandleFunc("/", actions.rootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", actions.getCorpusInfo).Methods(http.MethodGet)
-	router.HandleFunc("/textTypesDb/{dbName}", actions.getTextTypeDbInfo).Methods(http.MethodGet)
-	router.HandleFunc("/wordSketchConf/{corpusId}", actions.getWordSketchConfInfo).Methods(http.MethodGet)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
 }

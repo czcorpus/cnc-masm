@@ -16,16 +16,13 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package ttdb
+package fsops
 
 import (
+	"io/ioutil"
 	"os"
+	"sort"
 )
-
-type TTDBRecord struct {
-	Path         string `json:"path"`
-	LastModified string `json:"lastModified"`
-}
 
 func GetFileMtime(filePath string) string {
 	f, err := os.Open(filePath)
@@ -49,4 +46,42 @@ func IsFile(path string) bool {
 		return false
 	}
 	return finfo.Mode().IsRegular()
+}
+
+// ----
+
+type FileList struct {
+	files []os.FileInfo
+}
+
+func (f *FileList) Len() int {
+	return len(f.files)
+}
+
+func (f *FileList) Less(i, j int) bool {
+	return f.files[i].ModTime().After(f.files[j].ModTime())
+}
+
+func (f *FileList) Swap(i, j int) {
+	f.files[i], f.files[j] = f.files[j], f.files[i]
+}
+
+func (f *FileList) First() os.FileInfo {
+	return f.files[0]
+}
+
+func ListFilesInDir(path string, newestFirst bool) (FileList, error) {
+	var ans FileList
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return ans, err
+	}
+	ans.files = make([]os.FileInfo, len(files))
+	for i, v := range files {
+		ans.files[i] = v
+	}
+	if newestFirst {
+		sort.Sort(&ans)
+	}
+	return ans, nil
 }
