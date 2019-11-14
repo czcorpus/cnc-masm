@@ -45,14 +45,17 @@ type Conf struct {
 
 func loadConfig(path string) *Conf {
 	if path == "" {
-		log.Fatal("Config path not specified")
+		log.Fatal("FATAL: Cannot load config - path not specified")
 	}
 	rawData, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("FATAL: Cannot load config - ", err)
 	}
 	var conf Conf
-	json.Unmarshal(rawData, &conf)
+	err = json.Unmarshal(rawData, &conf)
+	if err != nil {
+		log.Fatal("FATAL: Cannot load config - ", err)
+	}
 	return &conf
 }
 
