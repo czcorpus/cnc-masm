@@ -113,7 +113,8 @@ func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup
 }
 
 func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) {
-	absPath := filepath.Join(conf.TextTypesDbDirPath, corpusID+".db") // TODO Intercorp and stuff like that
+	dbFileName := GenCorpusTextTypeDbFilename(corpusID) + ".db"
+	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
 	result.TextTypesDB = TTDBRecord{}
 	result.TextTypesDB.Path = passPathIfExists(absPath, absPath)
 }
