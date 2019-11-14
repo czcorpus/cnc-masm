@@ -156,7 +156,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 
 		mTime := items.First().ModTime().Format("2006-01-02T15:04:05-0700")
 		ans.IndexedData.Path = FileMappedValue{
-			Value:        items.First().Name(),
+			Value:        filepath.Clean(corpDataPath),
 			LastModified: &mTime,
 			FileExists:   true,
 		}
@@ -164,7 +164,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	} else {
 		ans.IndexedData.Size = 0
 		ans.IndexedData.Path = FileMappedValue{
-			Value:        filepath.Join(setup.DataDirPath, corpusID),
+			Value:        filepath.Clean(filepath.Join(setup.DataDirPath, corpusID)),
 			LastModified: nil,
 			FileExists:   false,
 		}
