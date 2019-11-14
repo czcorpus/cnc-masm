@@ -1,6 +1,10 @@
 {
     "listenAddress" : "127.0.0.1",
     "listenPort": 8080,
-    "registryDirPath": "/var/local/corpora/registry",
-    "textTypesDbDirPath": "/var/local/corpora/metadata"
+    "corporaSetup": {
+        "registryDirPath": "/var/local/corpora/registry",
+        "textTypesDbDirPath": "/var/local/corpora/metadata",
+        "dataDirPath": "/var/local/corpora/indexed",
+        "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef"
+    }
 }
