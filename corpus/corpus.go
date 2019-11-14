@@ -46,7 +46,7 @@ type WordSketchConf struct {
 // RegistryConf wraps registry configuration related info
 type RegistryConf struct {
 	Path         FileMappedValue `json:"path"`
-	WordSketches WordSketchConf  `json:"wordSketchConf"`
+	WordSketches WordSketchConf  `json:"wordSketch"`
 }
 
 // TTDBRecord wraps information about text types data configuration
@@ -65,7 +65,7 @@ type Info struct {
 	ID           string       `json:"id"`
 	IndexedData  Data         `json:"indexedData"`
 	TextTypesDB  TTDBRecord   `json:"textTypesDb"`
-	RegistryConf RegistryConf `json:"registryConf"`
+	RegistryConf RegistryConf `json:"registry"`
 }
 
 // CorporaSetup defines masm application configuration related
