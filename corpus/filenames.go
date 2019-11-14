@@ -21,6 +21,11 @@ package corpus
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
+)
+
+var (
+	icReg = regexp.MustCompile("intercorp_v([\\d]+)_\\w{2}")
 )
 
 // GenWSDefFilename returns word-sketch definition file (which is also
@@ -41,4 +46,13 @@ func GenWSBaseFilename(basePath string, corpusID string, wsattr string) (string,
 func GenWSThesFilename(basePath string, corpusID string, wsattr string) (string, string) {
 	return filepath.Join(basePath, corpusID, fmt.Sprintf("%s-thes.idx", wsattr)),
 		filepath.Join(basePath, corpusID, fmt.Sprintf("%s-thes", wsattr))
+}
+
+// GenCorpusTextTypeDbFilename generates a proper name for corpus
+// text type metadata database according to CNC's internal rules.
+func GenCorpusTextTypeDbFilename(corpusID string) string {
+	if v := icReg.FindStringSubmatch(corpusID); len(v) > 0 {
+		return fmt.Sprintf("intercorp_v%s", v[1])
+	}
+	return corpusID
 }
