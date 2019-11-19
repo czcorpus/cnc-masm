@@ -34,6 +34,7 @@ type FileMappedValue struct {
 	Path         string  `json:"-"`
 	FileExists   bool    `json:"exists"`
 	LastModified *string `json:"lastModified"`
+	Size         int64   `json:"size"`
 }
 
 // WordSketchConf wraps different word-sketches related data/configuration files
@@ -97,6 +98,7 @@ func passPathIfExists(value, path string) FileMappedValue {
 		mTime := fsops.GetFileMtime(path)
 		ans.FileExists = true
 		ans.LastModified = &mTime
+		ans.Size = fsops.FileSize(path)
 	}
 	return ans
 }
@@ -112,6 +114,7 @@ func findVerticalFile(value, path string) FileMappedValue {
 			ans.Value = fullPath
 			ans.Path = fullPath
 			ans.FileExists = true
+			ans.Size = fsops.FileSize(fullPath)
 			return ans
 		}
 	}
@@ -183,6 +186,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			Value:        filepath.Clean(corpDataPath),
 			LastModified: &mTime,
 			FileExists:   true,
+			Size:         fsops.FileSize(filepath.Clean(corpDataPath)),
 		}
 
 	} else {
@@ -191,6 +195,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			Value:        filepath.Clean(filepath.Join(setup.DataDirPath, corpusID)),
 			LastModified: nil,
 			FileExists:   false,
+			Path:         filepath.Clean(filepath.Join(setup.DataDirPath, corpusID)),
 		}
 	}
 

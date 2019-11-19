@@ -29,6 +29,7 @@ func GetFileMtime(filePath string) string {
 	if err != nil {
 		return ""
 	}
+	defer f.Close()
 	finfo, err := f.Stat()
 	if err == nil {
 		return finfo.ModTime().Format("2006-01-02T15:04:05-0700")
@@ -41,11 +42,25 @@ func IsFile(path string) bool {
 	if err != nil {
 		return false
 	}
+	defer f.Close()
 	finfo, err := f.Stat()
 	if err != nil {
 		return false
 	}
 	return finfo.Mode().IsRegular()
+}
+
+func FileSize(path string) int64 {
+	f, err := os.Open(path)
+	if err != nil {
+		return -1
+	}
+	defer f.Close()
+	finfo, err := f.Stat()
+	if err != nil {
+		return -1
+	}
+	return finfo.Size()
 }
 
 // ----
