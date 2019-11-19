@@ -103,13 +103,20 @@ func passPathIfExists(value, path string) FileMappedValue {
 	return ans
 }
 
-func findVerticalFile(value, path string) FileMappedValue {
-	ans := FileMappedValue{Value: value}
+func findVerticalFile(basePath, corpusID string) FileMappedValue {
 	suffixes := []string{".tar.gz", ".tar.bz2", ".tgz", ".tbz2", ".7z", ".zip", ".tar", ".rar", ""}
+	var verticalPath string
+	if IsIntercorpFilename(corpusID) {
+		verticalPath = filepath.Join(basePath, GenCorpusGroupName(corpusID), "vertikaly", corpusID)
+
+	} else {
+		verticalPath = filepath.Join(basePath, corpusID, "vertikala")
+	}
+	ans := FileMappedValue{Value: verticalPath}
 	for _, suff := range suffixes {
-		fullPath := path + suff
+		fullPath := verticalPath + suff
 		if fsops.IsFile(fullPath) {
-			mTime := fsops.GetFileMtime(path)
+			mTime := fsops.GetFileMtime(fullPath)
 			ans.LastModified = &mTime
 			ans.Value = fullPath
 			ans.Path = fullPath
@@ -135,7 +142,7 @@ func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup
 }
 
 func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) {
-	dbFileName := GenCorpusTextTypeDbFilename(corpusID) + ".db"
+	dbFileName := GenCorpusGroupName(corpusID) + ".db"
 	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
 	result.TextTypesDB = TTDBRecord{}
 	result.TextTypesDB.Path = passPathIfExists(absPath, absPath)
@@ -162,8 +169,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			return nil, InfoError{err}
 		}
 
-		verticalPath := filepath.Join(setup.VerticalFilesDirPath, corpusID, "vertikala")
-		ans.RegistryConf.Vertical = findVerticalFile(verticalPath, verticalPath)
+		ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
 
 		defer mango.CloseCorpus(corp)
 		ans.IndexedData.Size, err = mango.GetCorpusSize(corp)

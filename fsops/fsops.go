@@ -58,6 +58,21 @@ func IsFile(path string) bool {
 	return finfo.Mode().IsRegular()
 }
 
+// IsDir tests whether the provided path represents a directory.
+// In case of an error the function returns false and logs the error.
+func IsDir(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	finfo, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return finfo.Mode().IsDir()
+}
+
 // FileSize returns size of a provided file.
 // In case of an error the function returns -1 and logs the error.
 func FileSize(path string) int64 {
