@@ -21,6 +21,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"masm/corpus"
 	"net/http"
 
@@ -81,13 +82,15 @@ func (a *Actions) getCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	if wsattr == "" {
 		wsattr = "lemma"
 	}
-
+	log.Printf("INFO: request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
 	ans, err := corpus.GetCorpusInfo(corpusID, wsattr, &a.conf.CorporaSetup)
 	switch err.(type) {
 	case corpus.NotFound:
 		writeJSONErrorResponse(w, ActionError{err}, http.StatusNotFound)
+		log.Printf("ERROR: %s", err)
 	case corpus.InfoError:
 		writeJSONErrorResponse(w, ActionError{err}, http.StatusInternalServerError)
+		log.Printf("ERROR: %s", err)
 	case nil:
 		writeJSONResponse(w, ans)
 	}

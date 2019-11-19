@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	version = "0.0.2"
+	version = "0.0.5"
 )
 
 // Conf is a global configuration of the app
@@ -41,6 +41,7 @@ type Conf struct {
 	ListenAddress string              `json:"listenAddress"`
 	ListenPort    int                 `json:"listenPort"`
 	CorporaSetup  corpus.CorporaSetup `json:"corporaSetup"`
+	LogFile       string              `json:"logFile"`
 }
 
 func loadConfig(path string) *Conf {
@@ -66,6 +67,16 @@ func actionMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func setupLog(path string) {
+	if path != "" {
+		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("Failed to initialize log. File: %s", path)
+		}
+		log.SetOutput(logf) // runtime should close the file when program exits
+	}
+}
+
 func main() {
 
 	flag.Usage = func() {
@@ -75,11 +86,13 @@ func main() {
 	}
 	flag.Parse()
 	conf := loadConfig(flag.Arg(0))
-
+	setupLog(conf.LogFile)
+	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
 	router := mux.NewRouter()
 	router.Use(actionMiddleware)
 	actions := NewActions(conf, version)
 	router.HandleFunc("/", actions.rootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", actions.getCorpusInfo).Methods(http.MethodGet)
+	log.Printf("INFO: starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
 }

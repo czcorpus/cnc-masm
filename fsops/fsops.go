@@ -20,23 +20,31 @@ package fsops
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"sort"
 )
 
+// GetFileMtime returns file modification time as a ISO datetime.
+// In case of an error the function returns an empty string and
+// logs the error.
 func GetFileMtime(filePath string) string {
 	f, err := os.Open(filePath)
 	if err != nil {
+		log.Print("ERROR: Failed to get file mtime: ", err)
 		return ""
 	}
 	defer f.Close()
 	finfo, err := f.Stat()
-	if err == nil {
-		return finfo.ModTime().Format("2006-01-02T15:04:05-0700")
+	if err != nil {
+		log.Print("ERROR: Failed to get file mtime: ", err)
+		return ""
 	}
-	return ""
+	return finfo.ModTime().Format("2006-01-02T15:04:05-0700")
 }
 
+// IsFile tests whether the provided path represents a regular file.
+// In case of an error the function returns false and logs the error.
 func IsFile(path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
@@ -50,14 +58,18 @@ func IsFile(path string) bool {
 	return finfo.Mode().IsRegular()
 }
 
+// FileSize returns size of a provided file.
+// In case of an error the function returns -1 and logs the error.
 func FileSize(path string) int64 {
 	f, err := os.Open(path)
 	if err != nil {
+		log.Print("ERROR: Failed to get file size: ", err)
 		return -1
 	}
 	defer f.Close()
 	finfo, err := f.Stat()
 	if err != nil {
+		log.Print("ERROR: Failed to get file size: ", err)
 		return -1
 	}
 	return finfo.Size()
@@ -65,6 +77,8 @@ func FileSize(path string) int64 {
 
 // ----
 
+// FileList is an abstraction for list of files along with their
+// modification time information. It supports sorting.
 type FileList struct {
 	files []os.FileInfo
 }
@@ -81,10 +95,13 @@ func (f *FileList) Swap(i, j int) {
 	f.files[i], f.files[j] = f.files[j], f.files[i]
 }
 
+// First returns an item with the latest modification time.
 func (f *FileList) First() os.FileInfo {
 	return f.files[0]
 }
 
+// ListFilesInDir lists files according to their modification time
+// (newest first).
 func ListFilesInDir(path string, newestFirst bool) (FileList, error) {
 	var ans FileList
 	files, err := ioutil.ReadDir(path)
