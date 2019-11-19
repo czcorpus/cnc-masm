@@ -1,6 +1,7 @@
 {
     "listenAddress" : "127.0.0.1",
     "listenPort": 8080,
+    "logFile": "/path/to/a/log/file",
     "corporaSetup": {
         "registryDirPath": "/var/local/corpora/registry",
         "textTypesDbDirPath": "/var/local/corpora/metadata",
