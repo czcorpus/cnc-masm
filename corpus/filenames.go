@@ -48,11 +48,18 @@ func GenWSThesFilename(basePath string, corpusID string, wsattr string) (string,
 		filepath.Join(basePath, corpusID, fmt.Sprintf("%s-thes", wsattr))
 }
 
-// GenCorpusTextTypeDbFilename generates a proper name for corpus
-// text type metadata database according to CNC's internal rules.
-func GenCorpusTextTypeDbFilename(corpusID string) string {
+// GenCorpusGroupName generates a proper name for corpus
+// group name according to CNC's internal rules
+// (e.g. intercorp_v11_en => intercorp_v11, foo => foo)
+func GenCorpusGroupName(corpusID string) string {
 	if v := icReg.FindStringSubmatch(corpusID); len(v) > 0 {
 		return fmt.Sprintf("intercorp_v%s", v[1])
 	}
 	return corpusID
+}
+
+// IsIntercorpFilename tests whether the provided corpus identifier
+// matches InterCorp naming patter.
+func IsIntercorpFilename(corpusID string) bool {
+	return icReg.MatchString(corpusID)
 }
