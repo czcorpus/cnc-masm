@@ -46,6 +46,7 @@ type WordSketchConf struct {
 // RegistryConf wraps registry configuration related info
 type RegistryConf struct {
 	Path         FileMappedValue `json:"path"`
+	Vertical     FileMappedValue `json:"vertical"`
 	WordSketches WordSketchConf  `json:"wordSketch"`
 }
 
@@ -75,6 +76,7 @@ type CorporaSetup struct {
 	TextTypesDbDirPath   string `json:"textTypesDbDirPath"`
 	DataDirPath          string `json:"dataDirPath"`
 	WordSketchDefDirPath string `json:"wordSketchDefDirPath"`
+	VerticalFilesDirPath string `json:"verticalFilesDirPath"`
 }
 
 // NotFound is an error mapped to a similar Manatee error
@@ -95,6 +97,23 @@ func passPathIfExists(value, path string) FileMappedValue {
 		mTime := fsops.GetFileMtime(path)
 		ans.FileExists = true
 		ans.LastModified = &mTime
+	}
+	return ans
+}
+
+func findVerticalFile(value, path string) FileMappedValue {
+	ans := FileMappedValue{Value: value}
+	suffixes := []string{".tar.gz", ".tar.bz2", ".tgz", ".tbz2", ".7z", ".zip", ".tar", ".rar", ""}
+	for _, suff := range suffixes {
+		fullPath := path + suff
+		if fsops.IsFile(fullPath) {
+			mTime := fsops.GetFileMtime(path)
+			ans.LastModified = &mTime
+			ans.Value = fullPath
+			ans.Path = fullPath
+			ans.FileExists = true
+			return ans
+		}
 	}
 	return ans
 }
@@ -139,6 +158,10 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			}
 			return nil, InfoError{err}
 		}
+
+		verticalPath := filepath.Join(setup.VerticalFilesDirPath, corpusID, "vertikala")
+		ans.RegistryConf.Vertical = findVerticalFile(verticalPath, verticalPath)
+
 		defer mango.CloseCorpus(corp)
 		ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
 		if err != nil {
