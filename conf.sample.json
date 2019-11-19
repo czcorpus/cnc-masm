@@ -5,6 +5,7 @@
         "registryDirPath": "/var/local/corpora/registry",
         "textTypesDbDirPath": "/var/local/corpora/metadata",
         "dataDirPath": "/var/local/corpora/indexed",
-        "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef"
+        "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef",
+        "verticalFilesDirPath": "/var/local/corpora/vert"
     }
 }
