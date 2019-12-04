@@ -20,6 +20,7 @@ package corpus
 
 import (
 	"fmt"
+	"masm/cnf"
 	"masm/fsops"
 	"masm/mango"
 	"path/filepath"
@@ -70,16 +71,6 @@ type Info struct {
 	RegistryConf RegistryConf `json:"registry"`
 }
 
-// CorporaSetup defines masm application configuration related
-// to a corpus
-type CorporaSetup struct {
-	RegistryDirPath      string `json:"registryDirPath"`
-	TextTypesDbDirPath   string `json:"textTypesDbDirPath"`
-	DataDirPath          string `json:"dataDirPath"`
-	WordSketchDefDirPath string `json:"wordSketchDefDirPath"`
-	VerticalFilesDirPath string `json:"verticalFilesDirPath"`
-}
-
 // NotFound is an error mapped to a similar Manatee error
 type NotFound struct {
 	error
@@ -128,7 +119,7 @@ func findVerticalFile(basePath, corpusID string) FileMappedValue {
 	return ans
 }
 
-func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup, result *Info) {
+func attachWordSketchConfInfo(corpusID string, wsattr string, conf *cnf.CorporaSetup, result *Info) {
 	tmp := GenWSDefFilename(conf.WordSketchDefDirPath, corpusID)
 	result.RegistryConf.WordSketches = WordSketchConf{
 		WSDef: passPathIfExists(tmp, tmp),
@@ -141,7 +132,7 @@ func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup
 	result.RegistryConf.WordSketches.WSThes = passPathIfExists(wsThesVal, wsThesFile)
 }
 
-func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) {
+func attachTextTypeDbInfo(corpusID string, conf *cnf.CorporaSetup, result *Info) {
 	dbFileName := GenCorpusGroupName(corpusID) + ".db"
 	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
 	result.TextTypesDB = TTDBRecord{}
@@ -152,7 +143,7 @@ func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) {
 // related to different data files.
 // It should return an error only in case Manatee or filesystem produces some
 // error (i.e. not in case something is just not found).
-func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, error) {
+func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*Info, error) {
 	ans := &Info{ID: corpusID}
 	ans.IndexedData = Data{}
 	ans.RegistryConf = RegistryConf{}
