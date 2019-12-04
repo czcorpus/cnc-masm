@@ -19,15 +19,16 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"masm/corpus"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"masm/cnf"
+	"masm/corpus"
+	"masm/kontext"
 
 	"github.com/gorilla/mux"
 )
@@ -35,30 +36,6 @@ import (
 const (
 	version = "0.0.5"
 )
-
-// Conf is a global configuration of the app
-type Conf struct {
-	ListenAddress string              `json:"listenAddress"`
-	ListenPort    int                 `json:"listenPort"`
-	CorporaSetup  corpus.CorporaSetup `json:"corporaSetup"`
-	LogFile       string              `json:"logFile"`
-}
-
-func loadConfig(path string) *Conf {
-	if path == "" {
-		log.Fatal("FATAL: Cannot load config - path not specified")
-	}
-	rawData, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatal("FATAL: Cannot load config - ", err)
-	}
-	var conf Conf
-	err = json.Unmarshal(rawData, &conf)
-	if err != nil {
-		log.Fatal("FATAL: Cannot load config - ", err)
-	}
-	return &conf
-}
 
 func actionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -85,14 +62,17 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
-	conf := loadConfig(flag.Arg(0))
+	conf := cnf.LoadConfig(flag.Arg(0))
 	setupLog(conf.LogFile)
 	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
 	router := mux.NewRouter()
 	router.Use(actionMiddleware)
-	actions := NewActions(conf, version)
-	router.HandleFunc("/", actions.rootAction).Methods(http.MethodGet)
-	router.HandleFunc("/corpora/{corpusId}", actions.getCorpusInfo).Methods(http.MethodGet)
+	corpusActions := corpus.NewActions(conf, version)
+	kontextActions := kontext.NewActions(conf, version)
+	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
+	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
+	router.HandleFunc("/kontext-services/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
+	router.HandleFunc("/kontext-services/{pid}", kontextActions.RegisterProcess).Methods(http.MethodPut)
 	log.Printf("INFO: starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
 }
