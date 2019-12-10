@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	version = "0.0.5"
+	version = "0.1.0"
 )
 
 func actionMiddleware(next http.Handler) http.Handler {
@@ -65,14 +65,19 @@ func main() {
 	conf := cnf.LoadConfig(flag.Arg(0))
 	setupLog(conf.LogFile)
 	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
+
 	router := mux.NewRouter()
 	router.Use(actionMiddleware)
 	corpusActions := corpus.NewActions(conf, version)
 	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
-	router.HandleFunc("/kontext-services/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
+	router.HandleFunc("/kontext-services/soft-reset-all", kontextActions.SoftReset).Methods(http.MethodPost)
+	router.HandleFunc("/kontext-services/auto-detect", kontextActions.AutoDetectProcesses).Methods(http.MethodPost)
+	router.HandleFunc("/kontext-services/alarms/{token}", kontextActions.ResetAlarm).Methods(http.MethodGet) // we need GET here (e.g. click via email to reset)
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.RegisterProcess).Methods(http.MethodPut)
+	router.HandleFunc("/kontext-services/{pid}", kontextActions.UnregisterProcess).Methods(http.MethodDelete)
+	router.HandleFunc("/kontext-services/{pid}/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
 	log.Printf("INFO: starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
 }
