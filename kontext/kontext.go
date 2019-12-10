@@ -21,56 +21,121 @@ package kontext
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"masm/api"
 	"masm/cnf"
+	"masm/mail"
 	"net/http"
-	"os"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/shirou/gopsutil/process"
 )
 
 type processInfo struct {
-	Registered int64
-	PID        int
-	LastError  error
+	Registered   int64
+	InstanceName string
+	Process      *process.Process
+	LastError    error
+}
+
+func (p *processInfo) GetPID() int {
+	return int(p.Process.Pid)
 }
 
 func (p *processInfo) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		Registered int64  `json:"registered"`
-		PID        int    `json:"pid"`
-		LastError  string `json:"lastError"`
-	}{
-		Registered: p.Registered,
-		PID:        p.PID,
-		LastError:  p.LastError.Error(),
+	var lastError *string
+	if p.LastError != nil {
+		err := p.LastError.Error()
+		lastError = &err
+	}
+	return json.Marshal(processInfoResponse{
+		PID:          p.GetPID(),
+		InstanceName: p.InstanceName,
+		Registered:   p.Registered,
+		LastError:    lastError,
 	})
 }
 
 type processInfoResponse struct {
-	Registered int64  `json:"registered"`
-	PID        int    `json:"pid"`
-	LastError  string `json:"lastError"`
+	Registered   int64   `json:"registered"`
+	InstanceName string  `json:"instanceName"`
+	PID          int     `json:"pid"`
+	LastError    *string `json:"lastError"`
+}
+
+type monitoredInstance struct {
+	Name       string
+	NumErrors  int
+	AlarmToken *uuid.UUID
+	Viewed     bool
+}
+
+func (m *monitoredInstance) MatchesToken(tk string) bool {
+	return m.AlarmToken != nil && m.AlarmToken.String() == tk
 }
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf      *cnf.Conf
-	version   string
-	processes []*processInfo
+	conf               *cnf.Conf
+	version            string
+	processes          map[int]*processInfo
+	ticker             *time.Ticker
+	monitoredInstances map[string]*monitoredInstance
+}
+
+func (a *Actions) findProcessInfo(pid int) *processInfo {
+	return a.processes[pid]
+}
+
+func (a *Actions) findProcessInfoByInstanceName(name string) *processInfo {
+	for _, v := range a.processes {
+		if v.InstanceName == name {
+			return v
+		}
+	}
+	return nil
+}
+
+func (a *Actions) processesAsList() []*processInfo {
+	ans := make([]*processInfo, len(a.processes))
+	i := 0
+	for _, p := range a.processes {
+		ans[i] = p
+		i++
+	}
+	return ans
 }
 
 func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
-	for _, pinfo := range a.processes {
-		proc, err := os.FindProcess(pinfo.PID)
+	vars := mux.Vars(req)
+	pidStr, ok := vars["pid"]
+	var procList map[int]*processInfo
+	if ok {
+		pid, err := strconv.Atoi(pidStr)
 		if err != nil {
-			pinfo.LastError = err
-			continue
+			api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+			return
 		}
-		err = proc.Signal(syscall.SIGUSR1)
+		pinfo := a.findProcessInfo(pid)
+		if pinfo == nil {
+			err := fmt.Errorf("Process %d not registered", pid)
+			log.Print(err)
+			api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+
+		} else {
+			procList = make(map[int]*processInfo)
+			procList[pid] = pinfo
+		}
+
+	} else {
+		procList = a.processes
+	}
+	for _, pinfo := range procList {
+		err := pinfo.Process.SendSignal(syscall.SIGUSR1)
 		if err != nil {
 			pinfo.LastError = err
 			continue
@@ -79,7 +144,7 @@ func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, struct {
 		Processes []*processInfo `json:"processes"`
 	}{
-		Processes: a.processes,
+		Processes: a.processesAsList(),
 	})
 }
 
@@ -91,26 +156,150 @@ func (a *Actions) RegisterProcess(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	for _, pinfo := range a.processes {
-		if pid == pinfo.PID {
+		if pid == pinfo.GetPID() {
 			err := fmt.Errorf("PID already registered: %d", pid)
 			api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
 			return
 		}
 	}
-	newProc := processInfo{
-		PID:        pid,
+	newProc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		return
+	}
+	newProcInfo := processInfo{
+		Process:    newProc,
 		Registered: time.Now().Unix(),
 		LastError:  nil,
 	}
-	a.processes = append(a.processes, &newProc)
-	api.WriteJSONResponse(w, newProc)
+	a.processes[pid] = &newProcInfo
+	api.WriteJSONResponse(w, newProcInfo)
+}
+
+func (a *Actions) UnregisterProcess(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	pid, err := strconv.Atoi(vars["pid"])
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		return
+	}
+	proc, ok := a.processes[pid]
+	if !ok {
+		err := fmt.Errorf("No such PID registered: %d", pid)
+		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		return
+	}
+	delete(a.processes, pid)
+	api.WriteJSONResponse(w, proc)
 }
 
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version string) *Actions {
-	return &Actions{
-		conf:      conf,
-		version:   version,
-		processes: make([]*processInfo, 0, 500),
+	ticker := time.NewTicker(time.Duration(conf.KonTextMonitoring.CheckIntervalSecs) * time.Second)
+
+	ans := &Actions{
+		conf:               conf,
+		version:            version,
+		processes:          make(map[int]*processInfo),
+		ticker:             ticker,
+		monitoredInstances: make(map[string]*monitoredInstance),
 	}
+	for _, v := range conf.KonTextMonitoring.Instances {
+		ans.monitoredInstances[v] = &monitoredInstance{
+			Name:       v,
+			NumErrors:  0,
+			AlarmToken: nil,
+		}
+	}
+	go func() {
+		for {
+			select {
+			case <-ans.ticker.C:
+				ans.refreshProcesses()
+			}
+		}
+	}()
+	return ans
+}
+
+func (a *Actions) refreshProcesses() (*autoDetectResult, error) {
+	ans, err := autoDetectProcesses()
+	if err != nil {
+		return nil, err
+	}
+	for pid, pinfo := range a.processes {
+		if !ans.ContainsPID(pid) {
+			delete(a.processes, pid)
+			log.Printf("WARNING: removed inactive process {pid: %d, instance: %s}", pinfo.GetPID(), pinfo.InstanceName)
+			mail.SendNotification(&a.conf.KonTextMonitoring,
+				"KonText monitoring - unregistered OS process",
+				fmt.Sprintf("KonText instance [%s] process %d removed as it is not present any more.",
+					pinfo.InstanceName, pinfo.GetPID()),
+				nil)
+		}
+	}
+	for _, pinfo := range ans.ProcList {
+		_, ok := a.processes[pinfo.GetPID()]
+		if !ok {
+			a.processes[pinfo.GetPID()] = pinfo
+			log.Printf("WARNING: added new process {pid: %d, instance: %s}", pinfo.GetPID(), pinfo.InstanceName)
+		}
+	}
+	for name, mon := range a.monitoredInstances {
+		srch := a.findProcessInfoByInstanceName(name)
+		if srch == nil {
+			mon.NumErrors++
+			log.Printf("ERROR: cannot find monitored instance %s (repeated: %d)", name, mon.NumErrors)
+
+		} else {
+			mon.NumErrors = 0
+			mon.AlarmToken = nil
+			mon.Viewed = false
+		}
+		if mon.NumErrors > 0 && mon.NumErrors%a.conf.KonTextMonitoring.AlarmNumErrors == 0 {
+			if mon.Viewed == false {
+				if mon.AlarmToken == nil {
+					tok := uuid.New()
+					mon.AlarmToken = &tok
+				}
+				go func() {
+					err = mail.SendNotification(&a.conf.KonTextMonitoring,
+						"KonText monitoring ALARM - process down",
+						fmt.Sprintf("============= ALARM ===============\n\rKonText instance [%s] is down.", mon.Name),
+						mon.AlarmToken)
+					log.Print("INFO: sent an e-mail notification")
+					if err != nil {
+						log.Print("ERROR: ", err)
+					}
+				}()
+
+			} else {
+				log.Print("INFO: alarm already turned off")
+			}
+		}
+	}
+	return ans, nil
+}
+
+func (a *Actions) AutoDetectProcesses(w http.ResponseWriter, req *http.Request) {
+	ans, err := a.refreshProcesses()
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		return
+	}
+	api.WriteJSONResponse(w, ans)
+}
+
+func (a *Actions) ResetAlarm(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	token := vars["token"]
+	for _, mon := range a.monitoredInstances {
+		if mon.MatchesToken(token) {
+			mon.Viewed = true
+			api.WriteJSONResponse(w, mon)
+			return
+		}
+	}
+	err := fmt.Errorf("Token %s not found", token)
+	api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
 }

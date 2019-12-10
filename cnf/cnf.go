@@ -34,12 +34,23 @@ type CorporaSetup struct {
 	VerticalFilesDirPath string `json:"verticalFilesDirPath"`
 }
 
+type KontextMonitoringSetup struct {
+	Instances          []string `json:"instances"`
+	NotificationEmails []string `json:"notificationEmails"`
+	SMTPServer         string   `json:"smtpServer"`
+	Sender             string   `json:"sender"`
+	CheckIntervalSecs  int      `json:"checkIntervalSecs"`
+	AlarmNumErrors     int      `json:"alarmNumErrors"`
+	AlarmResetURL      string   `json:"alarmResetUrl"`
+}
+
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress string       `json:"listenAddress"`
-	ListenPort    int          `json:"listenPort"`
-	CorporaSetup  CorporaSetup `json:"corporaSetup"`
-	LogFile       string       `json:"logFile"`
+	ListenAddress     string                 `json:"listenAddress"`
+	ListenPort        int                    `json:"listenPort"`
+	CorporaSetup      CorporaSetup           `json:"corporaSetup"`
+	LogFile           string                 `json:"logFile"`
+	KonTextMonitoring KontextMonitoringSetup `json:"kontextMonitoring"`
 }
 
 func LoadConfig(path string) *Conf {

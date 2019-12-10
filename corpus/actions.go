@@ -35,7 +35,7 @@ type Actions struct {
 }
 
 func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "{\"message\": \"Manatee Administration Setup Middleware v%s\"}", a.version)
+	fmt.Fprintf(w, "{\"message\": \"MASM - Manatee and KonText Middleware v%s\"}", a.version)
 }
 
 func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
