@@ -51,6 +51,7 @@ func WriteJSONResponse(w http.ResponseWriter, value interface{}) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	w.Header().Add("Content-Type", "application/json")
 	w.Write(jsonAns)
 }
 
@@ -61,6 +62,7 @@ func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	w.Write(jsonAns)
 }

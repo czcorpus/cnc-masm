@@ -9,6 +9,7 @@ import stat
 APP_NAME = 'masm'
 
 KNOWN_VERSIONS = {
+    '2.167.8': None,
     '2.158.8': None,
     '2.151.5': '2.36.5',
     '2.150': '2.36.5',

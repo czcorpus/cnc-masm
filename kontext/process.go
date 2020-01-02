@@ -20,7 +20,6 @@ package kontext
 
 import (
 	"regexp"
-	"time"
 
 	"github.com/shirou/gopsutil/process"
 )
@@ -53,10 +52,11 @@ func importProcess(proc *process.Process) (*processInfo, error) {
 	}
 	srch := gunicProcSrch.FindStringSubmatch(cmdLine)
 	if len(srch) > 0 {
+		regTime := getCurrentDatetime()
 		return &processInfo{
 			Process:      proc,
 			InstanceName: srch[1],
-			Registered:   time.Now().Unix(),
+			Registered:   &regTime,
 			LastError:    nil,
 		}, nil
 	}

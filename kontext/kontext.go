@@ -28,7 +28,7 @@ import (
 )
 
 type processInfo struct {
-	Registered   int64
+	Registered   *string
 	InstanceName string
 	Process      *process.Process
 	LastError    error
@@ -53,7 +53,7 @@ func (p *processInfo) MarshalJSON() ([]byte, error) {
 }
 
 type processInfoResponse struct {
-	RegisteredTime int64   `json:"registeredTime"`
+	RegisteredTime *string `json:"registeredTime"`
 	InstanceName   string  `json:"instanceName"`
 	PID            int     `json:"pid"`
 	LastError      *string `json:"lastError"`
@@ -63,7 +63,7 @@ type monitoredInstance struct {
 	Name       string       `json:"name"`
 	NumErrors  int          `json:"numErrors"`
 	AlarmToken *uuid.UUID   `json:"alarmToken"`
-	Viewed     bool         `json:"viewed"`
+	ViewedTime *string      `json:"viewedTime"`
 	ProcInfo   *processInfo `json:"procInfo"`
 }
 
@@ -86,6 +86,7 @@ func NewActions(conf *cnf.Conf, version string) *Actions {
 			Name:       v,
 			NumErrors:  0,
 			AlarmToken: nil,
+			ViewedTime: nil,
 		}
 	}
 	go func() {

@@ -37,13 +37,6 @@ const (
 	version = "0.1.0"
 )
 
-func actionMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Add("Content-Type", "application/json")
-		next.ServeHTTP(w, req)
-	})
-}
-
 func setupLog(path string) {
 	if path != "" {
 		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -67,7 +60,6 @@ func main() {
 	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
 
 	router := mux.NewRouter()
-	router.Use(actionMiddleware)
 	corpusActions := corpus.NewActions(conf, version)
 	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)

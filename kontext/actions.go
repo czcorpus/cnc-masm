@@ -210,10 +210,10 @@ func (a *Actions) refreshProcesses() (*processList, error) {
 		} else {
 			mon.NumErrors = 0
 			mon.AlarmToken = nil
-			mon.Viewed = false
+			mon.ViewedTime = nil
 		}
 		if mon.NumErrors > 0 && mon.NumErrors%a.conf.KonTextMonitoring.AlarmNumErrors == 0 {
-			if mon.Viewed == false {
+			if mon.ViewedTime == nil {
 				if mon.AlarmToken == nil {
 					tok := uuid.New()
 					mon.AlarmToken = &tok
@@ -221,7 +221,7 @@ func (a *Actions) refreshProcesses() (*processList, error) {
 				go func() {
 					err = mail.SendNotification(a.conf.KonTextMonitoring,
 						"KonText monitoring ALARM - process down",
-						fmt.Sprintf("============= ALARM ===============\n\rKonText instance [%s] is down.", mon.Name),
+						fmt.Sprintf("<h2>============= CNC-MASM ALARM ===============</h2><p>KonText instance <strong>[%s]</strong> is down.</p>", mon.Name),
 						mon.AlarmToken)
 					log.Print("INFO: sent an e-mail notification")
 					if err != nil {
@@ -257,13 +257,20 @@ func (a *Actions) ResetAlarm(w http.ResponseWriter, req *http.Request) {
 	token := vars["token"]
 	for _, mon := range a.monitoredInstances {
 		if mon.MatchesToken(token) {
-			mon.Viewed = true
-			api.WriteJSONResponse(w, mon)
+			resetTime := getCurrentDatetime()
+			mon.ViewedTime = &resetTime
+			api.WriteHTMLResponse(w, &api.AlarmPage{
+				InstanceID: mon.Name,
+				AlarmID:    token,
+			})
 			return
 		}
 	}
-	err := fmt.Errorf("Token %s not found", token)
-	api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+	api.WriteHTMLResponse(w, &api.AlarmPage{
+		InstanceID: "??",
+		AlarmID:    token,
+		Error:      fmt.Errorf("Token %s not found", token),
+	})
 }
 
 func (a *Actions) ListAll(w http.ResponseWriter, req *http.Request) {
