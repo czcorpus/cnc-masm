@@ -26,8 +26,6 @@ def reload_service():
     else:
         ans.raise_for_status()
 
-# Please note that this script must be run under 'www-data' user to be
-# able to reload KonText services.
 if __name__ == '__main__':
     import sys
     print(clean_cache(sys.argv[1]))
