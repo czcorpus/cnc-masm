@@ -72,6 +72,7 @@ func main() {
 	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
+	router.HandleFunc("/kontext-services/list-all", kontextActions.ListAll).Methods(http.MethodGet)
 	router.HandleFunc("/kontext-services/soft-reset-all", kontextActions.SoftReset).Methods(http.MethodPost)
 	router.HandleFunc("/kontext-services/auto-detect", kontextActions.AutoDetectProcesses).Methods(http.MethodPost)
 	router.HandleFunc("/kontext-services/alarms/{token}", kontextActions.ResetAlarm).Methods(http.MethodGet) // we need GET here (e.g. click via email to reset)

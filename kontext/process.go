@@ -29,12 +29,12 @@ var (
 	gunicProcSrch = regexp.MustCompile("gunicorn:\\s*master\\s+\\[([^\\]]+)\\]")
 )
 
-type autoDetectResult struct {
+type processList struct {
 	Errors   []string
 	ProcList []*processInfo
 }
 
-func (adr *autoDetectResult) ContainsPID(pid int) bool {
+func (adr *processList) ContainsPID(pid int) bool {
 	for _, p := range adr.ProcList {
 		if int(p.Process.Pid) == pid {
 			return true
@@ -63,12 +63,12 @@ func importProcess(proc *process.Process) (*processInfo, error) {
 	return nil, nil
 }
 
-func autoDetectProcesses() (*autoDetectResult, error) {
+func autoDetectProcesses() (*processList, error) {
 	procList, err := process.Processes()
 	if err != nil {
 		return nil, err
 	}
-	ans := &autoDetectResult{
+	ans := &processList{
 		Errors:   make([]string, 0, len(procList)),
 		ProcList: make([]*processInfo, 0, len(procList)),
 	}
