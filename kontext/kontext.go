@@ -110,6 +110,8 @@ func (a *Actions) processesAsList() []*processInfo {
 	return ans
 }
 
+// SoftReset resets either a specified PID process or all the registered
+// processes (if no 'pid' URL argument is provided)
 func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pidStr, ok := vars["pid"]
@@ -148,6 +150,18 @@ func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (a *Actions) addProcInfo(pinfo *processInfo) error {
+	if !a.conf.KonTextMonitoring.ContainsInstance(pinfo.InstanceName) {
+		return fmt.Errorf("Process instance \"%s\" not configured", pinfo.InstanceName)
+	}
+	a.processes[pinfo.GetPID()] = pinfo
+	log.Printf("INFO: added new process {pid: %d, instance: %s}", pinfo.GetPID(), pinfo.InstanceName)
+	return nil
+}
+
+// RegisterProcess adds a new PID to be monitored and handled.
+// The PID must point to a process with a name defined in the configuration
+// (e.g. 'kontext_api', 'kontext_dev',...)
 func (a *Actions) RegisterProcess(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid, err := strconv.Atoi(vars["pid"])
@@ -167,15 +181,28 @@ func (a *Actions) RegisterProcess(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
 		return
 	}
-	newProcInfo := processInfo{
-		Process:    newProc,
-		Registered: time.Now().Unix(),
-		LastError:  nil,
+
+	newProcInfo, err := importProcess(newProc)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		return
 	}
-	a.processes[pid] = &newProcInfo
+	if newProcInfo == nil {
+		err = fmt.Errorf("PID %d does not look like a Gunicorn master process", newProc.Pid)
+		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		return
+	}
+	err = a.addProcInfo(newProcInfo)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		return
+	}
 	api.WriteJSONResponse(w, newProcInfo)
 }
 
+// UnregisterProcess stops monitoring and handling of a specified process
+// (identified by URL argument 'pid'). If no such process is found, Bad Request
+// is created as a response.
 func (a *Actions) UnregisterProcess(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid, err := strconv.Atoi(vars["pid"])
@@ -231,7 +258,7 @@ func (a *Actions) refreshProcesses() (*autoDetectResult, error) {
 		if !ans.ContainsPID(pid) {
 			delete(a.processes, pid)
 			log.Printf("WARNING: removed inactive process {pid: %d, instance: %s}", pinfo.GetPID(), pinfo.InstanceName)
-			mail.SendNotification(&a.conf.KonTextMonitoring,
+			mail.SendNotification(a.conf.KonTextMonitoring,
 				"KonText monitoring - unregistered OS process",
 				fmt.Sprintf("KonText instance [%s] process %d removed as it is not present any more.",
 					pinfo.InstanceName, pinfo.GetPID()),
@@ -241,8 +268,8 @@ func (a *Actions) refreshProcesses() (*autoDetectResult, error) {
 	for _, pinfo := range ans.ProcList {
 		_, ok := a.processes[pinfo.GetPID()]
 		if !ok {
-			a.processes[pinfo.GetPID()] = pinfo
-			log.Printf("WARNING: added new process {pid: %d, instance: %s}", pinfo.GetPID(), pinfo.InstanceName)
+			// we ignore the possible error here intentionally (autodetect processes => just use what matches config)
+			a.addProcInfo(pinfo)
 		}
 	}
 	for name, mon := range a.monitoredInstances {
@@ -263,7 +290,7 @@ func (a *Actions) refreshProcesses() (*autoDetectResult, error) {
 					mon.AlarmToken = &tok
 				}
 				go func() {
-					err = mail.SendNotification(&a.conf.KonTextMonitoring,
+					err = mail.SendNotification(a.conf.KonTextMonitoring,
 						"KonText monitoring ALARM - process down",
 						fmt.Sprintf("============= ALARM ===============\n\rKonText instance [%s] is down.", mon.Name),
 						mon.AlarmToken)
@@ -281,6 +308,9 @@ func (a *Actions) refreshProcesses() (*autoDetectResult, error) {
 	return ans, nil
 }
 
+// AutoDetectProcesses refreshes an internal list of running KonText processes.
+// The process auto-refresh is performed regularly by MASM so the method should
+// be considered as a fallback solution when something goes wrong.
 func (a *Actions) AutoDetectProcesses(w http.ResponseWriter, req *http.Request) {
 	ans, err := a.refreshProcesses()
 	if err != nil {
@@ -290,6 +320,9 @@ func (a *Actions) AutoDetectProcesses(w http.ResponseWriter, req *http.Request) 
 	api.WriteJSONResponse(w, ans)
 }
 
+// ResetAlarm is an action providing a confirmation that the addressee
+// has been informed about a problem. This is typically confirmed via
+// a link included in a respective alarm e-mail.
 func (a *Actions) ResetAlarm(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	token := vars["token"]

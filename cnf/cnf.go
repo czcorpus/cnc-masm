@@ -44,13 +44,22 @@ type KontextMonitoringSetup struct {
 	AlarmResetURL      string   `json:"alarmResetUrl"`
 }
 
+func (kms *KontextMonitoringSetup) ContainsInstance(name string) bool {
+	for _, v := range kms.Instances {
+		if v == name {
+			return true
+		}
+	}
+	return false
+}
+
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress     string                 `json:"listenAddress"`
-	ListenPort        int                    `json:"listenPort"`
-	CorporaSetup      CorporaSetup           `json:"corporaSetup"`
-	LogFile           string                 `json:"logFile"`
-	KonTextMonitoring KontextMonitoringSetup `json:"kontextMonitoring"`
+	ListenAddress     string                  `json:"listenAddress"`
+	ListenPort        int                     `json:"listenPort"`
+	CorporaSetup      *CorporaSetup           `json:"corporaSetup"`
+	LogFile           string                  `json:"logFile"`
+	KonTextMonitoring *KontextMonitoringSetup `json:"kontextMonitoring"`
 }
 
 func LoadConfig(path string) *Conf {

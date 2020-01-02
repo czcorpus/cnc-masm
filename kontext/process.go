@@ -43,7 +43,8 @@ func (adr *autoDetectResult) ContainsPID(pid int) bool {
 	return false
 }
 
-//
+// importProcess imports information about a Gunicorn process. The identifier
+// should have the following format:
 // gunicorn: master [kontext_production]
 func importProcess(proc *process.Process) (*processInfo, error) {
 	cmdLine, err := proc.Cmdline()
