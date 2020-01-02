@@ -47,7 +47,7 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 		wsattr = "lemma"
 	}
 	log.Printf("INFO: request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
-	ans, err := GetCorpusInfo(corpusID, wsattr, &a.conf.CorporaSetup)
+	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
 	switch err.(type) {
 	case NotFound:
 		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusNotFound)

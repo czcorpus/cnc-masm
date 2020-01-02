@@ -46,11 +46,11 @@ type KontextMonitoringSetup struct {
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress     string                 `json:"listenAddress"`
-	ListenPort        int                    `json:"listenPort"`
-	CorporaSetup      CorporaSetup           `json:"corporaSetup"`
-	LogFile           string                 `json:"logFile"`
-	KonTextMonitoring KontextMonitoringSetup `json:"kontextMonitoring"`
+	ListenAddress     string                  `json:"listenAddress"`
+	ListenPort        int                     `json:"listenPort"`
+	CorporaSetup      *CorporaSetup           `json:"corporaSetup"`
+	LogFile           string                  `json:"logFile"`
+	KonTextMonitoring *KontextMonitoringSetup `json:"kontextMonitoring"`
 }
 
 func LoadConfig(path string) *Conf {
