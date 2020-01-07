@@ -20,7 +20,7 @@ def clean_cache(corpname):
     return task_result
 
 def reload_service():
-    ans = requests.get(MASM_API_RESTART_URL)
+    ans = requests.post(MASM_API_RESTART_URL)
     if ans.status_code == 200:
         return ans.json()
     else:
