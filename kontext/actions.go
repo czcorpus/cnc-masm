@@ -138,7 +138,7 @@ func (a *Actions) UnregisterProcess(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pidStr, ok := vars["pid"]
-	var procList map[int]*processInfo
+	procList := make(map[int]*processInfo)
 	if ok {
 		pid, err := strconv.Atoi(pidStr)
 		if err != nil {
@@ -152,7 +152,6 @@ func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
 			api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
 
 		} else {
-			procList = make(map[int]*processInfo)
 			procList[pid] = mon.ProcInfo
 		}
 
