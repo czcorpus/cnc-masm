@@ -40,14 +40,14 @@ func CloseCorpus(corpus GoCorpus) error {
 	return nil
 }
 
-func GetCorpusSize(corpus GoCorpus) (int, error) {
+func GetCorpusSize(corpus GoCorpus) (int64, error) {
 	ans := (C.get_corpus_size(corpus.corp))
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
 		return -1, err
 	}
-	return int(ans.value), nil
+	return int64(ans.value), nil
 }
 
 func GetCorpusConf(corpus GoCorpus, prop string) (string, error) {

@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"masm/cncdb"
 	"masm/cnf"
 	"masm/corpus"
 	"masm/kontext"
@@ -61,9 +62,10 @@ func main() {
 
 	router := mux.NewRouter()
 	corpusActions := corpus.NewActions(conf, version)
-	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
+
+	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/kontext-services/list-all", kontextActions.ListAll).Methods(http.MethodGet)
 	router.HandleFunc("/kontext-services/soft-reset-all", kontextActions.SoftReset).Methods(http.MethodPost)
 	router.HandleFunc("/kontext-services/auto-detect", kontextActions.AutoDetectProcesses).Methods(http.MethodPost)
@@ -71,6 +73,15 @@ func main() {
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.RegisterProcess).Methods(http.MethodPut)
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.UnregisterProcess).Methods(http.MethodDelete)
 	router.HandleFunc("/kontext-services/{pid}/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
+
+	cncDB, err := cncdb.NewCNCMySQLHandler(conf.CNCDB.Host, conf.CNCDB.User, conf.CNCDB.Passwd, conf.CNCDB.DBName)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+	log.Printf("INFO: corpora SQL database at '%s'", conf.CNCDB.Host)
+	cncdbActions := cncdb.NewActions(conf, cncDB)
+	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
+
 	log.Printf("INFO: starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
 }

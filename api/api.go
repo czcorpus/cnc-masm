@@ -20,6 +20,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -34,10 +35,16 @@ func (me ActionError) MarshalJSON() ([]byte, error) {
 	return json.Marshal(me.Error())
 }
 
-// NewActionError is the default factory for creating an ActionError instance
+// NewActionErrorFrom is the default factory for creating an ActionError instance
 // out of an existing error
-func NewActionError(origErr error) ActionError {
+func NewActionErrorFrom(origErr error) ActionError {
 	return ActionError{origErr}
+}
+
+// NewActionError creates an Action error from provided message using
+// a newly defined general error as an original error
+func NewActionError(msg string, args ...interface{}) ActionError {
+	return ActionError{fmt.Errorf(msg, args...)}
 }
 
 // ErrorResponse describes a wrapping object for all error HTTP responses

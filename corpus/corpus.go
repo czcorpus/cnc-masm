@@ -59,7 +59,7 @@ type TTDBRecord struct {
 
 // Data wraps information about indexed corpus data/files
 type Data struct {
-	Size int             `json:"size"`
+	Size int64           `json:"size"`
 	Path FileMappedValue `json:"path"`
 }
 

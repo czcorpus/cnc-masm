@@ -20,6 +20,7 @@ package kontext
 
 import (
 	"encoding/json"
+	"log"
 	"masm/cnf"
 	"time"
 
@@ -73,7 +74,14 @@ func (m *monitoredInstance) MatchesToken(tk string) bool {
 
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version string) *Actions {
-	ticker := time.NewTicker(time.Duration(conf.KonTextMonitoring.CheckIntervalSecs) * time.Second)
+	var ticker *time.Ticker
+
+	if conf.KonTextMonitoring.CheckIntervalSecs > 0 {
+		ticker = time.NewTicker(time.Duration(conf.KonTextMonitoring.CheckIntervalSecs) * time.Second)
+
+	} else {
+		log.Print("WARNING: KonText service monitoring not set - skipping")
+	}
 
 	ans := &Actions{
 		conf:               conf,
@@ -89,14 +97,16 @@ func NewActions(conf *cnf.Conf, version string) *Actions {
 			ViewedTime: nil,
 		}
 	}
-	go func() {
-		ans.refreshProcesses()
-		for {
-			select {
-			case <-ans.ticker.C:
-				ans.refreshProcesses()
+	if ticker != nil {
+		go func() {
+			ans.refreshProcesses()
+			for {
+				select {
+				case <-ans.ticker.C:
+					ans.refreshProcesses()
+				}
 			}
-		}
-	}()
+		}()
+	}
 	return ans
 }
