@@ -78,35 +78,35 @@ func (a *Actions) RegisterProcess(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid, err := strconv.Atoi(vars["pid"])
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 	for _, mon := range a.monitoredInstances {
 		if pid == mon.ProcInfo.GetPID() {
 			err := fmt.Errorf("PID already registered: %d", pid)
-			api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 			return
 		}
 	}
 	newProc, err := process.NewProcess(int32(pid))
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 
 	newProcInfo, err := importProcess(newProc)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 	if newProcInfo == nil {
 		err = fmt.Errorf("PID %d does not look like a Gunicorn master process", newProc.Pid)
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 	err = a.addProcInfo(newProcInfo)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSONResponse(w, newProcInfo)
@@ -119,13 +119,13 @@ func (a *Actions) UnregisterProcess(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	pid, err := strconv.Atoi(vars["pid"])
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 	mon := a.findMonitoredInstanceByPID(pid)
 	if mon == nil {
 		err := fmt.Errorf("No such PID registered: %d", pid)
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 	proc := mon.ProcInfo
@@ -142,14 +142,14 @@ func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
 	if ok {
 		pid, err := strconv.Atoi(pidStr)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 			return
 		}
 		mon := a.findMonitoredInstanceByPID(pid)
 		if mon == nil {
 			err := fmt.Errorf("Process %d not registered", pid)
 			log.Print(err)
-			api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 
 		} else {
 			procList[pid] = mon.ProcInfo
@@ -242,7 +242,7 @@ func (a *Actions) refreshProcesses() (*processList, error) {
 func (a *Actions) AutoDetectProcesses(w http.ResponseWriter, req *http.Request) {
 	ans, err := a.refreshProcesses()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSONResponse(w, ans)

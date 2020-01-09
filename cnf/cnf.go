@@ -44,6 +44,13 @@ type KontextMonitoringSetup struct {
 	AlarmResetURL      string   `json:"alarmResetUrl"`
 }
 
+type CNCDBSetup struct {
+	Host   string `json:"host"`
+	User   string `json:"user"`
+	Passwd string `json:"passwd"`
+	DBName string `json:"db"`
+}
+
 // Conf is a global configuration of the app
 type Conf struct {
 	ListenAddress     string                  `json:"listenAddress"`
@@ -51,6 +58,7 @@ type Conf struct {
 	CorporaSetup      *CorporaSetup           `json:"corporaSetup"`
 	LogFile           string                  `json:"logFile"`
 	KonTextMonitoring *KontextMonitoringSetup `json:"kontextMonitoring"`
+	CNCDB             *CNCDBSetup             `json:"cncDb"`
 }
 
 func LoadConfig(path string) *Conf {

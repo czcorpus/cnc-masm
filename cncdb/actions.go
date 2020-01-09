@@ -16,51 +16,59 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package corpus
+package cncdb
 
 import (
-	"fmt"
-	"log"
-	"masm/api"
 	"masm/cnf"
+	"masm/corpus"
 	"net/http"
+
+	"masm/api"
 
 	"github.com/gorilla/mux"
 )
 
+// DataHandler describes functions expected from
+// CNC information system database as needed by KonText
+// (and possibly other apps).
+type DataHandler interface {
+	UpdateSize(corpus string, size int64) error
+}
+
+type updateSizeResp struct {
+	OK bool `json:"ok"`
+}
+
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf    *cnf.Conf
-	version string
-}
-
-func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "{\"message\": \"MASM - Manatee and KonText Middleware v%s\"}", a.version)
-}
-
-func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
-	var err error
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
-	wsattr := req.URL.Query().Get("wsattr")
-	if wsattr == "" {
-		wsattr = "lemma"
-	}
-	log.Printf("INFO: request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
-	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
-	switch err.(type) {
-	case NotFound:
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
-		log.Printf("ERROR: %s", err)
-	case InfoError:
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-		log.Printf("ERROR: %s", err)
-	case nil:
-		api.WriteJSONResponse(w, ans)
-	}
+	conf *cnf.Conf
+	db   DataHandler
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, version string) *Actions {
-	return &Actions{conf: conf, version: version}
+func NewActions(conf *cnf.Conf, db DataHandler) *Actions {
+	return &Actions{
+		conf: conf,
+		db:   db,
+	}
+}
+
+func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
+	if !corpusInfo.IndexedData.Path.FileExists {
+		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus %s not found", corpusID), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	err = a.db.UpdateSize(corpusID, corpusInfo.IndexedData.Size)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, updateSizeResp{OK: true})
 }
