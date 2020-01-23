@@ -24,6 +24,7 @@ import (
 	"masm/api"
 	"masm/cnf"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 )
@@ -42,6 +43,10 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	var err error
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	subdir := vars["subdir"]
+	if subdir != "" {
+		corpusID = filepath.Join(subdir, corpusID)
+	}
 	wsattr := req.URL.Query().Get("wsattr")
 	if wsattr == "" {
 		wsattr = "lemma"
