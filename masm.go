@@ -64,6 +64,7 @@ func main() {
 	corpusActions := corpus.NewActions(conf, version)
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
+	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 
 	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/kontext-services/list-all", kontextActions.ListAll).Methods(http.MethodGet)
