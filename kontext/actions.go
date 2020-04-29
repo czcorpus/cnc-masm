@@ -150,10 +150,9 @@ func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {
 			err := fmt.Errorf("Process %d not registered", pid)
 			log.Print(err)
 			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
-
-		} else {
-			procList[pid] = mon.ProcInfo
+			return
 		}
+		procList[pid] = mon.ProcInfo
 
 	} else {
 		for _, p := range a.processesAsList() {
