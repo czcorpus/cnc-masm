@@ -125,10 +125,10 @@ func attachWordSketchConfInfo(corpusID string, wsattr string, conf *cnf.CorporaS
 		WSDef: passPathIfExists(tmp, tmp),
 	}
 
-	wsBaseFile, wsBaseVal := GenWSBaseFilename(conf.DataDirPath, corpusID, wsattr)
+	wsBaseFile, wsBaseVal := GenWSBaseFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
 	result.RegistryConf.WordSketches.WSBase = passPathIfExists(wsBaseVal, wsBaseFile)
 
-	wsThesFile, wsThesVal := GenWSThesFilename(conf.DataDirPath, corpusID, wsattr)
+	wsThesFile, wsThesVal := GenWSThesFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
 	result.RegistryConf.WordSketches.WSThes = passPathIfExists(wsThesVal, wsThesFile)
 }
 
@@ -189,10 +189,10 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 	} else {
 		ans.IndexedData.Size = 0
 		ans.IndexedData.Path = FileMappedValue{
-			Value:        filepath.Clean(filepath.Join(setup.DataDirPath, corpusID)),
+			Value:        filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
 			LastModified: nil,
 			FileExists:   false,
-			Path:         filepath.Clean(filepath.Join(setup.DataDirPath, corpusID)),
+			Path:         filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
 		}
 	}
 

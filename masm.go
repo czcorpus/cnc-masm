@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"masm/cncdb"
 	"masm/cnf"
@@ -35,7 +36,7 @@ import (
 )
 
 const (
-	version = "0.1.0"
+	version = "0.2.0"
 )
 
 func setupLog(path string) {
@@ -65,6 +66,8 @@ func main() {
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
+	router.HandleFunc("/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+	router.HandleFunc("/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 
 	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/kontext-services/list-all", kontextActions.ListAll).Methods(http.MethodGet)
@@ -84,5 +87,11 @@ func main() {
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
 
 	log.Printf("INFO: starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort), router))
+	srv := &http.Server{
+		Handler:      router,
+		Addr:         fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort),
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }

@@ -49,7 +49,8 @@ func NewActionError(msg string, args ...interface{}) ActionError {
 
 // ErrorResponse describes a wrapping object for all error HTTP responses
 type ErrorResponse struct {
-	Error *ActionError `json:"error"`
+	Error   *ActionError `json:"error"`
+	Details []string     `json:"details"`
 }
 
 // WriteJSONResponse writes 'value' to an HTTP response encoded as JSON
@@ -63,8 +64,8 @@ func WriteJSONResponse(w http.ResponseWriter, value interface{}) {
 }
 
 // WriteJSONErrorResponse writes 'aerr' to an HTTP error response  as JSON
-func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int) {
-	ans := &ErrorResponse{Error: &aerr}
+func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int, details ...string) {
+	ans := &ErrorResponse{Error: &aerr, Details: details}
 	jsonAns, err := json.Marshal(ans)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

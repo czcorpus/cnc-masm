@@ -24,14 +24,30 @@ import (
 	"log"
 )
 
+type CorporaDataPaths struct {
+	Abstract string `json:"abstract"`
+	CNC      string `json:"cnc"`
+	Kontext  string `json:"kontext"`
+}
+
 // CorporaSetup defines masm application configuration related
 // to a corpus
 type CorporaSetup struct {
-	RegistryDirPath      string `json:"registryDirPath"`
-	TextTypesDbDirPath   string `json:"textTypesDbDirPath"`
-	DataDirPath          string `json:"dataDirPath"`
-	WordSketchDefDirPath string `json:"wordSketchDefDirPath"`
-	VerticalFilesDirPath string `json:"verticalFilesDirPath"`
+	RegistryDirPath      string           `json:"registryDirPath"`
+	TextTypesDbDirPath   string           `json:"textTypesDbDirPath"`
+	CorpusDataPath       CorporaDataPaths `json:"corpusDataPath"`
+	WordSketchDefDirPath string           `json:"wordSketchDefDirPath"`
+	SyncAllowedCorpora   []string         `json:"syncAllowedCorpora"`
+	VerticalFilesDirPath string           `json:"verticalFilesDirPath"`
+}
+
+func (cs *CorporaSetup) AllowsSyncForCorpus(name string) bool {
+	for _, v := range cs.SyncAllowedCorpora {
+		if v == name {
+			return true
+		}
+	}
+	return false
 }
 
 type KontextMonitoringSetup struct {
@@ -53,12 +69,13 @@ type CNCDBSetup struct {
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress     string                  `json:"listenAddress"`
-	ListenPort        int                     `json:"listenPort"`
-	CorporaSetup      *CorporaSetup           `json:"corporaSetup"`
-	LogFile           string                  `json:"logFile"`
-	KonTextMonitoring *KontextMonitoringSetup `json:"kontextMonitoring"`
-	CNCDB             *CNCDBSetup             `json:"cncDb"`
+	ListenAddress         string                  `json:"listenAddress"`
+	ListenPort            int                     `json:"listenPort"`
+	ServerReadTimeoutSecs int                     `json:"serverReadTimeoutSecs"`
+	CorporaSetup          *CorporaSetup           `json:"corporaSetup"`
+	LogFile               string                  `json:"logFile"`
+	KonTextMonitoring     *KontextMonitoringSetup `json:"kontextMonitoring"`
+	CNCDB                 *CNCDBSetup             `json:"cncDb"`
 }
 
 func LoadConfig(path string) *Conf {
