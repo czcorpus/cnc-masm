@@ -65,6 +65,27 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// SynchronizeCorpusData synchronizes data between CNC corpora data and KonText data
+// for a specified corpus (the corpus must be explicitly allowed in the configuration).
+func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	subdir := vars["subdir"]
+	if subdir != "" {
+		corpusID = filepath.Join(subdir, corpusID)
+	}
+	if !a.conf.CorporaSetup.AllowsSyncForCorpus(corpusID) {
+		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
+		return
+	}
+	out, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError, out.Details...)
+		return
+	}
+	api.WriteJSONResponse(w, out)
+}
+
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version string) *Actions {
 	return &Actions{conf: conf, version: version}

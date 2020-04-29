@@ -76,7 +76,7 @@ func (m *monitoredInstance) MatchesToken(tk string) bool {
 func NewActions(conf *cnf.Conf, version string) *Actions {
 	var ticker *time.Ticker
 
-	if conf.KonTextMonitoring.CheckIntervalSecs > 0 {
+	if conf.KonTextMonitoring != nil && conf.KonTextMonitoring.CheckIntervalSecs > 0 {
 		ticker = time.NewTicker(time.Duration(conf.KonTextMonitoring.CheckIntervalSecs) * time.Second)
 
 	} else {
@@ -89,14 +89,18 @@ func NewActions(conf *cnf.Conf, version string) *Actions {
 		ticker:             ticker,
 		monitoredInstances: make(map[string]*monitoredInstance),
 	}
-	for _, v := range conf.KonTextMonitoring.Instances {
-		ans.monitoredInstances[v] = &monitoredInstance{
-			Name:       v,
-			NumErrors:  0,
-			AlarmToken: nil,
-			ViewedTime: nil,
+
+	if conf.KonTextMonitoring != nil {
+		for _, v := range conf.KonTextMonitoring.Instances {
+			ans.monitoredInstances[v] = &monitoredInstance{
+				Name:       v,
+				NumErrors:  0,
+				AlarmToken: nil,
+				ViewedTime: nil,
+			}
 		}
 	}
+
 	if ticker != nil {
 		go func() {
 			ans.refreshProcesses()
