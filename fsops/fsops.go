@@ -115,6 +115,14 @@ func (f *FileList) First() os.FileInfo {
 	return f.files[0]
 }
 
+func (f *FileList) ForEach(fn func(info os.FileInfo, idx int) bool) {
+	for i, v := range f.files {
+		if !fn(v, i) {
+			break
+		}
+	}
+}
+
 // ListFilesInDir lists files according to their modification time
 // (newest first).
 func ListFilesInDir(path string, newestFirst bool) (FileList, error) {

@@ -30,13 +30,14 @@ import (
 	"masm/cncdb"
 	"masm/cnf"
 	"masm/corpus"
+	"masm/fsops"
 	"masm/kontext"
 
 	"github.com/gorilla/mux"
 )
 
 const (
-	version = "0.2.0"
+	version = "0.3.0"
 )
 
 func setupLog(path string) {
@@ -62,6 +63,10 @@ func main() {
 	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
 
 	router := mux.NewRouter()
+
+	fsopsActions := fsops.NewActions(conf, version)
+	router.HandleFunc("/corpora-storage/available-locations", fsopsActions.AvailableDataLocations).Methods(http.MethodGet)
+
 	corpusActions := corpus.NewActions(conf, version)
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)

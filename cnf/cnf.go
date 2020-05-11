@@ -24,32 +24,6 @@ import (
 	"log"
 )
 
-type CorporaDataPaths struct {
-	Abstract string `json:"abstract"`
-	CNC      string `json:"cnc"`
-	Kontext  string `json:"kontext"`
-}
-
-// CorporaSetup defines masm application configuration related
-// to a corpus
-type CorporaSetup struct {
-	RegistryDirPath      string           `json:"registryDirPath"`
-	TextTypesDbDirPath   string           `json:"textTypesDbDirPath"`
-	CorpusDataPath       CorporaDataPaths `json:"corpusDataPath"`
-	WordSketchDefDirPath string           `json:"wordSketchDefDirPath"`
-	SyncAllowedCorpora   []string         `json:"syncAllowedCorpora"`
-	VerticalFilesDirPath string           `json:"verticalFilesDirPath"`
-}
-
-func (cs *CorporaSetup) AllowsSyncForCorpus(name string) bool {
-	for _, v := range cs.SyncAllowedCorpora {
-		if v == name {
-			return true
-		}
-	}
-	return false
-}
-
 type KontextMonitoringSetup struct {
 	Instances          []string `json:"instances"`
 	NotificationEmails []string `json:"notificationEmails"`
