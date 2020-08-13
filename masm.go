@@ -73,6 +73,7 @@ func main() {
 	router.HandleFunc("/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+	router.HandleFunc("/syncJobs", corpusActions.SyncJobsList).Methods(http.MethodGet)
 
 	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/kontext-services/list-all", kontextActions.ListAll).Methods(http.MethodGet)

@@ -25,14 +25,38 @@ import (
 	"masm/cnf"
 	"net/http"
 	"path/filepath"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
+type JobInfo struct {
+	ID       string `json:"id"`
+	CorpusID string `json:"corpusId"`
+	Start    string `json:"start"`
+	Finish   string `json:"finish"`
+	Error    error  `json:"error"`
+}
+
+func clearOldJobs(data map[string]*JobInfo) {
+	curr := time.Now()
+	for k, v := range data {
+		t, err := time.Parse(time.RFC3339, v.Start)
+		if err != nil {
+			log.Print("WARNING: job datetime info malformed: ", err)
+		}
+		if curr.Sub(t) > time.Duration(168)*time.Hour {
+			delete(data, k)
+		}
+	}
+}
+
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf    *cnf.Conf
-	version string
+	conf     *cnf.Conf
+	version  string
+	syncJobs map[string]*JobInfo
 }
 
 func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
@@ -78,15 +102,45 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
-	out, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
+	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError, out.Details...)
+		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
-	api.WriteJSONResponse(w, out)
+
+	jobKey := jobID.String()
+	jobRec := &JobInfo{
+		ID:       jobKey,
+		CorpusID: corpusID,
+		Start:    time.Now().Format(time.RFC3339),
+		Finish:   "",
+	}
+	clearOldJobs(a.syncJobs)
+	a.syncJobs[jobKey] = jobRec
+
+	go func(jobRec JobInfo) {
+		_, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
+		if err != nil {
+			jobRec.Error = err
+		}
+		jobRec.Finish = time.Now().Format(time.RFC3339)
+		a.syncJobs[jobRec.ID] = &jobRec
+	}(*jobRec)
+
+	api.WriteJSONResponse(w, a.syncJobs[jobKey])
+}
+
+// SyncJobsList returns a list of corpus data synchronization jobs
+// (i.e. syncing between /cnk/run/manatee/data and /cnk/local/ssd/run/manatee/data)
+func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
+	ans := make([]*JobInfo, 0, len(a.syncJobs))
+	for _, v := range a.syncJobs {
+		ans = append(ans, v)
+	}
+	api.WriteJSONResponse(w, ans)
 }
 
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version string) *Actions {
-	return &Actions{conf: conf, version: version}
+	return &Actions{conf: conf, version: version, syncJobs: make(map[string]*JobInfo)}
 }
