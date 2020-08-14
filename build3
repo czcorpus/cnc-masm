@@ -10,6 +10,7 @@ APP_NAME = 'masm'
 
 KNOWN_VERSIONS = {
     '2.167.8': None,
+    '2.167.10': None
 }
 
 class NoManatee(object):
@@ -55,7 +56,9 @@ def download_manatee_src(version):
         ans = _download_file(url, out_file)
         if ans > 0:
             url = 'https://corpora.fi.muni.cz/noske/src/manatee-open/archive/manatee-open-{0}.tar.gz'.format(version)
-            print('...failed.')
+            ans = _download_file(url, out_file)
+        if ans > 0:
+            url = 'http://corpora.fi.muni.cz/noske/current/src/manatee-open-{0}.tar.gz'.format(version)
             ans = _download_file(url, out_file)
     else:
         print('...found in /tmp')

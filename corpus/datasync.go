@@ -37,6 +37,7 @@ type dirInfo struct {
 
 type syncResponse struct {
 	OK             bool     `json:"ok"`
+	ReturnCode     int      `json:"returnCode"`
 	Details        []string `json:"details"`
 	SourceDir      dirInfo  `json:"srcDir"`
 	DestinationDir dirInfo  `json:"dstDir"`
@@ -95,8 +96,9 @@ func synchronizeCorpusData(paths *cnf.CorporaDataPaths, corpname string) (syncRe
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &errOut
 	err := cmd.Run()
+
 	ans := syncResponse{
-		OK: err != nil,
+		OK: err == nil,
 		SourceDir: dirInfo{
 			Path:      srcPath,
 			LatestMod: ageCNC.Format(time.RFC3339),
@@ -106,6 +108,15 @@ func synchronizeCorpusData(paths *cnf.CorporaDataPaths, corpname string) (syncRe
 			LatestMod: ageKontext.Format(time.RFC3339),
 		},
 	}
+
+	exitErr, ok := err.(*exec.ExitError)
+	if ok {
+		ans.ReturnCode = exitErr.ExitCode()
+
+	} else {
+		ans.ReturnCode = -1
+	}
+
 	if err != nil {
 		ans.Details = strings.Split(errOut.String(), "\n")
 		return ans, err

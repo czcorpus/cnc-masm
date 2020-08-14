@@ -32,11 +32,12 @@ import (
 )
 
 type JobInfo struct {
-	ID       string `json:"id"`
-	CorpusID string `json:"corpusId"`
-	Start    string `json:"start"`
-	Finish   string `json:"finish"`
-	Error    error  `json:"error"`
+	ID       string        `json:"id"`
+	CorpusID string        `json:"corpusId"`
+	Start    string        `json:"start"`
+	Finish   string        `json:"finish"`
+	Error    string        `json:"error"`
+	Result   *syncResponse `json:"result"`
 }
 
 func clearOldJobs(data map[string]*JobInfo) {
@@ -50,6 +51,15 @@ func clearOldJobs(data map[string]*JobInfo) {
 			delete(data, k)
 		}
 	}
+}
+
+func getUnfinishedJobForCorpus(data map[string]*JobInfo, corpusID string) string {
+	for k, v := range data {
+		if v.CorpusID == corpusID && v.Finish == "" {
+			return k
+		}
+	}
+	return ""
 }
 
 // Actions contains all the server HTTP REST actions
@@ -108,6 +118,11 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	if prevRunning := getUnfinishedJobForCorpus(a.syncJobs, corpusID); prevRunning != "" {
+		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
+		return
+	}
+
 	jobKey := jobID.String()
 	jobRec := &JobInfo{
 		ID:       jobKey,
@@ -119,10 +134,11 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	a.syncJobs[jobKey] = jobRec
 
 	go func(jobRec JobInfo) {
-		_, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
+		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
 		if err != nil {
-			jobRec.Error = err
+			jobRec.Error = err.Error()
 		}
+		jobRec.Result = &resp
 		jobRec.Finish = time.Now().Format(time.RFC3339)
 		a.syncJobs[jobRec.ID] = &jobRec
 	}(*jobRec)
@@ -138,6 +154,17 @@ func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
 		ans = append(ans, v)
 	}
 	api.WriteJSONResponse(w, ans)
+}
+
+func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	ans, ok := a.syncJobs[vars["jobId"]]
+	if ok {
+		api.WriteJSONResponse(w, ans)
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("Synchronization job not found"), http.StatusNotFound)
+	}
 }
 
 // NewActions is the default factory
