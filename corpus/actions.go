@@ -64,9 +64,10 @@ func getUnfinishedJobForCorpus(data map[string]*JobInfo, corpusID string) string
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf     *cnf.Conf
-	version  string
-	syncJobs map[string]*JobInfo
+	conf        *cnf.Conf
+	version     string
+	syncJobs    map[string]*JobInfo
+	syncUpdates chan *JobInfo
 }
 
 func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
@@ -140,7 +141,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		}
 		jobRec.Result = &resp
 		jobRec.Finish = time.Now().Format(time.RFC3339)
-		a.syncJobs[jobRec.ID] = &jobRec
+		a.syncUpdates <- &jobRec
 	}(*jobRec)
 
 	api.WriteJSONResponse(w, a.syncJobs[jobKey])
@@ -169,5 +170,16 @@ func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
 
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version string) *Actions {
-	return &Actions{conf: conf, version: version, syncJobs: make(map[string]*JobInfo)}
+	ans := &Actions{
+		conf:        conf,
+		version:     version,
+		syncJobs:    make(map[string]*JobInfo),
+		syncUpdates: make(chan *JobInfo),
+	}
+	go func() {
+		for item := range ans.syncUpdates {
+			ans.syncJobs[item.ID] = item
+		}
+	}()
+	return ans
 }
