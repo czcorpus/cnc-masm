@@ -1,3 +1,3 @@
 # cnc-masm
 
-A simple middleware between Portal Corpus Adminstration and Manatee/KonText
+A set of REST services for CNC corpus data manipulation and KonText monitoring
