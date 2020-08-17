@@ -25,42 +25,13 @@ import (
 	"masm/cnf"
 	"net/http"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
-
-type JobInfo struct {
-	ID       string        `json:"id"`
-	CorpusID string        `json:"corpusId"`
-	Start    string        `json:"start"`
-	Finish   string        `json:"finish"`
-	Error    string        `json:"error"`
-	Result   *syncResponse `json:"result"`
-}
-
-func clearOldJobs(data map[string]*JobInfo) {
-	curr := time.Now()
-	for k, v := range data {
-		t, err := time.Parse(time.RFC3339, v.Start)
-		if err != nil {
-			log.Print("WARNING: job datetime info malformed: ", err)
-		}
-		if curr.Sub(t) > time.Duration(168)*time.Hour {
-			delete(data, k)
-		}
-	}
-}
-
-func getUnfinishedJobForCorpus(data map[string]*JobInfo, corpusID string) string {
-	for k, v := range data {
-		if v.CorpusID == corpusID && v.Finish == "" {
-			return k
-		}
-	}
-	return ""
-}
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
@@ -70,10 +41,12 @@ type Actions struct {
 	syncUpdates chan *JobInfo
 }
 
+// RootAction is just an information action about the service
 func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "{\"message\": \"MASM - Manatee and KonText Middleware v%s\"}", a.version)
+	fmt.Fprintf(w, "{\"message\": \"MASM - Manatee data and KonText service management v%s\"}", a.version)
 }
 
+// GetCorpusInfo provides some basic information about stored data
 func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	var err error
 	vars := mux.Vars(req)
@@ -150,13 +123,46 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 // SyncJobsList returns a list of corpus data synchronization jobs
 // (i.e. syncing between /cnk/run/manatee/data and /cnk/local/ssd/run/manatee/data)
 func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
-	ans := make([]*JobInfo, 0, len(a.syncJobs))
-	for _, v := range a.syncJobs {
-		ans = append(ans, v)
+	args := req.URL.Query()
+	compStr, ok := args["compact"]
+	if !ok {
+		compStr = []string{"0"}
 	}
-	api.WriteJSONResponse(w, ans)
+	compInt, err := strconv.Atoi(compStr[0])
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("compact argument must be either 0 or 1"), http.StatusBadRequest)
+		return
+	}
+
+	if compInt == 1 {
+		ans := make(JobInfoListCompact, 0, len(a.syncJobs))
+		for _, v := range a.syncJobs {
+			item := JobInfoCompact{
+				ID:       v.ID,
+				CorpusID: v.CorpusID,
+				Start:    v.Start,
+				Finish:   v.Finish,
+				OK:       true,
+			}
+			if v.Error != "" || !v.Result.OK {
+				item.OK = false
+			}
+			ans = append(ans, &item)
+		}
+		sort.Sort(sort.Reverse(ans))
+		api.WriteJSONResponse(w, ans)
+
+	} else {
+		ans := make(JobInfoList, 0, len(a.syncJobs))
+		for _, v := range a.syncJobs {
+			ans = append(ans, v)
+		}
+		sort.Sort(sort.Reverse(ans))
+		api.WriteJSONResponse(w, ans)
+	}
 }
 
+// SyncJobInfo gives an information about a specific data sync job
 func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	ans, ok := a.syncJobs[vars["jobId"]]

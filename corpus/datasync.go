@@ -21,6 +21,7 @@ package corpus
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"masm/cnf"
 	"masm/fsops"
 	"os"
@@ -50,13 +51,14 @@ func synchronizeCorpusData(paths *cnf.CorporaDataPaths, corpname string) (syncRe
 	var ageCNC time.Time
 	pathKontext := filepath.Clean(filepath.Join(paths.Kontext, corpname))
 	var ageKontext time.Time
+	var numCNC, numKontext int
 
 	if fsops.IsDir(pathCNC) {
 		files1, err := fsops.ListFilesInDir(pathCNC, true)
 		if err != nil {
 			return syncResponse{}, err
 		}
-		if files1.Len() > 0 {
+		if numCNC = files1.Len(); numCNC > 0 {
 			ageCNC = files1.First().ModTime()
 		}
 	}
@@ -66,7 +68,7 @@ func synchronizeCorpusData(paths *cnf.CorporaDataPaths, corpname string) (syncRe
 		if err != nil {
 			return syncResponse{}, err
 		}
-		if files2.Len() > 0 {
+		if numKontext = files2.Len(); numKontext > 0 {
 			ageKontext = files2.First().ModTime()
 		}
 	}
@@ -81,6 +83,16 @@ func synchronizeCorpusData(paths *cnf.CorporaDataPaths, corpname string) (syncRe
 		dstPath = pathCNC
 
 	} else if ageCNC.After(ageKontext) {
+		srcPath = pathCNC
+		dstPath = pathKontext
+
+	} else if numCNC < numKontext {
+		log.Print("WARNING: data sync anomaly - same file age but different num of files in src and dest")
+		srcPath = pathKontext
+		dstPath = pathCNC
+
+	} else if numKontext < numCNC {
+		log.Print("WARNING: data sync anomaly - same file age but different num of files in src and dest")
 		srcPath = pathCNC
 		dstPath = pathKontext
 
