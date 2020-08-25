@@ -50,6 +50,7 @@ type Conf struct {
 	LogFile               string                  `json:"logFile"`
 	KonTextMonitoring     *KontextMonitoringSetup `json:"kontextMonitoring"`
 	CNCDB                 *CNCDBSetup             `json:"cncDb"`
+	StatusDataPath        string                  `json:"statusDataPath"`
 }
 
 func LoadConfig(path string) *Conf {

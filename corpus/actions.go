@@ -23,29 +23,17 @@ import (
 	"log"
 	"masm/api"
 	"masm/cnf"
+	"masm/fsops"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
-
-func findJob(syncJobs map[string]*JobInfo, jobID string) *JobInfo {
-	var ans *JobInfo
-	for ident, job := range syncJobs {
-		if strings.HasPrefix(ident, jobID) {
-			if ans != nil {
-				return nil
-			}
-			ans = job
-		}
-	}
-	return ans
-}
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
@@ -53,6 +41,7 @@ type Actions struct {
 	version     cnf.VersionInfo
 	syncJobs    map[string]*JobInfo
 	syncUpdates chan *JobInfo
+	osSignal    chan os.Signal
 }
 
 // RootAction is just an information action about the service
@@ -142,6 +131,14 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	api.WriteJSONResponse(w, a.syncJobs[jobKey])
 }
 
+func (a *Actions) createJobList() JobInfoList {
+	ans := make(JobInfoList, 0, len(a.syncJobs))
+	for _, v := range a.syncJobs {
+		ans = append(ans, v)
+	}
+	return ans
+}
+
 // SyncJobsList returns a list of corpus data synchronization jobs
 // (i.e. syncing between /cnk/run/manatee/data and /cnk/local/ssd/run/manatee/data)
 func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
@@ -175,10 +172,7 @@ func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONResponse(w, ans)
 
 	} else {
-		ans := make(JobInfoList, 0, len(a.syncJobs))
-		for _, v := range a.syncJobs {
-			ans = append(ans, v)
-		}
+		ans := a.createJobList()
 		sort.Sort(sort.Reverse(ans))
 		api.WriteJSONResponse(w, ans)
 	}
@@ -196,6 +190,15 @@ func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (a *Actions) OnExit() {
+	log.Printf("INFO: saving state to %s", a.conf.StatusDataPath)
+	jobList := a.createJobList()
+	err := jobList.Serialize(a.conf.StatusDataPath)
+	if err != nil {
+		log.Print("ERROR: ", err)
+	}
+}
+
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
 	ans := &Actions{
@@ -203,6 +206,17 @@ func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
 		version:     version,
 		syncJobs:    make(map[string]*JobInfo),
 		syncUpdates: make(chan *JobInfo),
+	}
+	if fsops.IsFile(conf.StatusDataPath) {
+		log.Printf("INFO: found status data in %s - loading...", conf.StatusDataPath)
+		jobs, err := LoadJobList(conf.StatusDataPath)
+		if err != nil {
+			log.Print("ERROR: failed to load status data - ", err)
+		}
+		log.Printf("INFO: loaded %d job(s)", len(jobs))
+		for _, job := range jobs {
+			ans.syncJobs[job.ID] = job
+		}
 	}
 	go func() {
 		for item := range ans.syncUpdates {
