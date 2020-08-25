@@ -151,7 +151,7 @@ func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
 				Finish:   v.Finish,
 				OK:       true,
 			}
-			if v.Error != "" || !v.Result.OK {
+			if v.Error != "" || (v.Result != nil && !v.Result.OK) {
 				item.OK = false
 			}
 			ans = append(ans, &item)
