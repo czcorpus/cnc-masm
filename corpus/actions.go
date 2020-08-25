@@ -27,11 +27,25 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
+
+func findJob(syncJobs map[string]*JobInfo, jobID string) *JobInfo {
+	var ans *JobInfo
+	for ident, job := range syncJobs {
+		if strings.HasPrefix(ident, jobID) {
+			if ans != nil {
+				return nil
+			}
+			ans = job
+		}
+	}
+	return ans
+}
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
@@ -93,6 +107,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
+
 	jobID, err := uuid.NewUUID()
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
@@ -172,9 +187,9 @@ func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
 // SyncJobInfo gives an information about a specific data sync job
 func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	ans, ok := a.syncJobs[vars["jobId"]]
-	if ok {
-		api.WriteJSONResponse(w, ans)
+	job := findJob(a.syncJobs, vars["jobId"])
+	if job != nil {
+		api.WriteJSONResponse(w, job)
 
 	} else {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Synchronization job not found"), http.StatusNotFound)
