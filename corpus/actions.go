@@ -19,7 +19,7 @@
 package corpus
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"masm/api"
 	"masm/cnf"
@@ -36,14 +36,21 @@ import (
 // Actions contains all the server HTTP REST actions
 type Actions struct {
 	conf        *cnf.Conf
-	version     string
+	version     cnf.VersionInfo
 	syncJobs    map[string]*JobInfo
 	syncUpdates chan *JobInfo
 }
 
 // RootAction is just an information action about the service
 func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
-	fmt.Fprintf(w, "{\"message\": \"MASM - Manatee data and KonText service management v%s\"}", a.version)
+	ans := make(map[string]interface{})
+	ans["message"] = "MASM - Manatee Data And KonText Service Management"
+	ans["data"] = a.version
+	resp, err := json.Marshal(ans)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+	}
+	w.Write(resp)
 }
 
 // GetCorpusInfo provides some basic information about stored data
@@ -175,7 +182,7 @@ func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, version string) *Actions {
+func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
 	ans := &Actions{
 		conf:        conf,
 		version:     version,

@@ -36,8 +36,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-const (
-	version = "0.3.0"
+var (
+	version   string
+	buildDate string
+	gitCommit string
 )
 
 func setupLog(path string) {
@@ -48,6 +50,13 @@ func setupLog(path string) {
 		}
 		log.SetOutput(logf) // runtime should close the file when program exits
 	}
+}
+
+func coreMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -62,7 +71,14 @@ func main() {
 	setupLog(conf.LogFile)
 	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
 
+	version := cnf.VersionInfo{
+		Version:   version,
+		BuildDate: buildDate,
+		GitCommit: gitCommit,
+	}
+
 	router := mux.NewRouter()
+	router.Use(coreMiddleware)
 
 	fsopsActions := fsops.NewActions(conf, version)
 	router.HandleFunc("/corpora-storage/available-locations", fsopsActions.AvailableDataLocations).Methods(http.MethodGet)

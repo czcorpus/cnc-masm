@@ -35,7 +35,7 @@ type storageLocation struct {
 // Actions contains all the fsops-related REST actions
 type Actions struct {
 	conf    *cnf.Conf
-	version string
+	version cnf.VersionInfo
 }
 
 // AvailableDataLocations provides pairs of registry_path=>data_path available
@@ -94,6 +94,6 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, version string) *Actions {
+func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
 	return &Actions{conf: conf, version: version}
 }

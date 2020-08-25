@@ -61,7 +61,9 @@ def download_manatee_src(version):
         ans = _download_file(url, out_file)
         if ans > 0:
             url = 'https://corpora.fi.muni.cz/noske/src/manatee-open/archive/manatee-open-{0}.tar.gz'.format(version)
-            print('...failed.')
+            ans = _download_file(url, out_file)
+        if ans > 0:
+            url = 'http://corpora.fi.muni.cz/noske/current/src/manatee-open-{0}.tar.gz'.format(version)
             ans = _download_file(url, out_file)
     else:
         print('...found in /tmp')
@@ -101,12 +103,30 @@ def unpack_archive(path):
     p.wait()
     return p.returncode
 
+def get_commit_info():
+    p = subprocess.Popen(['git', 'rev-parse', '--short', 'HEAD'], stdout=subprocess.PIPE)
+    p.wait()
+    return p.stdout.read().decode()
+
+def get_version_info():
+    p = subprocess.Popen(['git', 'describe', '--tags'], stdout=subprocess.PIPE)
+    p.wait()
+    return p.stdout.read().decode()
+
+def get_current_datetime():
+    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat()
+
 def init_sources(manatee_src):
     if not os.path.isfile(os.path.join(manatee_src, 'config.hh')):
-        subprocess.Popen('make clean', shell=True, cwd=manatee_src, executable='/bin/bash').wait()
-        subprocess.Popen('./configure --with-pcre', shell=True, cwd=manatee_src, executable='/bin/bash').wait()
+        subprocess.Popen('make clean', shell=True, cwd=manatee_src, env=env, executable='/bin/bash').wait()
+        subprocess.Popen(['./configure', '--with-pcre'], shell=True, env=env, cwd=manatee_src, executable='/bin/bash').wait()
 
 def build_project(manatee_src, finlib_src, manatee_lib, test=False):
+    ver = get_version_info()
+    commit = get_commit_info()
+    dt = get_current_datetime()
+    LDFLAGS = f'-w -s -X main.version=${ver} -X main.build=${dt} -X main.gitCommit=${commit}'
+
     if finlib_src:
         build_env = {
             'CGO_CPPFLAGS': '-I{0} -I{1}'.format(manatee_src, finlib_src),
@@ -116,6 +136,7 @@ def build_project(manatee_src, finlib_src, manatee_lib, test=False):
         build_env = {
             'CGO_CPPFLAGS': '-I{0}'.format(manatee_src),
             'CGO_LDFLAGS': '-lmanatee -L{0}'.format(manatee_lib)
+
         }
     print('\nBuilding the project with the following env. variables:\n{0}'.format('\n'.join(['{0} {1}'.format(*x) for x in build_env.items()])))
     env = dict(os.environ)
@@ -124,7 +145,7 @@ def build_project(manatee_src, finlib_src, manatee_lib, test=False):
         print('Running TESTS:\n')
         p = subprocess.Popen('go test ./...', shell=True, env=env, executable='/bin/bash')
     else:
-        p = subprocess.Popen('go build', shell=True, env=env, executable='/bin/bash')
+        p = subprocess.Popen([f'go build -ldflags "{LDFLAGS}"'], shell=True, env=env, executable='/bin/bash')
     p.wait()
 
 def list_supported_versions():
@@ -152,9 +173,9 @@ if __name__ == '__main__':
     argparser.add_argument('-M', '--manatee-lib', type=str, help='Location of libmanatee.so')
     args = argparser.parse_args()
 
-    print('+-------------------------------------+')
-    print('| Manatee+GO build helper script v0.4 |')
-    print('+-------------------------------------+')
+    print('+-----------------------------------------+')
+    print('| Manatee+GO build helper script v0.6-py2 |')
+    print('+-----------------------------------------+')
 
     if args.version not in KNOWN_VERSIONS:
         print('Unsupported version: {0}. Please use one of: {1}'.format(
