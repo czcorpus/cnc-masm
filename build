@@ -125,7 +125,7 @@ def build_project(manatee_src, finlib_src, manatee_lib, test=False):
     ver = get_version_info()
     commit = get_commit_info()
     dt = get_current_datetime()
-    LDFLAGS = f'-w -s -X main.version=${ver} -X main.build=${dt} -X main.gitCommit=${commit}'
+    LDFLAGS = '-w -s -X main.version=${} -X main.build=${} -X main.gitCommit=${}'.format(ver, dt, commit)
 
     if finlib_src:
         build_env = {
