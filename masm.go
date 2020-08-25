@@ -19,12 +19,15 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"masm/cncdb"
@@ -41,6 +44,10 @@ var (
 	buildDate string
 	gitCommit string
 )
+
+type ExitHandler interface {
+	OnExit()
+}
 
 func setupLog(path string) {
 	if path != "" {
@@ -76,6 +83,12 @@ func main() {
 		BuildDate: buildDate,
 		GitCommit: gitCommit,
 	}
+
+	syscallChan := make(chan os.Signal, 10)
+	signal.Notify(syscallChan, os.Interrupt)
+	signal.Notify(syscallChan, syscall.SIGTERM)
+
+	exitEvent := make(chan bool)
 
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
@@ -116,5 +129,36 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
 	}
-	log.Fatal(srv.ListenAndServe())
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Print(err)
+		}
+		exitEvent <- true
+	}()
+
+	// TODO this does not belong here
+	go func(exitHandlers []ExitHandler) {
+		for {
+			select {
+			case <-syscallChan:
+				log.Print("WARNING: exit signal detected")
+				for _, h := range exitHandlers {
+					h.OnExit()
+				}
+				exitEvent <- true
+			}
+		}
+	}([]ExitHandler{corpusActions})
+
+	select {
+	case <-exitEvent:
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			log.Printf("Shutdown request error: %v", err)
+		}
+	}
 }

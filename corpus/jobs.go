@@ -19,7 +19,9 @@
 package corpus
 
 import (
+	"encoding/gob"
 	"log"
+	"os"
 	"strings"
 	"time"
 )
@@ -35,6 +37,27 @@ type JobInfo struct {
 }
 
 type JobInfoList []*JobInfo
+
+func (jil *JobInfoList) Serialize(path string) error {
+	fw, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer fw.Close()
+	enc := gob.NewEncoder(fw)
+	return enc.Encode(jil)
+}
+
+func LoadJobList(path string) (JobInfoList, error) {
+	fw, err := os.OpenFile(path, os.O_RDONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	dec := gob.NewDecoder(fw)
+	ans := make(JobInfoList, 0, 50)
+	err = dec.Decode(&ans)
+	return ans, err
+}
 
 func (jil JobInfoList) Len() int {
 	return len(jil)
@@ -68,6 +91,19 @@ func getUnfinishedJobForCorpus(data map[string]*JobInfo, corpusID string) string
 		}
 	}
 	return ""
+}
+
+func findJob(syncJobs map[string]*JobInfo, jobID string) *JobInfo {
+	var ans *JobInfo
+	for ident, job := range syncJobs {
+		if strings.HasPrefix(ident, jobID) {
+			if ans != nil {
+				return nil
+			}
+			ans = job
+		}
+	}
+	return ans
 }
 
 type JobInfoCompact struct {
