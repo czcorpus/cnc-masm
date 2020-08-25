@@ -73,7 +73,7 @@ func (m *monitoredInstance) MatchesToken(tk string) bool {
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, version string) *Actions {
+func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
 	var ticker *time.Ticker
 
 	if conf.KonTextMonitoring != nil && conf.KonTextMonitoring.CheckIntervalSecs > 0 {

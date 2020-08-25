@@ -37,7 +37,7 @@ import (
 // Actions contains all the server HTTP REST actions
 type Actions struct {
 	conf               *cnf.Conf
-	version            string
+	version            cnf.VersionInfo
 	ticker             *time.Ticker
 	monitoredInstances map[string]*monitoredInstance
 }

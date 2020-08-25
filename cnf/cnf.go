@@ -67,3 +67,10 @@ func LoadConfig(path string) *Conf {
 	}
 	return &conf
 }
+
+// VersionInfo provides a detailed information about the actual build
+type VersionInfo struct {
+	Version   string `json:"version"`
+	BuildDate string `json:"buildDate"`
+	GitCommit string `json:"gitCommit"`
+}

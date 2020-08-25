@@ -12,7 +12,7 @@ import (
 	"unsafe"
 )
 
-// GoCorpus is a wrapper for Manatee Corpus instance
+// GoCorpus is a Go wrapper for Manatee Corpus instance
 type GoCorpus struct {
 	corp C.CorpusV
 }
@@ -35,11 +35,14 @@ func OpenCorpus(path string) (GoCorpus, error) {
 	return ret, nil
 }
 
+// CloseCorpus closes all the resources accompanying
+// the corpus. The instance should become unusable.
 func CloseCorpus(corpus GoCorpus) error {
 	C.close_corpus(corpus.corp)
 	return nil
 }
 
+// GetCorpusSize returns corpus size in tokens
 func GetCorpusSize(corpus GoCorpus) (int64, error) {
 	ans := (C.get_corpus_size(corpus.corp))
 	if ans.err != nil {
@@ -50,6 +53,8 @@ func GetCorpusSize(corpus GoCorpus) (int64, error) {
 	return int64(ans.value), nil
 }
 
+// GetCorpusConf returns a corpus configuration item
+// stored in a corpus configuration file (aka "registry file")
 func GetCorpusConf(corpus GoCorpus, prop string) (string, error) {
 	ans := (C.get_corpus_conf(corpus.corp, C.CString(prop)))
 	if ans.err != nil {
