@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package corpus
+package jobs
 
 import (
 	"encoding/gob"
@@ -26,18 +26,38 @@ import (
 	"time"
 )
 
-// JobInfo collects information about corpus data synchronization job
-type JobInfo struct {
-	ID       string        `json:"id"`
-	CorpusID string        `json:"corpusId"`
-	Start    string        `json:"start"`
-	Finish   string        `json:"finish"`
-	Error    string        `json:"error"`
-	Result   *syncResponse `json:"result"`
+// GeneralJobInfo defines a general job information
+type GeneralJobInfo interface {
+
+	// GetID should provide unique identifier of the job
+	// (across all the possible implementations)
+	GetID() string
+
+	// GetType returns a speicific job type (e.g. "liveattrs-create")
+	GetType() string
+
+	// GetStartDT provides a datetime information when the job started
+	GetStartDT() string
+
+	// GetCorpus provides a corpus name the job is related to
+	GetCorpus() string
+
+	// IsFinished returns true if the job has finished (either successfully or not)
+	IsFinished() bool
+
+	// SetFinished sets the internal status to a finished state. It is expected that
+	// the lastest stored information (e.g. an error) is preserved.
+	SetFinished()
+
+	// CompactVersion produces simplified, unified job info for quick job reviews
+	CompactVersion() JobInfoCompact
 }
 
-type JobInfoList []*JobInfo
+// JobInfoList is just a list of any jobs
+type JobInfoList []GeneralJobInfo
 
+// Serialize gob-encodes the list and stores
+// it to a specified path
 func (jil *JobInfoList) Serialize(path string) error {
 	fw, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -48,6 +68,8 @@ func (jil *JobInfoList) Serialize(path string) error {
 	return enc.Encode(jil)
 }
 
+// LoadJobList loads gob-encoded job list
+// from a specified path
 func LoadJobList(path string) (JobInfoList, error) {
 	fw, err := os.OpenFile(path, os.O_RDONLY, 0644)
 	if err != nil {
@@ -64,17 +86,17 @@ func (jil JobInfoList) Len() int {
 }
 
 func (jil JobInfoList) Less(i, j int) bool {
-	return strings.Compare(jil[i].Start, jil[j].Start) == -1
+	return strings.Compare(jil[i].GetStartDT(), jil[j].GetStartDT()) == -1
 }
 
 func (jil JobInfoList) Swap(i, j int) {
 	jil[i], jil[j] = jil[j], jil[i]
 }
 
-func clearOldJobs(data map[string]*JobInfo) {
+func clearOldJobs(data map[string]GeneralJobInfo) {
 	curr := time.Now()
 	for k, v := range data {
-		t, err := time.Parse(time.RFC3339, v.Start)
+		t, err := time.Parse(time.RFC3339, v.GetStartDT())
 		if err != nil {
 			log.Print("WARNING: job datetime info malformed: ", err)
 		}
@@ -84,17 +106,22 @@ func clearOldJobs(data map[string]*JobInfo) {
 	}
 }
 
-func getUnfinishedJobForCorpus(data map[string]*JobInfo, corpusID string) string {
-	for k, v := range data {
-		if v.CorpusID == corpusID && v.Finish == "" {
-			return k
+// FindUnfinishedJobOfType searches for a job matching all the passed
+// criteria (corpusID, jobType). If nothing is found, nil is returned.
+func FindUnfinishedJobOfType(data map[string]GeneralJobInfo, corpusID string, jobType string) GeneralJobInfo {
+	for _, v := range data {
+		if v.GetCorpus() == corpusID && v.GetType() == jobType && !v.IsFinished() {
+			return v
 		}
 	}
-	return ""
+	return nil
 }
 
-func findJob(syncJobs map[string]*JobInfo, jobID string) *JobInfo {
-	var ans *JobInfo
+// FindJob searches a job by providing either full id or its prefix.
+// In case a prefix is used and there is more than one job matching the
+// prefix, nil is returned
+func FindJob(syncJobs map[string]GeneralJobInfo, jobID string) GeneralJobInfo {
+	var ans GeneralJobInfo
 	for ident, job := range syncJobs {
 		if strings.HasPrefix(ident, jobID) {
 			if ans != nil {
@@ -106,6 +133,8 @@ func findJob(syncJobs map[string]*JobInfo, jobID string) *JobInfo {
 	return ans
 }
 
+// JobInfoCompact is a simplified and unified version of
+// any specific job information
 type JobInfoCompact struct {
 	ID       string `json:"id"`
 	CorpusID string `json:"corpusId"`
@@ -114,6 +143,8 @@ type JobInfoCompact struct {
 	OK       bool   `json:"ok"`
 }
 
+// JobInfoListCompact represents a list of jobs for quick reviews
+// (i.e. any type-specific information is discarded)
 type JobInfoListCompact []*JobInfoCompact
 
 func (cjil JobInfoListCompact) Len() int {

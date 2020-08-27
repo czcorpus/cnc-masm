@@ -34,7 +34,9 @@ import (
 	"masm/cnf"
 	"masm/corpus"
 	"masm/fsops"
+	"masm/jobs"
 	"masm/kontext"
+	"masm/liveattrs"
 
 	"github.com/gorilla/mux"
 )
@@ -88,7 +90,7 @@ func main() {
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
 
-	exitEvent := make(chan bool)
+	exitEvent := make(chan struct{})
 
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
@@ -96,16 +98,20 @@ func main() {
 	fsopsActions := fsops.NewActions(conf, version)
 	router.HandleFunc("/corpora-storage/available-locations", fsopsActions.AvailableDataLocations).Methods(http.MethodGet)
 
-	corpusActions := corpus.NewActions(conf, version)
+	jobActions := jobs.NewActions(conf, version)
+	corpusActions := corpus.NewActions(conf, jobActions, version)
+	kontextActions := kontext.NewActions(conf, version)
+	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, version)
+
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+	router.HandleFunc("/corpora/{corpusId}/_createLiveAttrs", liveattrsActions.Create).Methods(http.MethodPost)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
-	router.HandleFunc("/syncJobs", corpusActions.SyncJobsList).Methods(http.MethodGet)
-	router.HandleFunc("/syncJobs/{jobId}", corpusActions.SyncJobInfo).Methods(http.MethodGet)
+	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
+	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)
 
-	kontextActions := kontext.NewActions(conf, version)
 	router.HandleFunc("/kontext-services/list-all", kontextActions.ListAll).Methods(http.MethodGet)
 	router.HandleFunc("/kontext-services/soft-reset-all", kontextActions.SoftReset).Methods(http.MethodPost)
 	router.HandleFunc("/kontext-services/auto-detect", kontextActions.AutoDetectProcesses).Methods(http.MethodPost)
@@ -135,22 +141,20 @@ func main() {
 		if err != nil {
 			log.Print(err)
 		}
-		exitEvent <- true
+		syscallChan <- syscall.SIGTERM
 	}()
 
 	// TODO this does not belong here
 	go func(exitHandlers []ExitHandler) {
-		for {
-			select {
-			case <-syscallChan:
-				log.Print("WARNING: exit signal detected")
-				for _, h := range exitHandlers {
-					h.OnExit()
-				}
-				exitEvent <- true
+		select {
+		case <-syscallChan:
+			log.Print("WARNING: exit signal detected")
+			for _, h := range exitHandlers {
+				h.OnExit()
 			}
+			close(exitEvent)
 		}
-	}([]ExitHandler{corpusActions})
+	}([]ExitHandler{jobActions})
 
 	select {
 	case <-exitEvent:
