@@ -26,7 +26,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -98,7 +97,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
-	// TODO search for data sync jobs conflict here
+
 	jobID, err := uuid.NewUUID()
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
@@ -114,19 +113,19 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	jobRec := &JobInfo{
 		ID:       jobKey,
 		CorpusID: corpusID,
-		Start:    time.Now().Format(time.RFC3339),
-		Finish:   "",
+		Start:    jobs.CurrentDatetime(),
 	}
 	a.jobActions.ClearOldJobs()
 	updateJobChan := a.jobActions.AddJobInfo(jobRec)
 
+	// now let's start with the actual synchronization
 	go func(jobRec JobInfo) {
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
 		if err != nil {
 			jobRec.Error = err.Error()
 		}
 		jobRec.Result = &resp
-		jobRec.Finish = time.Now().Format(time.RFC3339)
+		jobRec.Finish = jobs.CurrentDatetime()
 		updateJobChan <- &jobRec
 	}(*jobRec)
 

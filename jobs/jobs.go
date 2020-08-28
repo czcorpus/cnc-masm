@@ -20,7 +20,6 @@ package jobs
 
 import (
 	"encoding/gob"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ type GeneralJobInfo interface {
 	GetType() string
 
 	// GetStartDT provides a datetime information when the job started
-	GetStartDT() string
+	GetStartDT() JSONTime
 
 	// GetCorpus provides a corpus name the job is related to
 	GetCorpus() string
@@ -86,7 +85,7 @@ func (jil JobInfoList) Len() int {
 }
 
 func (jil JobInfoList) Less(i, j int) bool {
-	return strings.Compare(jil[i].GetStartDT(), jil[j].GetStartDT()) == -1
+	return jil[i].GetStartDT().Before(jil[j].GetStartDT())
 }
 
 func (jil JobInfoList) Swap(i, j int) {
@@ -94,13 +93,9 @@ func (jil JobInfoList) Swap(i, j int) {
 }
 
 func clearOldJobs(data map[string]GeneralJobInfo) {
-	curr := time.Now()
+	curr := CurrentDatetime()
 	for k, v := range data {
-		t, err := time.Parse(time.RFC3339, v.GetStartDT())
-		if err != nil {
-			log.Print("WARNING: job datetime info malformed: ", err)
-		}
-		if curr.Sub(t) > time.Duration(168)*time.Hour {
+		if curr.Sub(v.GetStartDT()) > time.Duration(168)*time.Hour {
 			delete(data, k)
 		}
 	}
@@ -136,11 +131,11 @@ func FindJob(syncJobs map[string]GeneralJobInfo, jobID string) GeneralJobInfo {
 // JobInfoCompact is a simplified and unified version of
 // any specific job information
 type JobInfoCompact struct {
-	ID       string `json:"id"`
-	CorpusID string `json:"corpusId"`
-	Start    string `json:"start"`
-	Finish   string `json:"finish"`
-	OK       bool   `json:"ok"`
+	ID       string   `json:"id"`
+	CorpusID string   `json:"corpusId"`
+	Start    JSONTime `json:"start"`
+	Finish   JSONTime `json:"finish"`
+	OK       bool     `json:"ok"`
 }
 
 // JobInfoListCompact represents a list of jobs for quick reviews
@@ -152,7 +147,7 @@ func (cjil JobInfoListCompact) Len() int {
 }
 
 func (cjil JobInfoListCompact) Less(i, j int) bool {
-	return strings.Compare(cjil[i].Start, cjil[j].Start) == -1
+	return cjil[i].Start.Before(cjil[j].Start)
 }
 
 func (cjil JobInfoListCompact) Swap(i, j int) {

@@ -25,7 +25,6 @@ import (
 	"masm/jobs"
 	"net/http"
 	"path/filepath"
-	"time"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/cnf"
 	vteLib "github.com/czcorpus/vert-tagextract/library"
@@ -80,7 +79,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	status := &JobInfo{
 		ID:       jobID.String(),
 		CorpusID: corpusID,
-		Start:    time.Now().Format(time.RFC3339),
+		Start:    jobs.CurrentDatetime(),
 	}
 	updateJobChan := a.jobActions.AddJobInfo(status)
 	go func() {

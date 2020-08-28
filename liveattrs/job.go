@@ -20,18 +20,17 @@ package liveattrs
 
 import (
 	"masm/jobs"
-	"time"
 )
 
 // JobInfo collects information about corpus data synchronization job
 type JobInfo struct {
-	ID             string `json:"id"`
-	CorpusID       string `json:"corpusId"`
-	Start          string `json:"start"`
-	Finish         string `json:"finish"`
-	Error          string `json:"error"`
-	ProcessedAtoms int    `json:"processedAtoms"`
-	ProcessedLines int    `json:"processedLines"`
+	ID             string        `json:"id"`
+	CorpusID       string        `json:"corpusId"`
+	Start          jobs.JSONTime `json:"start"`
+	Finish         jobs.JSONTime `json:"finish"`
+	Error          string        `json:"error"`
+	ProcessedAtoms int           `json:"processedAtoms"`
+	ProcessedLines int           `json:"processedLines"`
 }
 
 func (j *JobInfo) GetID() string {
@@ -42,7 +41,7 @@ func (j *JobInfo) GetType() string {
 	return "data-sync"
 }
 
-func (j *JobInfo) GetStartDT() string {
+func (j *JobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
 }
 
@@ -51,11 +50,11 @@ func (j *JobInfo) GetCorpus() string {
 }
 
 func (j *JobInfo) SetFinished() {
-	j.Finish = time.Now().Format(time.RFC3339)
+	j.Finish = jobs.CurrentDatetime()
 }
 
 func (j *JobInfo) IsFinished() bool {
-	return j.Finish != ""
+	return !j.Finish.IsZero()
 }
 
 func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
