@@ -112,6 +112,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	jobKey := jobID.String()
 	jobRec := &JobInfo{
 		ID:       jobKey,
+		Type:     jobTypeSyncCNK,
 		CorpusID: corpusID,
 		Start:    jobs.CurrentDatetime(),
 	}
