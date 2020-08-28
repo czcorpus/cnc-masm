@@ -25,6 +25,7 @@ import (
 // JobInfo collects information about corpus data synchronization job
 type JobInfo struct {
 	ID       string        `json:"id"`
+	Type     string        `json:"type"`
 	CorpusID string        `json:"corpusId"`
 	Start    jobs.JSONTime `json:"start"`
 	Finish   jobs.JSONTime `json:"finish"`
@@ -37,7 +38,7 @@ func (j *JobInfo) GetID() string {
 }
 
 func (j *JobInfo) GetType() string {
-	return "data-sync"
+	return j.Type
 }
 
 func (j *JobInfo) GetStartDT() jobs.JSONTime {
@@ -59,6 +60,7 @@ func (j *JobInfo) SetFinished() {
 func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
+		Type:     j.Type,
 		CorpusID: j.CorpusID,
 		Start:    j.Start,
 		Finish:   j.Finish,

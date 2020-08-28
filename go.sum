@@ -1,11 +1,7 @@
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d h1:G0m3OIz70MZUWq3EgK3CesDbo8upS2Vm9/P3FtgI+Jk=
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
-github.com/czcorpus/vert-tagextract v0.12.0 h1:8Pn8gQPC8RmmOWjIOZfSoJrZA4q7qrSIOom8VjXrbPQ=
-github.com/czcorpus/vert-tagextract v0.12.0/go.mod h1:U1o5fuIledFI4GrnAcZubIR0tqD8oLcAqJVLa8XZwz0=
-github.com/czcorpus/vert-tagextract v0.13.0 h1:j5bgsGbuJJ5B4U+JVb+UtEyCT6niX0wckdUSWcKI58A=
-github.com/czcorpus/vert-tagextract v0.13.0/go.mod h1:U1o5fuIledFI4GrnAcZubIR0tqD8oLcAqJVLa8XZwz0=
-github.com/czcorpus/vert-tagextract v0.14.0 h1:wQypMOw7e0DfF4mBx+4WhH1JFa0lLFbrXds0okIypzQ=
-github.com/czcorpus/vert-tagextract v0.14.0/go.mod h1:U1o5fuIledFI4GrnAcZubIR0tqD8oLcAqJVLa8XZwz0=
+github.com/czcorpus/vert-tagextract v0.15.0 h1:S4mfEIJZHFXK4OtGEbBwh05IXxzPN0NIIFydchGuJn4=
+github.com/czcorpus/vert-tagextract v0.15.0/go.mod h1:U1o5fuIledFI4GrnAcZubIR0tqD8oLcAqJVLa8XZwz0=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/go-ole/go-ole v1.2.4 h1:nNBDSCOigTSiarFpYE9J/KtEA1IOW4CNeqT9TQDqCxI=

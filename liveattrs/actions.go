@@ -93,6 +93,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 			}
 			updateJobChan <- &JobInfo{
 				ID:             status.ID,
+				Type:           jobType,
 				CorpusID:       status.CorpusID,
 				Start:          status.Start,
 				Error:          errStr,

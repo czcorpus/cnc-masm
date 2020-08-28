@@ -133,6 +133,7 @@ func FindJob(syncJobs map[string]GeneralJobInfo, jobID string) GeneralJobInfo {
 type JobInfoCompact struct {
 	ID       string   `json:"id"`
 	CorpusID string   `json:"corpusId"`
+	Type     string   `json:"type"`
 	Start    JSONTime `json:"start"`
 	Finish   JSONTime `json:"finish"`
 	OK       bool     `json:"ok"`
