@@ -23,25 +23,26 @@ import (
 	"log"
 	"masm/api"
 	"masm/cnf"
-	"masm/fsops"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+
+	"masm/jobs"
+)
+
+const (
+	jobTypeSyncCNK = "sync-cnk"
 )
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf        *cnf.Conf
-	version     cnf.VersionInfo
-	syncJobs    map[string]*JobInfo
-	syncUpdates chan *JobInfo
-	osSignal    chan os.Signal
+	conf       *cnf.Conf
+	version    cnf.VersionInfo
+	osSignal   chan os.Signal
+	jobActions *jobs.Actions
 }
 
 // RootAction is just an information action about the service
@@ -103,7 +104,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if prevRunning := getUnfinishedJobForCorpus(a.syncJobs, corpusID); prevRunning != "" {
+	if prevRunning := a.jobActions.GetUnfinishedJob(corpusID, jobTypeSyncCNK); prevRunning != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
 		return
 	}
@@ -112,116 +113,30 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	jobRec := &JobInfo{
 		ID:       jobKey,
 		CorpusID: corpusID,
-		Start:    time.Now().Format(time.RFC3339),
-		Finish:   "",
+		Start:    jobs.CurrentDatetime(),
 	}
-	clearOldJobs(a.syncJobs)
-	a.syncJobs[jobKey] = jobRec
+	a.jobActions.ClearOldJobs()
+	updateJobChan := a.jobActions.AddJobInfo(jobRec)
 
+	// now let's start with the actual synchronization
 	go func(jobRec JobInfo) {
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
 		if err != nil {
 			jobRec.Error = err.Error()
 		}
 		jobRec.Result = &resp
-		jobRec.Finish = time.Now().Format(time.RFC3339)
-		a.syncUpdates <- &jobRec
+		jobRec.Finish = jobs.CurrentDatetime()
+		updateJobChan <- &jobRec
 	}(*jobRec)
 
-	api.WriteJSONResponse(w, a.syncJobs[jobKey])
-}
-
-func (a *Actions) createJobList() JobInfoList {
-	ans := make(JobInfoList, 0, len(a.syncJobs))
-	for _, v := range a.syncJobs {
-		ans = append(ans, v)
-	}
-	return ans
-}
-
-// SyncJobsList returns a list of corpus data synchronization jobs
-// (i.e. syncing between /cnk/run/manatee/data and /cnk/local/ssd/run/manatee/data)
-func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
-	args := req.URL.Query()
-	compStr, ok := args["compact"]
-	if !ok {
-		compStr = []string{"0"}
-	}
-	compInt, err := strconv.Atoi(compStr[0])
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("compact argument must be either 0 or 1"), http.StatusBadRequest)
-		return
-	}
-
-	if compInt == 1 {
-		ans := make(JobInfoListCompact, 0, len(a.syncJobs))
-		for _, v := range a.syncJobs {
-			item := JobInfoCompact{
-				ID:       v.ID,
-				CorpusID: v.CorpusID,
-				Start:    v.Start,
-				Finish:   v.Finish,
-				OK:       true,
-			}
-			if v.Error != "" || (v.Result != nil && !v.Result.OK) {
-				item.OK = false
-			}
-			ans = append(ans, &item)
-		}
-		sort.Sort(sort.Reverse(ans))
-		api.WriteJSONResponse(w, ans)
-
-	} else {
-		ans := a.createJobList()
-		sort.Sort(sort.Reverse(ans))
-		api.WriteJSONResponse(w, ans)
-	}
-}
-
-// SyncJobInfo gives an information about a specific data sync job
-func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	job := findJob(a.syncJobs, vars["jobId"])
-	if job != nil {
-		api.WriteJSONResponse(w, job)
-
-	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Synchronization job not found"), http.StatusNotFound)
-	}
-}
-
-func (a *Actions) OnExit() {
-	log.Printf("INFO: saving state to %s", a.conf.StatusDataPath)
-	jobList := a.createJobList()
-	err := jobList.Serialize(a.conf.StatusDataPath)
-	if err != nil {
-		log.Print("ERROR: ", err)
-	}
+	api.WriteJSONResponse(w, jobRec)
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
-	ans := &Actions{
-		conf:        conf,
-		version:     version,
-		syncJobs:    make(map[string]*JobInfo),
-		syncUpdates: make(chan *JobInfo),
+func NewActions(conf *cnf.Conf, jobActions *jobs.Actions, version cnf.VersionInfo) *Actions {
+	return &Actions{
+		conf:       conf,
+		version:    version,
+		jobActions: jobActions,
 	}
-	if fsops.IsFile(conf.StatusDataPath) {
-		log.Printf("INFO: found status data in %s - loading...", conf.StatusDataPath)
-		jobs, err := LoadJobList(conf.StatusDataPath)
-		if err != nil {
-			log.Print("ERROR: failed to load status data - ", err)
-		}
-		log.Printf("INFO: loaded %d job(s)", len(jobs))
-		for _, job := range jobs {
-			ans.syncJobs[job.ID] = job
-		}
-	}
-	go func() {
-		for item := range ans.syncUpdates {
-			ans.syncJobs[item.ID] = item
-		}
-	}()
-	return ans
 }

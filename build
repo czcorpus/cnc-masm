@@ -114,7 +114,7 @@ def get_version_info():
     return p.stdout.read().decode()
 
 def get_current_datetime():
-    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat()
+    return '{0:%Y-%m-%dT%H:%M:%S}'.format(datetime.datetime.now())
 
 def init_sources(manatee_src):
     if not os.path.isfile(os.path.join(manatee_src, 'config.hh')):
@@ -125,7 +125,7 @@ def build_project(manatee_src, finlib_src, manatee_lib, test=False):
     ver = get_version_info()
     commit = get_commit_info()
     dt = get_current_datetime()
-    LDFLAGS = '-w -s -X main.version=${} -X main.build=${} -X main.gitCommit=${}'.format(ver, dt, commit)
+    LDFLAGS = '-w -s -X main.version="{}" -X main.buildDate="{}" -X main.gitCommit="{}"'.format(ver, dt, commit)
 
     if finlib_src:
         build_env = {
