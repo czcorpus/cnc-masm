@@ -45,7 +45,8 @@ type GeneralJobInfo interface {
 	IsFinished() bool
 
 	// SetFinished sets the internal status to a finished state. It is expected that
-	// the lastest stored information (e.g. an error) is preserved.
+	// the lastest stored information (e.g. an error) is preserved and proper update
+	// time information is stored.
 	SetFinished()
 
 	// CompactVersion produces simplified, unified job info for quick job reviews
@@ -135,7 +136,8 @@ type JobInfoCompact struct {
 	CorpusID string   `json:"corpusId"`
 	Type     string   `json:"type"`
 	Start    JSONTime `json:"start"`
-	Finish   JSONTime `json:"finish"`
+	Update   JSONTime `json:"update"`
+	Finished bool     `json:"finished"`
 	OK       bool     `json:"ok"`
 }
 

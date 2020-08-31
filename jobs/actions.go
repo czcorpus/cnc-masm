@@ -31,8 +31,9 @@ import (
 )
 
 const (
-	tableActionUpdateJob    = 0
-	tableActionClearOldJobs = 1
+	tableActionUpdateJob = iota
+	tableActionFinishJob
+	tableActionClearOldJobs
 )
 
 func (a *Actions) createJobList() JobInfoList {
@@ -47,6 +48,7 @@ func (a *Actions) createJobList() JobInfoList {
 // required operation on the table
 type TableUpdate struct {
 	action int
+	itemID string
 	data   GeneralJobInfo
 }
 
@@ -84,10 +86,14 @@ func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 		for item := range syncUpdates {
 			a.tableUpdate <- TableUpdate{
 				action: tableActionUpdateJob,
+				itemID: j.GetID(),
 				data:   item,
 			}
 		}
-		a.syncJobs[j.GetID()].SetFinished()
+		a.tableUpdate <- TableUpdate{
+			action: tableActionFinishJob,
+			itemID: j.GetID(),
+		}
 	}()
 	return syncUpdates
 }
@@ -171,7 +177,9 @@ func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
 		for upd := range ans.tableUpdate {
 			switch upd.action {
 			case tableActionUpdateJob:
-				ans.syncJobs[upd.data.GetID()] = upd.data
+				ans.syncJobs[upd.itemID] = upd.data
+			case tableActionFinishJob:
+				ans.syncJobs[upd.itemID].SetFinished()
 			case tableActionClearOldJobs:
 				clearOldJobs(ans.syncJobs)
 			}

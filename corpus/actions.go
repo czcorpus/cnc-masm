@@ -123,10 +123,10 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	go func(jobRec JobInfo) {
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
 		if err != nil {
-			jobRec.Error = err.Error()
+			jobRec.Error = jobs.NewJSONError(err)
 		}
 		jobRec.Result = &resp
-		jobRec.Finish = jobs.CurrentDatetime()
+		jobRec.SetFinished()
 		updateJobChan <- &jobRec
 	}(*jobRec)
 

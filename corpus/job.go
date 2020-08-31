@@ -24,13 +24,14 @@ import (
 
 // JobInfo collects information about corpus data synchronization job
 type JobInfo struct {
-	ID       string        `json:"id"`
-	Type     string        `json:"type"`
-	CorpusID string        `json:"corpusId"`
-	Start    jobs.JSONTime `json:"start"`
-	Finish   jobs.JSONTime `json:"finish"`
-	Error    string        `json:"error"`
-	Result   *syncResponse `json:"result"`
+	ID       string         `json:"id"`
+	Type     string         `json:"type"`
+	CorpusID string         `json:"corpusId"`
+	Start    jobs.JSONTime  `json:"start"`
+	Update   jobs.JSONTime  `json:"update"`
+	Finished bool           `json:"finished"`
+	Error    jobs.JSONError `json:"error"`
+	Result   *syncResponse  `json:"result"`
 }
 
 func (j *JobInfo) GetID() string {
@@ -50,11 +51,12 @@ func (j *JobInfo) GetCorpus() string {
 }
 
 func (j *JobInfo) IsFinished() bool {
-	return !j.Finish.IsZero()
+	return j.Finished
 }
 
 func (j *JobInfo) SetFinished() {
-	j.Finish = jobs.CurrentDatetime()
+	j.Update = jobs.CurrentDatetime()
+	j.Finished = true
 }
 
 func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
@@ -63,10 +65,11 @@ func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
 		Type:     j.Type,
 		CorpusID: j.CorpusID,
 		Start:    j.Start,
-		Finish:   j.Finish,
+		Update:   j.Update,
+		Finished: j.Finished,
 		OK:       true,
 	}
-	if j.Error != "" || (j.Result != nil && !j.Result.OK) {
+	if !j.Error.IsEmpty() || (j.Result != nil && !j.Result.OK) {
 		item.OK = false
 	}
 	return item

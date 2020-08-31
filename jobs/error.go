@@ -20,36 +20,33 @@ package jobs
 
 import (
 	"encoding/json"
-	"time"
 )
 
-// JSONTime is a customized time data type with predefined
-// JSON serialization
-type JSONTime time.Time
+// JSONError is a customized error data type with specific JSON
+// serialization (e.g. null for no error)
+type JSONError struct {
+	Message string
+}
 
-func (t JSONTime) MarshalJSON() ([]byte, error) {
-	if t.IsZero() {
-		return json.Marshal(nil)
+func (e JSONError) MarshalJSON() ([]byte, error) {
+	if e.Message != "" {
+		return json.Marshal(e.Message)
 	}
-	return []byte("\"" + time.Time(t).Format(time.RFC3339) + "\""), nil
+	return json.Marshal(nil)
 }
 
-func (t JSONTime) Before(t2 JSONTime) bool {
-	return time.Time(t).Before(time.Time(t2))
+func (e *JSONError) Error() string {
+	return e.Message
 }
 
-func (t JSONTime) Sub(t2 JSONTime) time.Duration {
-	return time.Time(t).Sub(time.Time(t2))
+func (e *JSONError) IsEmpty() bool {
+	return e.Message == ""
 }
 
-func (t JSONTime) Format(layout string) string {
-	return time.Time(t).Format(layout)
-}
-
-func (t JSONTime) IsZero() bool {
-	return time.Time(t).IsZero()
-}
-
-func CurrentDatetime() JSONTime {
-	return JSONTime(time.Now())
+func NewJSONError(err error) JSONError {
+	ans := JSONError{}
+	if err != nil {
+		ans.Message = err.Error()
+	}
+	return ans
 }
