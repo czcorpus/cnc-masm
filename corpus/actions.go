@@ -126,7 +126,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 			jobRec.Error = jobs.NewJSONError(err)
 		}
 		jobRec.Result = &resp
-		jobRec.Finish = jobs.CurrentDatetime()
+		jobRec.SetFinished()
 		updateJobChan <- &jobRec
 	}(*jobRec)
 

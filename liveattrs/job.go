@@ -28,7 +28,8 @@ type JobInfo struct {
 	Type           string         `json:"type"`
 	CorpusID       string         `json:"corpusId"`
 	Start          jobs.JSONTime  `json:"start"`
-	Finish         jobs.JSONTime  `json:"finish"`
+	Update         jobs.JSONTime  `json:"update"`
+	Finished       bool           `json:"finished"`
 	Error          jobs.JSONError `json:"error"`
 	ProcessedAtoms int            `json:"processedAtoms"`
 	ProcessedLines int            `json:"processedLines"`
@@ -51,11 +52,12 @@ func (j *JobInfo) GetCorpus() string {
 }
 
 func (j *JobInfo) SetFinished() {
-	j.Finish = jobs.CurrentDatetime()
+	j.Update = jobs.CurrentDatetime()
+	j.Finished = true
 }
 
 func (j *JobInfo) IsFinished() bool {
-	return !j.Finish.IsZero()
+	return j.Finished
 }
 
 func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
@@ -64,7 +66,8 @@ func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
 		Type:     j.Type,
 		CorpusID: j.CorpusID,
 		Start:    j.Start,
-		Finish:   j.Finish,
+		Update:   j.Update,
+		Finished: j.Finished,
 		OK:       true,
 	}
 	if !j.Error.IsEmpty() {

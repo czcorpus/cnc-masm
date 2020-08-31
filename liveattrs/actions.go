@@ -116,12 +116,12 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 				Type:           jobType,
 				CorpusID:       status.CorpusID,
 				Start:          status.Start,
+				Update:         jobs.CurrentDatetime(),
 				Error:          jobs.NewJSONError(upd.Error),
 				ProcessedAtoms: upd.ProcessedAtoms,
 				ProcessedLines: upd.ProcessedLines,
 			}
 		}
-		fmt.Println("######################### COMMUNICATION DONE +++++")
 
 		if lastErr == nil {
 			err := installDatabase(conf.Corpus, conf.DBFile, a.conf.CorporaSetup.TextTypesDbDirPath)
@@ -135,7 +135,16 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 				}
 
 			} else {
-				a.kontextActions.SoftResetAll()
+				err = a.kontextActions.SoftResetAll()
+				if err != nil {
+					updateJobChan <- &JobInfo{
+						ID:       status.ID,
+						Type:     jobType,
+						CorpusID: status.CorpusID,
+						Start:    status.Start,
+						Error:    jobs.NewJSONError(err),
+					}
+				}
 			}
 		}
 
