@@ -24,14 +24,14 @@ import (
 
 // JobInfo collects information about corpus data synchronization job
 type JobInfo struct {
-	ID             string        `json:"id"`
-	Type           string        `json:"type"`
-	CorpusID       string        `json:"corpusId"`
-	Start          jobs.JSONTime `json:"start"`
-	Finish         jobs.JSONTime `json:"finish"`
-	Error          string        `json:"error"`
-	ProcessedAtoms int           `json:"processedAtoms"`
-	ProcessedLines int           `json:"processedLines"`
+	ID             string         `json:"id"`
+	Type           string         `json:"type"`
+	CorpusID       string         `json:"corpusId"`
+	Start          jobs.JSONTime  `json:"start"`
+	Finish         jobs.JSONTime  `json:"finish"`
+	Error          jobs.JSONError `json:"error"`
+	ProcessedAtoms int            `json:"processedAtoms"`
+	ProcessedLines int            `json:"processedLines"`
 }
 
 func (j *JobInfo) GetID() string {
@@ -67,7 +67,7 @@ func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
 		Finish:   j.Finish,
 		OK:       true,
 	}
-	if j.Error != "" {
+	if !j.Error.IsEmpty() {
 		item.OK = false
 	}
 	return item

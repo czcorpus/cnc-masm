@@ -83,7 +83,11 @@ type InfoError struct {
 	error
 }
 
-func passPathIfExists(value, path string) FileMappedValue {
+// bindValueToPath creates a new FileMappedValue instance
+// using 'value' argument. Then it tests whether the
+// 'path' exists and if so then it sets related properties
+// (FileExists, LastModified, Size) to proper values
+func bindValueToPath(value, path string) FileMappedValue {
 	ans := FileMappedValue{Value: value}
 	if fsops.IsFile(path) {
 		mTime := fsops.GetFileMtime(path)
@@ -122,21 +126,21 @@ func findVerticalFile(basePath, corpusID string) FileMappedValue {
 func attachWordSketchConfInfo(corpusID string, wsattr string, conf *cnf.CorporaSetup, result *Info) {
 	tmp := GenWSDefFilename(conf.WordSketchDefDirPath, corpusID)
 	result.RegistryConf.WordSketches = WordSketchConf{
-		WSDef: passPathIfExists(tmp, tmp),
+		WSDef: bindValueToPath(tmp, tmp),
 	}
 
 	wsBaseFile, wsBaseVal := GenWSBaseFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
-	result.RegistryConf.WordSketches.WSBase = passPathIfExists(wsBaseVal, wsBaseFile)
+	result.RegistryConf.WordSketches.WSBase = bindValueToPath(wsBaseVal, wsBaseFile)
 
 	wsThesFile, wsThesVal := GenWSThesFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
-	result.RegistryConf.WordSketches.WSThes = passPathIfExists(wsThesVal, wsThesFile)
+	result.RegistryConf.WordSketches.WSThes = bindValueToPath(wsThesVal, wsThesFile)
 }
 
 func attachTextTypeDbInfo(corpusID string, conf *cnf.CorporaSetup, result *Info) {
 	dbFileName := GenCorpusGroupName(corpusID) + ".db"
 	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
 	result.TextTypesDB = TTDBRecord{}
-	result.TextTypesDB.Path = passPathIfExists(absPath, absPath)
+	result.TextTypesDB.Path = bindValueToPath(absPath, absPath)
 }
 
 // GetCorpusInfo provides miscellaneous corpus installation information mostly
@@ -150,7 +154,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 
 	regPath := filepath.Join(setup.RegistryDirPath, corpusID)
 	if fsops.IsFile(regPath) {
-		ans.RegistryConf.Path = passPathIfExists(regPath, regPath)
+		ans.RegistryConf.Path = bindValueToPath(regPath, regPath)
 		corp, err := mango.OpenCorpus(regPath)
 		if err != nil {
 			if strings.Contains(err.Error(), "CorpInfoNotFound") {

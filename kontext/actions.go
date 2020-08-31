@@ -133,6 +133,20 @@ func (a *Actions) UnregisterProcess(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, proc)
 }
 
+// SoftResetAll sends SIGUSER1 to all of the watched KonText
+// instances. It collects all the error and returns a map procID => error
+func (a *Actions) SoftResetAll() map[int]error {
+	ans := make(map[int]error)
+	for _, pinfo := range a.processesAsList() {
+		err := pinfo.Process.SendSignal(syscall.SIGUSR1)
+		if err != nil {
+			pinfo.LastError = err
+		}
+		ans[pinfo.GetPID()] = err
+	}
+	return ans
+}
+
 // SoftReset resets either a specified PID process or all the registered
 // processes (if no 'pid' URL argument is provided)
 func (a *Actions) SoftReset(w http.ResponseWriter, req *http.Request) {

@@ -19,6 +19,7 @@
 package jobs
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -27,6 +28,9 @@ import (
 type JSONTime time.Time
 
 func (t JSONTime) MarshalJSON() ([]byte, error) {
+	if t.IsZero() {
+		return json.Marshal(nil)
+	}
 	return []byte("\"" + time.Time(t).Format(time.RFC3339) + "\""), nil
 }
 

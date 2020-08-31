@@ -20,10 +20,14 @@ package liveattrs
 
 import (
 	"fmt"
+	"io"
 	"masm/api"
 	"masm/cnf"
+	"masm/corpus"
 	"masm/jobs"
+	"masm/kontext"
 	"net/http"
+	"os"
 	"path/filepath"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/cnf"
@@ -41,11 +45,27 @@ func loadConf(basePath, corpname string) (*vteCnf.VTEConf, error) {
 	return vteCnf.LoadConf(filepath.Join(basePath, fmt.Sprintf("%s.json", corpname)))
 }
 
+func installDatabase(corpusID, tmpPath, textTypesDbDirPath string) error {
+	dbFileName := corpus.GenCorpusGroupName(corpusID) + ".db"
+	absPath := filepath.Join(textTypesDbDirPath, dbFileName)
+	srcFile, err := os.Open(tmpPath)
+	if err != nil {
+		return err
+	}
+	dstFile, err := os.Create(absPath)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(dstFile, srcFile)
+	return err
+}
+
 // Actions wraps liveattrs-related actions
 type Actions struct {
-	exitEvent  chan struct{}
-	conf       *cnf.Conf
-	jobActions *jobs.Actions
+	exitEvent      chan struct{}
+	conf           *cnf.Conf
+	jobActions     *jobs.Actions
+	kontextActions *kontext.Actions
 }
 
 // Create handles creating of liveattrs data for a specific corpus
@@ -86,32 +106,58 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		vteLib.ExtractData(conf, false, a.exitEvent, procStatusChan)
 	}()
 	go func() {
+		var lastErr error
 		for upd := range procStatusChan {
-			errStr := ""
 			if upd.Error != nil {
-				errStr = upd.Error.Error()
+				lastErr = upd.Error
 			}
 			updateJobChan <- &JobInfo{
 				ID:             status.ID,
 				Type:           jobType,
 				CorpusID:       status.CorpusID,
 				Start:          status.Start,
-				Error:          errStr,
+				Error:          jobs.NewJSONError(upd.Error),
 				ProcessedAtoms: upd.ProcessedAtoms,
 				ProcessedLines: upd.ProcessedLines,
 			}
 		}
+		fmt.Println("######################### COMMUNICATION DONE +++++")
+
+		if lastErr == nil {
+			err := installDatabase(conf.Corpus, conf.DBFile, a.conf.CorporaSetup.TextTypesDbDirPath)
+			if err != nil {
+				updateJobChan <- &JobInfo{
+					ID:       status.ID,
+					Type:     jobType,
+					CorpusID: status.CorpusID,
+					Start:    status.Start,
+					Error:    jobs.NewJSONError(err),
+				}
+
+			} else {
+				a.kontextActions.SoftResetAll()
+			}
+		}
+
 		close(updateJobChan)
+
 	}()
 	api.WriteJSONResponse(w, status)
 
 }
 
 // NewActions is the default factory for Actions
-func NewActions(conf *cnf.Conf, exitEvent chan struct{}, jobActions *jobs.Actions, version cnf.VersionInfo) *Actions {
+func NewActions(
+	conf *cnf.Conf,
+	exitEvent chan struct{},
+	jobActions *jobs.Actions,
+	kontextActions *kontext.Actions,
+	version cnf.VersionInfo,
+) *Actions {
 	return &Actions{
-		exitEvent:  exitEvent,
-		conf:       conf,
-		jobActions: jobActions,
+		exitEvent:      exitEvent,
+		conf:           conf,
+		jobActions:     jobActions,
+		kontextActions: kontextActions,
 	}
 }

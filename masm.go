@@ -101,7 +101,7 @@ func main() {
 	jobActions := jobs.NewActions(conf, version)
 	corpusActions := corpus.NewActions(conf, jobActions, version)
 	kontextActions := kontext.NewActions(conf, version)
-	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, version)
+	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, kontextActions, version)
 
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
