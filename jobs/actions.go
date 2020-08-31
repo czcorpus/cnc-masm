@@ -141,7 +141,7 @@ func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Actions) OnExit() {
-	if fsops.IsFile(a.conf.StatusDataPath) {
+	if a.conf.StatusDataPath != "" {
 		log.Printf("INFO: saving state to %s", a.conf.StatusDataPath)
 		jobList := a.createJobList()
 		err := jobList.Serialize(a.conf.StatusDataPath)
