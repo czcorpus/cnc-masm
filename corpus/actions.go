@@ -45,6 +45,8 @@ type Actions struct {
 	jobActions *jobs.Actions
 }
 
+func (a *Actions) OnExit() {}
+
 // RootAction is just an information action about the service
 func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
 	ans := make(map[string]interface{})
@@ -116,7 +118,6 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		CorpusID: corpusID,
 		Start:    jobs.CurrentDatetime(),
 	}
-	a.jobActions.ClearOldJobs()
 	updateJobChan := a.jobActions.AddJobInfo(jobRec)
 
 	// now let's start with the actual synchronization

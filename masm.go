@@ -20,6 +20,7 @@ package main
 
 import (
 	"context"
+	"encoding/gob"
 	"flag"
 	"fmt"
 	"log"
@@ -68,6 +69,11 @@ func coreMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func init() {
+	gob.Register(liveattrs.JobInfo{})
+	gob.Register(corpus.JobInfo{})
+}
+
 func main() {
 
 	flag.Usage = func() {
@@ -86,11 +92,10 @@ func main() {
 		GitCommit: gitCommit,
 	}
 
-	syscallChan := make(chan os.Signal, 10)
+	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
-
-	exitEvent := make(chan struct{})
+	exitEvent := make(chan os.Signal)
 
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
@@ -98,7 +103,7 @@ func main() {
 	fsopsActions := fsops.NewActions(conf, version)
 	router.HandleFunc("/corpora-storage/available-locations", fsopsActions.AvailableDataLocations).Methods(http.MethodGet)
 
-	jobActions := jobs.NewActions(conf, version)
+	jobActions := jobs.NewActions(conf, exitEvent, version)
 	corpusActions := corpus.NewActions(conf, jobActions, version)
 	kontextActions := kontext.NewActions(conf, version)
 	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, kontextActions, version)
@@ -119,6 +124,17 @@ func main() {
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.RegisterProcess).Methods(http.MethodPut)
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.UnregisterProcess).Methods(http.MethodDelete)
 	router.HandleFunc("/kontext-services/{pid}/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
+
+	go func(exitHandlers []ExitHandler) {
+		select {
+		case evt := <-syscallChan:
+			for _, h := range exitHandlers {
+				h.OnExit()
+			}
+			exitEvent <- evt
+			close(exitEvent)
+		}
+	}([]ExitHandler{fsopsActions, jobActions, corpusActions, kontextActions, liveattrsActions})
 
 	cncDB, err := cncdb.NewCNCMySQLHandler(conf.CNCDB.Host, conf.CNCDB.User, conf.CNCDB.Passwd, conf.CNCDB.DBName)
 	if err != nil {
@@ -143,18 +159,6 @@ func main() {
 		}
 		syscallChan <- syscall.SIGTERM
 	}()
-
-	// TODO this does not belong here
-	go func(exitHandlers []ExitHandler) {
-		select {
-		case <-syscallChan:
-			log.Print("WARNING: exit signal detected")
-			for _, h := range exitHandlers {
-				h.OnExit()
-			}
-			close(exitEvent)
-		}
-	}([]ExitHandler{jobActions})
 
 	select {
 	case <-exitEvent:

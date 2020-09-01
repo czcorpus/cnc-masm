@@ -38,6 +38,8 @@ type Actions struct {
 	version cnf.VersionInfo
 }
 
+func (a *Actions) OnExit() {}
+
 // AvailableDataLocations provides pairs of registry_path=>data_path available
 // to a user
 func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Request) {

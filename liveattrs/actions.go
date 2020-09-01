@@ -21,9 +21,11 @@ package liveattrs
 import (
 	"fmt"
 	"io"
+	"log"
 	"masm/api"
 	"masm/cnf"
 	"masm/corpus"
+	"masm/fsops"
 	"masm/jobs"
 	"masm/kontext"
 	"net/http"
@@ -32,7 +34,6 @@ import (
 
 	vteCnf "github.com/czcorpus/vert-tagextract/cnf"
 	vteLib "github.com/czcorpus/vert-tagextract/library"
-	"github.com/czcorpus/vert-tagextract/proc"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
@@ -62,11 +63,13 @@ func installDatabase(corpusID, tmpPath, textTypesDbDirPath string) error {
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
-	exitEvent      chan struct{}
+	exitEvent      <-chan os.Signal
 	conf           *cnf.Conf
 	jobActions     *jobs.Actions
 	kontextActions *kontext.Actions
 }
+
+func (a *Actions) OnExit() {}
 
 // Create handles creating of liveattrs data for a specific corpus
 func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
@@ -92,22 +95,34 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 
 	conf, err := loadConf(a.conf.CorporaSetup.LiveAttrsConfPath, corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator - config loading error", err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator - config loading error:", err), http.StatusInternalServerError)
 		return
 	}
-	procStatusChan := make(chan proc.Status, 10)
+
+	if fsops.IsFile(conf.DBFile) {
+		log.Printf("INFO: MASM found an existing workspace database for %s - deleting", conf.Corpus)
+		err := os.Remove(conf.DBFile)
+		if err != nil {
+			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator - failed to remove db in workspace:  ", err), http.StatusInternalServerError)
+			return
+		}
+	}
+
 	status := &JobInfo{
 		ID:       jobID.String(),
 		CorpusID: corpusID,
 		Start:    jobs.CurrentDatetime(),
 	}
-	updateJobChan := a.jobActions.AddJobInfo(status)
+	procStatus, err := vteLib.ExtractData(conf, false, a.exitEvent)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator:", err), http.StatusNotFound)
+		return
+	}
 	go func() {
-		vteLib.ExtractData(conf, false, a.exitEvent, procStatusChan)
-	}()
-	go func() {
+		updateJobChan := a.jobActions.AddJobInfo(status)
+		defer close(updateJobChan)
 		var lastErr error
-		for upd := range procStatusChan {
+		for upd := range procStatus {
 			if upd.Error != nil {
 				lastErr = upd.Error
 			}
@@ -147,18 +162,14 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 				}
 			}
 		}
-
-		close(updateJobChan)
-
 	}()
 	api.WriteJSONResponse(w, status)
-
 }
 
 // NewActions is the default factory for Actions
 func NewActions(
 	conf *cnf.Conf,
-	exitEvent chan struct{},
+	exitEvent <-chan os.Signal,
 	jobActions *jobs.Actions,
 	kontextActions *kontext.Actions,
 	version cnf.VersionInfo,

@@ -42,6 +42,8 @@ type Actions struct {
 	monitoredInstances map[string]*monitoredInstance
 }
 
+func (a *Actions) OnExit() {}
+
 func (a *Actions) processesAsList() []*processInfo {
 	ans := make([]*processInfo, len(a.monitoredInstances))
 	i := 0

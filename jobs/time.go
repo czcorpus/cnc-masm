@@ -50,6 +50,15 @@ func (t JSONTime) IsZero() bool {
 	return time.Time(t).IsZero()
 }
 
+func (t JSONTime) GobEncode() ([]byte, error) {
+	return time.Time(t).MarshalBinary()
+}
+
+func (t *JSONTime) GobDecode(data []byte) error {
+	v := time.Time(*t)
+	return v.UnmarshalBinary(data)
+}
+
 func CurrentDatetime() JSONTime {
 	return JSONTime(time.Now())
 }
