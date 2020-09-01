@@ -24,8 +24,10 @@ import (
 	"masm/cnf"
 	"masm/fsops"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -61,14 +63,6 @@ type Actions struct {
 	// tableUpdate is the only way syncJobs are actually
 	// updated
 	tableUpdate chan TableUpdate
-}
-
-// ClearOldJobs clears the job table by removing
-// too old jobs
-func (a *Actions) ClearOldJobs() {
-	a.tableUpdate <- TableUpdate{
-		action: tableActionClearOldJobs,
-	}
 }
 
 // GetUnfinishedJob returns a first matching unfinished job
@@ -155,7 +149,7 @@ func (a *Actions) OnExit() {
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
+func NewActions(conf *cnf.Conf, exitEvent <-chan os.Signal, version cnf.VersionInfo) *Actions {
 	ans := &Actions{
 		conf:        conf,
 		version:     version,
@@ -170,9 +164,27 @@ func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
 		}
 		log.Printf("INFO: loaded %d job(s)", len(jobs))
 		for _, job := range jobs {
-			ans.syncJobs[job.GetID()] = job
+			if job != nil {
+				ans.syncJobs[job.GetID()] = job
+			}
 		}
 	}
+
+	ticker := time.NewTicker(1 * time.Hour)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				ans.tableUpdate <- TableUpdate{
+					action: tableActionClearOldJobs,
+				}
+			case <-exitEvent:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
 	go func() {
 		for upd := range ans.tableUpdate {
 			switch upd.action {

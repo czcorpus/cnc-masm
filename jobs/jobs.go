@@ -20,6 +20,7 @@ package jobs
 
 import (
 	"encoding/gob"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -95,10 +96,15 @@ func (jil JobInfoList) Swap(i, j int) {
 
 func clearOldJobs(data map[string]GeneralJobInfo) {
 	curr := CurrentDatetime()
+	numRemoved := 0
 	for k, v := range data {
 		if curr.Sub(v.GetStartDT()) > time.Duration(168)*time.Hour {
 			delete(data, k)
+			numRemoved++
 		}
+	}
+	if numRemoved > 0 {
+		log.Printf("INFO: removed %d old job(s)", numRemoved)
 	}
 }
 
