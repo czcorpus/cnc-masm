@@ -1,6 +1,6 @@
 # cnc-masm
 
-A set of REST services for CNC corpora & KonText data manipulation and monitoring
+A set of REST services for CNC Manatee & KonText data manipulation and monitoring
 
 Functions:
 
