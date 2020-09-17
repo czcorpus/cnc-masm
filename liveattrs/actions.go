@@ -19,6 +19,7 @@
 package liveattrs
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -31,6 +32,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/cnf"
 	vteLib "github.com/czcorpus/vert-tagextract/library"
@@ -41,6 +43,10 @@ import (
 const (
 	jobType = "liveattrs"
 )
+
+type CreateLiveAttrsReqBody struct {
+	Files []string `json:"files"`
+}
 
 func loadConf(basePath, corpname string) (*vteCnf.VTEConf, error) {
 	return vteCnf.LoadConf(filepath.Join(basePath, fmt.Sprintf("%s.json", corpname)))
@@ -61,6 +67,19 @@ func installDatabase(corpusID, tmpPath, textTypesDbDirPath string) error {
 	return err
 }
 
+func arrayShowShortened(data []string) string {
+	if len(data) <= 5 {
+		return strings.Join(data, ", ")
+	}
+	ans := make([]string, 5)
+	ans[0] = data[0]
+	ans[1] = data[1]
+	ans[2] = "..."
+	ans[3] = data[2]
+	ans[4] = data[3]
+	return strings.Join(ans, ", ")
+}
+
 // Actions wraps liveattrs-related actions
 type Actions struct {
 	exitEvent      <-chan os.Signal
@@ -71,10 +90,22 @@ type Actions struct {
 
 func (a *Actions) OnExit() {}
 
-// Create handles creating of liveattrs data for a specific corpus
+// Create handles creating of liveattrs data for a specific corpus.
+// The verticals to be processed are by default defined in a respective
+// json conf file addressed by corpusId. In case request body JSON contains
+// a non-empty list {"files": [...]}, the paths are used instead. Please note
+// that the body must at least contain an empty JSON object {}.
 func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+
+	decoder := json.NewDecoder(req.Body)
+	var reqBody CreateLiveAttrsReqBody
+	err := decoder.Decode(&reqBody)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to read request body: '%s'", err), http.StatusBadRequest)
+		return
+	}
 
 	// TODO search collisions only in liveattrs type jobs
 
@@ -106,6 +137,12 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator - failed to remove db in workspace:  ", err), http.StatusInternalServerError)
 			return
 		}
+	}
+
+	if len(reqBody.Files) > 0 {
+		conf.VerticalFile = ""
+		conf.VerticalFiles = reqBody.Files
+		log.Printf("INFO: applying custom defined verticals %s", arrayShowShortened(conf.VerticalFiles))
 	}
 
 	status := &JobInfo{
