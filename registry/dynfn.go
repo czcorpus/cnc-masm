@@ -20,6 +20,7 @@ package registry
 
 import (
 	"encoding/json"
+	"log"
 	"strings"
 )
 
@@ -46,6 +47,13 @@ func (df *DynFn) Funtype() string {
 			ans[i] = "c"
 		case "pointer":
 			ans[i] = "0"
+		case "locale":
+			ans[i] = "s"
+		case "enc":
+			ans[i] = "s"
+		default:
+			log.Printf("WARNING: Invalid Arg type: %s", arg)
+			ans[i] = "?"
 		}
 	}
 	return strings.Join(ans, "")
