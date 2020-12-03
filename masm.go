@@ -38,7 +38,7 @@ import (
 	"masm/jobs"
 	"masm/kontext"
 	"masm/liveattrs"
-	"masm/manatee"
+	"masm/registry"
 
 	"github.com/gorilla/mux"
 )
@@ -108,7 +108,7 @@ func main() {
 	corpusActions := corpus.NewActions(conf, jobActions, version)
 	kontextActions := kontext.NewActions(conf, version)
 	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, kontextActions, version)
-	manateeActions := manatee.NewActions(conf)
+	registryActions := registry.NewActions(conf)
 
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
@@ -116,6 +116,7 @@ func main() {
 	router.HandleFunc("/corpora/{corpusId}/_createLiveAttrs", liveattrsActions.Create).Methods(http.MethodPost)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)
 
@@ -127,7 +128,9 @@ func main() {
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.UnregisterProcess).Methods(http.MethodDelete)
 	router.HandleFunc("/kontext-services/{pid}/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
 
-	router.HandleFunc("/manatee/dynamic-functions", manateeActions.DynamicFunctions).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/wposlist/{posId}", registryActions.GetPosSetInfo).Methods(http.MethodGet)
 
 	go func(exitHandlers []ExitHandler) {
 		select {

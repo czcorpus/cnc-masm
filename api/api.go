@@ -21,7 +21,10 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"hash/crc32"
+	"log"
 	"net/http"
+	"strings"
 )
 
 // ActionError represents a basic user action error (e.g. a wrong parameter,
@@ -60,6 +63,45 @@ func WriteJSONResponse(w http.ResponseWriter, value interface{}) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 	w.Write(jsonAns)
+}
+
+func testEtagValues(headerValue, testValue string) bool {
+	for _, item := range strings.Split(headerValue, ", ") {
+		if strings.HasPrefix(item, "\"") && strings.HasSuffix(item, "\"") {
+			val := item[1 : len(item)-1]
+			if val == testValue {
+				return true
+			}
+
+		} else {
+			log.Printf("WARNING: Invalid ETag value: %s", item)
+		}
+	}
+	return false
+}
+
+// WriteCacheableJSONResponse writes 'value' to an HTTP response encoded as JSON
+// but before doing that it calculates a checksum of the JSON and in case it is
+// equal to provided 'If-Match' header, 304 is returned. Otherwise a value with
+// ETag header is returned.
+func WriteCacheableJSONResponse(w http.ResponseWriter, req *http.Request, value interface{}) {
+	jsonAns, err := json.Marshal(value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	} else {
+		w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", 3600*24*30))
+		crc := crc32.ChecksumIEEE(jsonAns)
+		newEtag := fmt.Sprintf("masm-%d", crc)
+		reqEtagString := req.Header.Get("If-Match")
+		if testEtagValues(reqEtagString, newEtag) {
+			http.Error(w, http.StatusText(http.StatusNotModified), http.StatusNotModified)
+
+		} else {
+			w.Header().Set("Etag", newEtag)
+			w.Write(jsonAns)
+		}
+	}
 }
 
 // WriteJSONErrorResponse writes 'aerr' to an HTTP error response  as JSON
