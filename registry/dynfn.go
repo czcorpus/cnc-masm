@@ -84,7 +84,7 @@ var dynFnList = []DynFn{
 	{"getfirstn", []string{"str", "n"}, "internal", "returns first n characters of str"},
 	{"getlastn", []string{"str", "n"}, "internal", "returns last n characters of str (for any single-byte encoding)"},
 	{"utf8getlastn", []string{"str", "n"}, "internal", "returns last n characters of str (for any utf-8 encoded string)"},
-	{"getfirstbysep", []string{"str, c"}, "internal", "returns prefix of str up to the character c (excluding)"},
+	{"getfirstbysep", []string{"str", "c"}, "internal", "returns prefix of str up to the character c (excluding)"},
 	{"getnbysep", []string{"str", "c", "n"}, "internal", "returns n-th component of str according to the delimiter c (excluding)"},
 	{"getnchar", []string{"str", "n"}, "internal", "returns n-th character of str"},
 	{"getnextchars", []string{"str", "c", "n"}, "internal", "returns n characters after character c"},
