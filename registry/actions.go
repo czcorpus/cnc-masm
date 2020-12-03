@@ -16,32 +16,16 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package manatee
+package registry
 
 import (
-	"encoding/json"
 	"fmt"
-	"hash/crc32"
-	"log"
+	"masm/api"
 	"masm/cnf"
 	"net/http"
-	"strings"
+
+	"github.com/gorilla/mux"
 )
-
-func testEtagValues(headerValue, testValue string) bool {
-	for _, item := range strings.Split(headerValue, ", ") {
-		if strings.HasPrefix(item, "\"") && strings.HasSuffix(item, "\"") {
-			val := item[1 : len(item)-1]
-			if val == testValue {
-				return true
-			}
-
-		} else {
-			log.Printf("WARNING: Invalid ETag value: %s", item)
-		}
-	}
-	return false
-}
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
@@ -58,23 +42,31 @@ func (a *Actions) DynamicFunctions(w http.ResponseWriter, req *http.Request) {
 		Description: "Separate a string by \"|\" and return all the pos-th elements from respective items",
 		Dynlib:      a.conf.CorporaSetup.ManateeDynlibPath,
 	})
+	api.WriteCacheableJSONResponse(w, req, fullList)
+}
 
-	jsonAns, err := json.Marshal(fullList)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+func (a *Actions) PosSets(w http.ResponseWriter, req *http.Request) {
+	ans := make([]PosSimple, len(posList))
+	for i, v := range posList {
+		ans[i] = PosSimple{ID: v.ID, Name: v.Name}
+	}
+	api.WriteCacheableJSONResponse(w, req, ans)
+}
+
+func (a *Actions) GetPosSetInfo(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	posID := vars["posId"]
+	var srch Pos
+	for _, v := range posList {
+		if v.ID == posID {
+			srch = v
+		}
+	}
+	if srch.ID == "" {
+		api.WriteJSONErrorResponse(w, api.NewActionError(fmt.Sprintf("Tagset %s not found", posID)), http.StatusInternalServerError)
 
 	} else {
-		w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", 3600*24*30))
-		crc := crc32.ChecksumIEEE(jsonAns)
-		newEtag := fmt.Sprintf("dfn-%d", crc)
-		reqEtagString := req.Header.Get("If-Match")
-		if testEtagValues(reqEtagString, newEtag) {
-			http.Error(w, http.StatusText(http.StatusNotModified), http.StatusNotModified)
-
-		} else {
-			w.Header().Set("Etag", newEtag)
-			w.Write(jsonAns)
-		}
+		api.WriteJSONResponse(w, srch)
 	}
 }
 
