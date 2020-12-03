@@ -128,7 +128,7 @@ func main() {
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.UnregisterProcess).Methods(http.MethodDelete)
 	router.HandleFunc("/kontext-services/{pid}/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
 
-	router.HandleFunc("/registry/defaults/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/wposlist/{posId}", registryActions.GetPosSetInfo).Methods(http.MethodGet)
 
