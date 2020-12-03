@@ -66,6 +66,9 @@ func WriteJSONResponse(w http.ResponseWriter, value interface{}) {
 }
 
 func testEtagValues(headerValue, testValue string) bool {
+	if headerValue == "" {
+		return false
+	}
 	for _, item := range strings.Split(headerValue, ", ") {
 		if strings.HasPrefix(item, "\"") && strings.HasSuffix(item, "\"") {
 			val := item[1 : len(item)-1]
