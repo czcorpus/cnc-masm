@@ -38,6 +38,7 @@ import (
 	"masm/jobs"
 	"masm/kontext"
 	"masm/liveattrs"
+	"masm/manatee"
 
 	"github.com/gorilla/mux"
 )
@@ -107,6 +108,7 @@ func main() {
 	corpusActions := corpus.NewActions(conf, jobActions, version)
 	kontextActions := kontext.NewActions(conf, version)
 	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, kontextActions, version)
+	manateeActions := manatee.NewActions(conf)
 
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
@@ -124,6 +126,8 @@ func main() {
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.RegisterProcess).Methods(http.MethodPut)
 	router.HandleFunc("/kontext-services/{pid}", kontextActions.UnregisterProcess).Methods(http.MethodDelete)
 	router.HandleFunc("/kontext-services/{pid}/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
+
+	router.HandleFunc("/manatee/dynamic-functions", manateeActions.DynamicFunctions).Methods(http.MethodGet)
 
 	go func(exitHandlers []ExitHandler) {
 		select {

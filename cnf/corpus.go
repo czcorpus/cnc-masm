@@ -42,6 +42,7 @@ type CorporaSetup struct {
 	SyncAllowedCorpora   []string          `json:"syncAllowedCorpora"`
 	VerticalFilesDirPath string            `json:"verticalFilesDirPath"`
 	LiveAttrsConfPath    string            `json:"liveAttrsConfPath"`
+	ManateeDynlibPath    string            `json:"manateeDynlibPath"`
 }
 
 func (cs *CorporaSetup) AllowsSyncForCorpus(name string) bool {
