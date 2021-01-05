@@ -131,6 +131,10 @@ func main() {
 	router.HandleFunc("/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/wposlist/{posId}", registryActions.GetPosSetInfo).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/attribute/multivalue", registryActions.GetAttrMultivalueDefaults).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/attribute/multisep", registryActions.GetAttrMultisepDefaults).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/attribute/dynlib", registryActions.GetAttrDynlibDefaults).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/attribute/transquery", registryActions.GetAttrTransqueryDefaults).Methods(http.MethodGet)
 
 	go func(exitHandlers []ExitHandler) {
 		select {

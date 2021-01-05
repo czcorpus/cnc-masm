@@ -70,6 +70,29 @@ func (a *Actions) GetPosSetInfo(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (a *Actions) GetAttrMultivalueDefaults(w http.ResponseWriter, req *http.Request) {
+	api.WriteJSONResponse(w, availBoolValues)
+}
+
+func (a *Actions) GetAttrMultisepDefaults(w http.ResponseWriter, req *http.Request) {
+	ans := []multisep{
+		{Value: "|", Description: "A default value used within the CNC"},
+	}
+	api.WriteJSONResponse(w, ans)
+}
+
+func (a *Actions) GetAttrDynlibDefaults(w http.ResponseWriter, req *http.Request) {
+	ans := []dynlibItem{
+		{Value: "internal", Description: "Functions provided by Manatee"},
+		{Value: a.conf.CorporaSetup.ManateeDynlibPath, Description: "Custom functions provided by the CNC"},
+	}
+	api.WriteJSONResponse(w, ans)
+}
+
+func (a *Actions) GetAttrTransqueryDefaults(w http.ResponseWriter, req *http.Request) {
+	api.WriteJSONResponse(w, availBoolValues)
+}
+
 // NewActions is the default factory for Actions
 func NewActions(
 	conf *cnf.Conf,
