@@ -92,3 +92,8 @@ var dynFnList = []DynFn{
 	{"url2domain", []string{"str", "n"}, "internal", "returns n-th component of the URL (0 = web domain, 1 = top level domain, 2 = second level domain)"},
 	{"ascii", []string{"str", "enc", "locale"}, "internal", "returns ASCII transliteration of the string according to the given encoding and locale"},
 }
+
+type dynlibItem struct {
+	Value       string `json:"value"`
+	Description string `json:"description"`
+}
