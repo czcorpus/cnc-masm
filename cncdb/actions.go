@@ -19,6 +19,8 @@
 package cncdb
 
 import (
+	"database/sql"
+	"log"
 	"masm/cnf"
 	"masm/corpus"
 	"net/http"
@@ -32,7 +34,11 @@ import (
 // CNC information system database as needed by KonText
 // (and possibly other apps).
 type DataHandler interface {
-	UpdateSize(corpus string, size int64) error
+	UpdateSize(transact *sql.Tx, corpus string, size int64) error
+	UpdateDescription(transact *sql.Tx, corpus, descCs, descEn string) error
+	StartTx() (*sql.Tx, error)
+	CommitTx(transact *sql.Tx) error
+	RollbackTx(transact *sql.Tx) error
 }
 
 type updateSizeResp struct {
@@ -65,10 +71,29 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	err = a.db.UpdateSize(corpusID, corpusInfo.IndexedData.Size)
+	transact, err := a.db.StartTx()
+	err = a.db.UpdateSize(transact, corpusID, corpusInfo.IndexedData.Size)
 	if err != nil {
+		err2 := a.db.RollbackTx(transact)
+		if err2 != nil {
+			log.Printf("ERROR: failed to rollback transaction: %s", err2)
+		}
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
+	}
+
+	err = a.db.UpdateDescription(transact, corpusID, req.FormValue("description_cs"),
+		req.FormValue("description_en"))
+	if err != nil {
+		err2 := a.db.RollbackTx(transact)
+		if err2 != nil {
+			log.Printf("ERROR: failed to rollback transaction: %s", err2)
+		}
+	}
+
+	err = a.db.CommitTx(transact)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 	}
 	api.WriteJSONResponse(w, updateSizeResp{OK: true})
 }

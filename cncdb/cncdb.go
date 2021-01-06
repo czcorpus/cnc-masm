@@ -27,20 +27,35 @@ type CNCMySQLHandler struct {
 	conn *sql.DB
 }
 
-func (c *CNCMySQLHandler) UpdateSize(corpus string, size int64) error {
-	tx, err := c.conn.Begin()
+func (c *CNCMySQLHandler) UpdateSize(transact *sql.Tx, corpus string, size int64) error {
+	_, err := transact.Exec("UPDATE corpora SET size = ? WHERE name = ?", size, corpus)
+	return err
+}
+
+func (c *CNCMySQLHandler) UpdateDescription(transact *sql.Tx, corpus, descCs, descEn string) error {
+	var err error
+	if descCs != "" {
+		_, err = transact.Exec("UPDATE corpora SET description_cs = ? WHERE name = ?", descCs, corpus)
+	}
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec("UPDATE corpora SET size = ? WHERE name = ?", size, corpus)
-	if err != nil {
-		return err
+	if descEn != "" {
+		_, err = transact.Exec("UPDATE corpora SET description_en = ? WHERE name = ?", descEn, corpus)
 	}
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
+}
+
+func (c *CNCMySQLHandler) StartTx() (*sql.Tx, error) {
+	return c.conn.Begin()
+}
+
+func (c *CNCMySQLHandler) CommitTx(transact *sql.Tx) error {
+	return transact.Commit()
+}
+
+func (c *CNCMySQLHandler) RollbackTx(transact *sql.Tx) error {
+	return transact.Rollback()
 }
 
 func NewCNCMySQLHandler(host, user, pass, dbName string) (*CNCMySQLHandler, error) {
