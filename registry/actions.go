@@ -46,9 +46,9 @@ func (a *Actions) DynamicFunctions(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Actions) PosSets(w http.ResponseWriter, req *http.Request) {
-	ans := make([]PosSimple, len(posList))
+	ans := make([]Pos, len(posList))
 	for i, v := range posList {
-		ans[i] = PosSimple{ID: v.ID, Name: v.Name}
+		ans[i] = v
 	}
 	api.WriteCacheableJSONResponse(w, req, ans)
 }
@@ -91,6 +91,17 @@ func (a *Actions) GetAttrDynlibDefaults(w http.ResponseWriter, req *http.Request
 
 func (a *Actions) GetAttrTransqueryDefaults(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, availBoolValues)
+}
+
+func (a *Actions) GetStructMultivalueDefaults(w http.ResponseWriter, req *http.Request) {
+	api.WriteJSONResponse(w, availBoolValues)
+}
+
+func (a *Actions) GetStructMultisepDefaults(w http.ResponseWriter, req *http.Request) {
+	ans := []multisep{
+		{Value: "|", Description: "A default value used within the CNC"},
+	}
+	api.WriteJSONResponse(w, ans)
 }
 
 // NewActions is the default factory for Actions
