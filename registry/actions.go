@@ -46,9 +46,9 @@ func (a *Actions) DynamicFunctions(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Actions) PosSets(w http.ResponseWriter, req *http.Request) {
-	ans := make([]PosSimple, len(posList))
+	ans := make([]Pos, len(posList))
 	for i, v := range posList {
-		ans[i] = PosSimple{ID: v.ID, Name: v.Name}
+		ans[i] = v
 	}
 	api.WriteCacheableJSONResponse(w, req, ans)
 }
