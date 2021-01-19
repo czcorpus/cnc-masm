@@ -93,6 +93,17 @@ func (a *Actions) GetAttrTransqueryDefaults(w http.ResponseWriter, req *http.Req
 	api.WriteJSONResponse(w, availBoolValues)
 }
 
+func (a *Actions) GetStructMultivalueDefaults(w http.ResponseWriter, req *http.Request) {
+	api.WriteJSONResponse(w, availBoolValues)
+}
+
+func (a *Actions) GetStructMultisepDefaults(w http.ResponseWriter, req *http.Request) {
+	ans := []multisep{
+		{Value: "|", Description: "A default value used within the CNC"},
+	}
+	api.WriteJSONResponse(w, ans)
+}
+
 // NewActions is the default factory for Actions
 func NewActions(
 	conf *cnf.Conf,

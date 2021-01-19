@@ -135,6 +135,8 @@ func main() {
 	router.HandleFunc("/registry/defaults/attribute/multisep", registryActions.GetAttrMultisepDefaults).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/attribute/dynlib", registryActions.GetAttrDynlibDefaults).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/attribute/transquery", registryActions.GetAttrTransqueryDefaults).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/structure/multivalue", registryActions.GetStructMultivalueDefaults).Methods(http.MethodGet)
+	router.HandleFunc("/registry/defaults/structure/multisep", registryActions.GetStructMultisepDefaults).Methods(http.MethodGet)
 
 	go func(exitHandlers []ExitHandler) {
 		select {
