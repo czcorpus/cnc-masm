@@ -34,7 +34,7 @@ type CorporaDataPaths struct {
 // CorporaSetup defines masm application configuration related
 // to a corpus
 type CorporaSetup struct {
-	RegistryDirPath      string            `json:"registryDirPath"`
+	RegistryDirPaths     []string          `json:"registryDirPaths"`
 	TextTypesDbDirPath   string            `json:"textTypesDbDirPath"`
 	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping

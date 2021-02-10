@@ -47,9 +47,9 @@ type WordSketchConf struct {
 
 // RegistryConf wraps registry configuration related info
 type RegistryConf struct {
-	Path         FileMappedValue `json:"path"`
-	Vertical     FileMappedValue `json:"vertical"`
-	WordSketches WordSketchConf  `json:"wordSketch"`
+	Paths        []FileMappedValue `json:"paths"`
+	Vertical     FileMappedValue   `json:"vertical"`
+	WordSketches WordSketchConf    `json:"wordSketch"`
 }
 
 // TTDBRecord wraps information about text types data configuration
@@ -150,53 +150,55 @@ func attachTextTypeDbInfo(corpusID string, conf *cnf.CorporaSetup, result *Info)
 func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*Info, error) {
 	ans := &Info{ID: corpusID}
 	ans.IndexedData = Data{}
-	ans.RegistryConf = RegistryConf{}
+	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
 
-	regPath := filepath.Join(setup.RegistryDirPath, corpusID)
-	if fsops.IsFile(regPath) {
-		ans.RegistryConf.Path = bindValueToPath(regPath, regPath)
-		corp, err := mango.OpenCorpus(regPath)
-		if err != nil {
-			if strings.Contains(err.Error(), "CorpInfoNotFound") {
-				return nil, NotFound{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
+	for _, regPathRoot := range setup.RegistryDirPaths {
+		regPath := filepath.Join(regPathRoot, corpusID)
+		if fsops.IsFile(regPath) {
+			ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, bindValueToPath(regPath, regPath))
+			corp, err := mango.OpenCorpus(regPath)
+			if err != nil {
+				if strings.Contains(err.Error(), "CorpInfoNotFound") {
+					return nil, NotFound{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
 
+				}
+				return nil, InfoError{err}
 			}
-			return nil, InfoError{err}
-		}
 
-		ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
+			ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
 
-		defer mango.CloseCorpus(corp)
-		ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
-		if err != nil {
-			return nil, InfoError{err}
-		}
+			defer mango.CloseCorpus(corp)
+			ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
+			if err != nil {
+				return nil, InfoError{err}
+			}
 
-		corpDataPath, err := mango.GetCorpusConf(corp, "PATH")
-		if err != nil {
-			return nil, InfoError{err}
-		}
+			corpDataPath, err := mango.GetCorpusConf(corp, "PATH")
+			if err != nil {
+				return nil, InfoError{err}
+			}
 
-		items, err := fsops.ListFilesInDir(corpDataPath, true)
-		if err != nil {
-			return nil, InfoError{err}
-		}
+			items, err := fsops.ListFilesInDir(corpDataPath, true)
+			if err != nil {
+				return nil, InfoError{err}
+			}
 
-		mTime := items.First().ModTime().Format("2006-01-02T15:04:05-0700")
-		ans.IndexedData.Path = FileMappedValue{
-			Value:        filepath.Clean(corpDataPath),
-			LastModified: &mTime,
-			FileExists:   true,
-			Size:         fsops.FileSize(filepath.Clean(corpDataPath)),
-		}
+			mTime := items.First().ModTime().Format("2006-01-02T15:04:05-0700")
+			ans.IndexedData.Path = FileMappedValue{
+				Value:        filepath.Clean(corpDataPath),
+				LastModified: &mTime,
+				FileExists:   true,
+				Size:         fsops.FileSize(filepath.Clean(corpDataPath)),
+			}
 
-	} else {
-		ans.IndexedData.Size = 0
-		ans.IndexedData.Path = FileMappedValue{
-			Value:        filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
-			LastModified: nil,
-			FileExists:   false,
-			Path:         filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
+		} else {
+			ans.IndexedData.Size = 0
+			ans.IndexedData.Path = FileMappedValue{
+				Value:        filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
+				LastModified: nil,
+				FileExists:   false,
+				Path:         filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
+			}
 		}
 	}
 

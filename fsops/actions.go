@@ -23,13 +23,21 @@ import (
 	"masm/cnf"
 	"net/http"
 	"os"
-	"path/filepath"
 )
 
-type storageLocation struct {
-	Registry string `json:"registry"`
-	Data     string `json:"data"`
+type registrySubdir struct {
+	Name     string `json:"name"`
 	ReadOnly bool   `json:"readOnly"`
+}
+
+type registry struct {
+	RootPaths []string         `json:"rootPaths"`
+	SubDirs   []registrySubdir `json:"subDirs"`
+}
+
+type storageLocation struct {
+	Data     string   `json:"data"`
+	Registry registry `json:"registry"`
 }
 
 // Actions contains all the fsops-related REST actions
@@ -43,56 +51,33 @@ func (a *Actions) OnExit() {}
 // AvailableDataLocations provides pairs of registry_path=>data_path available
 // to a user
 func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Request) {
-	regPaths, err := ListFilesInDir(a.conf.CorporaSetup.RegistryDirPath, false)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-		return
-	}
-	dataPaths, err := ListFilesInDir(a.conf.CorporaSetup.CorpusDataPath.Abstract, false)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-		return
-	}
-	ans := make([]*storageLocation, 0, 100)
-	ans = append(
-		ans,
-		&storageLocation{
-			Registry: a.conf.CorporaSetup.RegistryDirPath,
-			Data:     a.conf.CorporaSetup.CorpusDataPath.Abstract,
+	location := &storageLocation{
+		Registry: registry{
+			RootPaths: make([]string, 0, 10),
+			SubDirs:   make([]registrySubdir, 0, 50),
 		},
-	)
-	for regPath, dataPath := range a.conf.CorporaSetup.AltAccessMapping {
-		ans = append(
-			ans,
-			&storageLocation{
-				Registry: filepath.Join(a.conf.CorporaSetup.RegistryDirPath, regPath),
-				Data:     filepath.Join(a.conf.CorporaSetup.CorpusDataPath.Abstract, dataPath),
-				ReadOnly: true,
-			},
-		)
+		Data: a.conf.CorporaSetup.CorpusDataPath.Abstract,
 	}
+	subdirs := make(map[string]bool) // path => readonly
 
-	regPaths.ForEach(func(item os.FileInfo, i int) bool {
-		bs := filepath.Base(item.Name())
-		if item.IsDir() && !a.conf.CorporaSetup.SubdirIsInAltAccessMapping(item.Name()) {
-			dataPaths.ForEach(func(item2 os.FileInfo, i int) bool {
-				if item2.IsDir() {
-					bs2 := filepath.Base(item2.Name())
-					if bs == bs2 {
-						ans = append(ans, &storageLocation{
-							Data:     filepath.Join(a.conf.CorporaSetup.CorpusDataPath.Abstract, item.Name()),
-							Registry: filepath.Join(a.conf.CorporaSetup.RegistryDirPath, item2.Name()),
-						})
-						return false
-					}
-				}
-				return true
-			})
-			return true
+	for _, regPathRoot := range a.conf.CorporaSetup.RegistryDirPaths {
+		regPaths, err := ListDirsInDir(regPathRoot, false)
+		if err != nil {
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+			return
 		}
-		return true
-	})
-	api.WriteJSONResponse(w, ans)
+		regPaths.ForEach(func(info os.FileInfo, idx int) bool {
+			subdirs[info.Name()] = a.conf.CorporaSetup.SubdirIsInAltAccessMapping(info.Name())
+			return true
+		})
+		location.Registry.RootPaths = append(location.Registry.RootPaths, regPathRoot)
+	}
+	for name, readonly := range subdirs {
+		location.Registry.SubDirs = append(
+			location.Registry.SubDirs,
+			registrySubdir{Name: name, ReadOnly: readonly})
+	}
+	api.WriteJSONResponse(w, location)
 }
 
 // NewActions is the default factory
