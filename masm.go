@@ -76,22 +76,29 @@ func init() {
 }
 
 func main() {
-
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "CNC-MASM - Manatee administration setup middleware\n\nUsage:\n\t%s [options] [config.json]\n",
-			filepath.Base(os.Args[0]))
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-	conf := cnf.LoadConfig(flag.Arg(0))
-	setupLog(conf.LogFile)
-	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
-
 	version := cnf.VersionInfo{
 		Version:   version,
 		BuildDate: buildDate,
 		GitCommit: gitCommit,
 	}
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "CNC-MASM - Manatee administration setup middleware\n\nUsage:\n\t%s [options] start [config.json]\n\t%s [options] version\n",
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]))
+		flag.PrintDefaults()
+	}
+	flag.Parse()
+	action := flag.Arg(0)
+	if action == "version" {
+		fmt.Printf("cnc-masm %s\nbuild date: %s\nlast commit: %s\n", version.Version, version.BuildDate, version.GitCommit)
+		return
+
+	} else if action != "start" {
+		log.Fatal("Unknown action ", action)
+	}
+	conf := cnf.LoadConfig(flag.Arg(1))
+	setupLog(conf.LogFile)
+	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
 
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
