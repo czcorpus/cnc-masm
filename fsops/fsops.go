@@ -140,3 +140,19 @@ func ListFilesInDir(path string, newestFirst bool) (FileList, error) {
 	}
 	return ans, nil
 }
+
+// ListDirsInDir lists directories in a directory (without recursion).
+func ListDirsInDir(path string, newestFirst bool) (FileList, error) {
+	var ans FileList
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return ans, err
+	}
+	ans.files = make([]os.FileInfo, 0, 200)
+	for _, v := range files {
+		if v.IsDir() {
+			ans.files = append(ans.files, v)
+		}
+	}
+	return ans, nil
+}
