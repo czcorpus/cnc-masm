@@ -107,6 +107,7 @@ func findVerticalFile(basePath, corpusID string) FileMappedValue {
 	} else {
 		verticalPath = filepath.Join(basePath, corpusID, "vertikala")
 	}
+
 	ans := FileMappedValue{Value: verticalPath}
 	for _, suff := range suffixes {
 		fullPath := verticalPath + suff
@@ -151,6 +152,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 	ans := &Info{ID: corpusID}
 	ans.IndexedData = Data{}
 	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
+	ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
 
 	for _, regPathRoot := range setup.RegistryDirPaths {
 		regPath := filepath.Join(regPathRoot, corpusID)
@@ -164,8 +166,6 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 				}
 				return nil, InfoError{err}
 			}
-
-			ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
 
 			defer mango.CloseCorpus(corp)
 			ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
