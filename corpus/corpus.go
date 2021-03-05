@@ -111,7 +111,7 @@ func findVerticalFile(basePath, corpusID string) FileMappedValue {
 	ans := FileMappedValue{Value: verticalPath}
 	for _, suff := range suffixes {
 		fullPath := verticalPath + suff
-		if fsops.IsFile(fullPath) {
+		if fsops.PathExists(fullPath) { // on some systems fsops.IsFile returned False?!
 			mTime := fsops.GetFileMtime(fullPath)
 			ans.LastModified = &mTime
 			ans.Value = fullPath
