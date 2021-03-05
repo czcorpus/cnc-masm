@@ -99,7 +99,7 @@ func bindValueToPath(value, path string) FileMappedValue {
 }
 
 func findVerticalFile(basePath, corpusID string) FileMappedValue {
-	suffixes := []string{".tar.gz", ".tar.bz2", ".tgz", ".tbz2", ".7z", ".zip", ".tar", ".rar", ""}
+	suffixes := []string{".tar.gz", ".tar.bz2", ".tgz", ".tbz2", ".7z", ".gz", ".zip", ".tar", ".rar", ""}
 	var verticalPath string
 	if IsIntercorpFilename(corpusID) {
 		verticalPath = filepath.Join(basePath, GenCorpusGroupName(corpusID), "vertikaly", corpusID)
