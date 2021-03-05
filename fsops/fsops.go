@@ -58,6 +58,13 @@ func IsFile(path string) bool {
 	return finfo.Mode().IsRegular()
 }
 
+// PathExists tests whether  the provided path exists no matter what it
+// is (file, dir, ...)
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}
+
 // IsDir tests whether the provided path represents a directory.
 // In case of an error the function returns false and logs the error.
 func IsDir(path string) bool {
