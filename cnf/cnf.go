@@ -24,16 +24,6 @@ import (
 	"log"
 )
 
-type KontextMonitoringSetup struct {
-	Instances          []string `json:"instances"`
-	NotificationEmails []string `json:"notificationEmails"`
-	SMTPServer         string   `json:"smtpServer"`
-	Sender             string   `json:"sender"`
-	CheckIntervalSecs  int      `json:"checkIntervalSecs"`
-	AlarmNumErrors     int      `json:"alarmNumErrors"`
-	AlarmResetURL      string   `json:"alarmResetUrl"`
-}
-
 type CNCDBSetup struct {
 	Host   string `json:"host"`
 	User   string `json:"user"`
@@ -43,14 +33,14 @@ type CNCDBSetup struct {
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress         string                  `json:"listenAddress"`
-	ListenPort            int                     `json:"listenPort"`
-	ServerReadTimeoutSecs int                     `json:"serverReadTimeoutSecs"`
-	CorporaSetup          *CorporaSetup           `json:"corporaSetup"`
-	LogFile               string                  `json:"logFile"`
-	KonTextMonitoring     *KontextMonitoringSetup `json:"kontextMonitoring"`
-	CNCDB                 *CNCDBSetup             `json:"cncDb"`
-	StatusDataPath        string                  `json:"statusDataPath"`
+	ListenAddress         string        `json:"listenAddress"`
+	ListenPort            int           `json:"listenPort"`
+	ServerReadTimeoutSecs int           `json:"serverReadTimeoutSecs"`
+	CorporaSetup          *CorporaSetup `json:"corporaSetup"`
+	LogFile               string        `json:"logFile"`
+	CNCDB                 *CNCDBSetup   `json:"cncDb"`
+	StatusDataPath        string        `json:"statusDataPath"`
+	KontextSoftResetURL   string        `json:"kontextSoftResetURL"`
 }
 
 func LoadConfig(path string) *Conf {

@@ -28,7 +28,6 @@ import (
 	"masm/corpus"
 	"masm/fsops"
 	"masm/jobs"
-	"masm/kontext"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -82,10 +81,9 @@ func arrayShowShortened(data []string) string {
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
-	exitEvent      <-chan os.Signal
-	conf           *cnf.Conf
-	jobActions     *jobs.Actions
-	kontextActions *kontext.Actions
+	exitEvent  <-chan os.Signal
+	conf       *cnf.Conf
+	jobActions *jobs.Actions
 }
 
 func (a *Actions) OnExit() {}
@@ -187,8 +185,8 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 				}
 
 			} else {
-				err = a.kontextActions.SoftResetAll()
-				if err != nil {
+				resp, err := http.Post(a.conf.KontextSoftResetURL, "application/json", nil)
+				if err != nil || resp.StatusCode < 400 {
 					updateJobChan <- &JobInfo{
 						ID:       status.ID,
 						Type:     jobType,
@@ -208,13 +206,11 @@ func NewActions(
 	conf *cnf.Conf,
 	exitEvent <-chan os.Signal,
 	jobActions *jobs.Actions,
-	kontextActions *kontext.Actions,
 	version cnf.VersionInfo,
 ) *Actions {
 	return &Actions{
-		exitEvent:      exitEvent,
-		conf:           conf,
-		jobActions:     jobActions,
-		kontextActions: kontextActions,
+		exitEvent:  exitEvent,
+		conf:       conf,
+		jobActions: jobActions,
 	}
 }
