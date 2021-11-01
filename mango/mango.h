@@ -36,7 +36,7 @@ typedef struct CorpusRetval {
 
 
 typedef struct CorpusSizeRetrval {
-    int value;
+    long long int value;
     const char * err;
 } CorpusSizeRetrval;
 
