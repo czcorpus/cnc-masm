@@ -19,13 +19,5 @@
         "liveAttrsConfPath": "/home/ubuntu/tools/vert-tagextract",
         "manateeDynlibPath": "/a/path/to/ucnkdynfn.so"
     },
-    "kontextMonitoring": {
-        "smtpServer": "smtp.some.server:25",
-        "notificationEmails": ["recipient1@some.server"],
-        "sender": "cnc-masm@some.server",
-        "instances": ["kontext", "kontext_api"],
-        "checkIntervalSecs": 30,
-        "alarmNumErrors": 2,
-        "alarmResetUrl": "http://localhost:8080/kontext-services/alarms"
-    }
+    "kontextSoftResetURL": "http://localhost:8080/kontext-services/soft-reset-all"
 }

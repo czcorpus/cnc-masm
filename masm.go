@@ -36,7 +36,6 @@ import (
 	"masm/corpus"
 	"masm/fsops"
 	"masm/jobs"
-	"masm/kontext"
 	"masm/liveattrs"
 	"masm/registry"
 
@@ -113,8 +112,7 @@ func main() {
 
 	jobActions := jobs.NewActions(conf, exitEvent, version)
 	corpusActions := corpus.NewActions(conf, jobActions, version)
-	kontextActions := kontext.NewActions(conf, version)
-	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, kontextActions, version)
+	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, version)
 	registryActions := registry.NewActions(conf)
 
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
@@ -126,14 +124,6 @@ func main() {
 
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)
-
-	router.HandleFunc("/kontext-services/list-all", kontextActions.ListAll).Methods(http.MethodGet)
-	router.HandleFunc("/kontext-services/soft-reset-all", kontextActions.SoftReset).Methods(http.MethodPost)
-	router.HandleFunc("/kontext-services/auto-detect", kontextActions.AutoDetectProcesses).Methods(http.MethodPost)
-	router.HandleFunc("/kontext-services/alarms/{token}", kontextActions.ResetAlarm).Methods(http.MethodGet) // we need GET here (e.g. click via email to reset)
-	router.HandleFunc("/kontext-services/{pid}", kontextActions.RegisterProcess).Methods(http.MethodPut)
-	router.HandleFunc("/kontext-services/{pid}", kontextActions.UnregisterProcess).Methods(http.MethodDelete)
-	router.HandleFunc("/kontext-services/{pid}/soft-reset", kontextActions.SoftReset).Methods(http.MethodPost)
 
 	router.HandleFunc("/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)
@@ -154,7 +144,7 @@ func main() {
 			exitEvent <- evt
 			close(exitEvent)
 		}
-	}([]ExitHandler{fsopsActions, jobActions, corpusActions, kontextActions, liveattrsActions})
+	}([]ExitHandler{fsopsActions, jobActions, corpusActions, liveattrsActions})
 
 	cncDB, err := cncdb.NewCNCMySQLHandler(conf.CNCDB.Host, conf.CNCDB.User, conf.CNCDB.Passwd, conf.CNCDB.DBName)
 	if err != nil {
