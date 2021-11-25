@@ -154,9 +154,15 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 	ans.IndexedData = Data{}
 	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
 	ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
+	procCorpora := make(map[string]bool)
 
 	for _, regPathRoot := range setup.RegistryDirPaths {
+		_, alreadyProc := procCorpora[corpusID]
+		if alreadyProc {
+			continue
+		}
 		regPath := filepath.Join(regPathRoot, corpusID)
+
 		if fsops.IsFile(regPath) {
 			ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, bindValueToPath(regPath, regPath))
 			corp, err := mango.OpenCorpus(regPath)
@@ -181,38 +187,36 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 			if err != nil {
 				return nil, InfoError{err}
 			}
-
-			items, err := fsops.ListFilesInDir(corpDataPath, true)
-			if err != nil {
-				if !strings.Contains(err.Error(), "no such file or directory") {
-					return nil, InfoError{err}
-				}
-				errStr := err.Error()
-				ans.IndexedData.ManateeError = &errStr
-			}
-
-			var mTime string
-			if items.Len() > 0 {
-				mTime = items.First().ModTime().Format("2006-01-02T15:04:05-0700")
+			dataDirPath := filepath.Clean(corpDataPath)
+			dataDirMtime := fsops.GetFileMtime(dataDirPath)
+			var dataDirMtimeR *string
+			if dataDirMtime != "" {
+				dataDirMtimeR = &dataDirMtime
 			}
 			ans.IndexedData.Path = FileMappedValue{
-				Value:        filepath.Clean(corpDataPath),
-				LastModified: &mTime,
-				FileExists:   true,
-				Size:         fsops.FileSize(filepath.Clean(corpDataPath)),
+				Value:        dataDirPath,
+				LastModified: dataDirMtimeR,
+				FileExists:   fsops.IsDir(dataDirPath),
+				Size:         fsops.FileSize(dataDirPath),
 			}
 
 		} else {
+			dataDirPath := filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID))
+			dataDirMtime := fsops.GetFileMtime(dataDirPath)
+			var dataDirMtimeR *string
+			if dataDirMtime != "" {
+				dataDirMtimeR = &dataDirMtime
+			}
 			ans.IndexedData.Size = 0
 			ans.IndexedData.Path = FileMappedValue{
-				Value:        filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
-				LastModified: nil,
-				FileExists:   false,
-				Path:         filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID)),
+				Value:        dataDirPath,
+				LastModified: dataDirMtimeR,
+				FileExists:   fsops.IsDir(dataDirPath),
+				Path:         dataDirPath,
 			}
 		}
+		procCorpora[corpusID] = true
 	}
-
 	attachWordSketchConfInfo(corpusID, wsattr, setup, ans)
 	attachTextTypeDbInfo(corpusID, setup, ans)
 	return ans, nil
