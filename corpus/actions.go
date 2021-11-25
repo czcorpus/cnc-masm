@@ -21,8 +21,8 @@ package corpus
 import (
 	"encoding/json"
 	"log"
-	"masm/api"
-	"masm/cnf"
+	"masm/v2/api"
+	"masm/v2/cnf"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,7 +30,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
-	"masm/jobs"
+	"masm/v2/jobs"
 )
 
 const (
@@ -50,7 +50,7 @@ func (a *Actions) OnExit() {}
 // RootAction is just an information action about the service
 func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
 	ans := make(map[string]interface{})
-	ans["message"] = "MASM - Manatee Data And KonText Service Management"
+	ans["message"] = "MASM - Manatee And Stuff Middleware"
 	ans["data"] = a.version
 	resp, err := json.Marshal(ans)
 	if err != nil {

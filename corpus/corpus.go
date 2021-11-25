@@ -20,9 +20,9 @@ package corpus
 
 import (
 	"fmt"
-	"masm/cnf"
-	"masm/fsops"
-	"masm/mango"
+	"masm/v2/cnf"
+	"masm/v2/fsops"
+	"masm/v2/mango"
 	"path/filepath"
 	"strings"
 )
@@ -59,8 +59,9 @@ type TTDBRecord struct {
 
 // Data wraps information about indexed corpus data/files
 type Data struct {
-	Size int64           `json:"size"`
-	Path FileMappedValue `json:"path"`
+	Size         int64           `json:"size"`
+	Path         FileMappedValue `json:"path"`
+	ManateeError *string         `json:"manateeError"`
 }
 
 // Info wraps information about a corpus installation
@@ -170,9 +171,12 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 			defer mango.CloseCorpus(corp)
 			ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
 			if err != nil {
-				return nil, InfoError{err}
+				if !strings.Contains(err.Error(), "FileAccessError") {
+					return nil, InfoError{err}
+				}
+				errStr := err.Error()
+				ans.IndexedData.ManateeError = &errStr
 			}
-
 			corpDataPath, err := mango.GetCorpusConf(corp, "PATH")
 			if err != nil {
 				return nil, InfoError{err}
@@ -180,10 +184,17 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 
 			items, err := fsops.ListFilesInDir(corpDataPath, true)
 			if err != nil {
-				return nil, InfoError{err}
+				if !strings.Contains(err.Error(), "no such file or directory") {
+					return nil, InfoError{err}
+				}
+				errStr := err.Error()
+				ans.IndexedData.ManateeError = &errStr
 			}
 
-			mTime := items.First().ModTime().Format("2006-01-02T15:04:05-0700")
+			var mTime string
+			if items.Len() > 0 {
+				mTime = items.First().ModTime().Format("2006-01-02T15:04:05-0700")
+			}
 			ans.IndexedData.Path = FileMappedValue{
 				Value:        filepath.Clean(corpDataPath),
 				LastModified: &mTime,
@@ -204,6 +215,5 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 
 	attachWordSketchConfInfo(corpusID, wsattr, setup, ans)
 	attachTextTypeDbInfo(corpusID, setup, ans)
-
 	return ans, nil
 }

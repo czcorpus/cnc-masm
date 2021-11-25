@@ -19,8 +19,8 @@
 package fsops
 
 import (
-	"masm/api"
-	"masm/cnf"
+	"masm/v2/api"
+	"masm/v2/cnf"
 	"net/http"
 	"os"
 )

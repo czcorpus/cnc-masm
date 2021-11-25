@@ -21,11 +21,11 @@ package cncdb
 import (
 	"database/sql"
 	"log"
-	"masm/cnf"
-	"masm/corpus"
+	"masm/v2/cnf"
+	"masm/v2/corpus"
 	"net/http"
 
-	"masm/api"
+	"masm/v2/api"
 
 	"github.com/gorilla/mux"
 )
