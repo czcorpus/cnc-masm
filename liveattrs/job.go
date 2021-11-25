@@ -19,7 +19,7 @@
 package liveattrs
 
 import (
-	"masm/jobs"
+	"masm/v2/jobs"
 )
 
 // JobInfo collects information about corpus data synchronization job

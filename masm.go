@@ -31,13 +31,13 @@ import (
 	"syscall"
 	"time"
 
-	"masm/cncdb"
-	"masm/cnf"
-	"masm/corpus"
-	"masm/fsops"
-	"masm/jobs"
-	"masm/liveattrs"
-	"masm/registry"
+	"masm/v2/cncdb"
+	"masm/v2/cnf"
+	"masm/v2/corpus"
+	"masm/v2/fsops"
+	"masm/v2/jobs"
+	"masm/v2/liveattrs"
+	"masm/v2/registry"
 
 	"github.com/gorilla/mux"
 )
