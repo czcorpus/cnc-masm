@@ -31,13 +31,14 @@ import (
 	"syscall"
 	"time"
 
-	"masm/v2/cncdb"
-	"masm/v2/cnf"
-	"masm/v2/corpus"
-	"masm/v2/fsops"
-	"masm/v2/jobs"
-	"masm/v2/liveattrs"
-	"masm/v2/registry"
+	"masm/v3/cncdb"
+	"masm/v3/cnf"
+	"masm/v3/corpdata"
+	"masm/v3/corpus"
+	"masm/v3/db"
+	"masm/v3/jobs"
+	"masm/v3/liveattrs"
+	"masm/v3/registry"
 
 	"github.com/gorilla/mux"
 )
@@ -104,23 +105,39 @@ func main() {
 	signal.Notify(syscallChan, syscall.SIGTERM)
 	exitEvent := make(chan os.Signal)
 
+	cncDB, err := cncdb.NewCNCMySQLHandler(conf.CNCDB.Host, conf.CNCDB.User, conf.CNCDB.Passwd, conf.CNCDB.DBName)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+	log.Printf("INFO: CNC SQL database at '%s'", conf.CNCDB.Host)
+
+	laDB, err := db.OpenDB(conf.LiveAttrs.DB)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+	log.Printf("INFO: LiveAttrs SQL database at '%s'", conf.LiveAttrs.DB.Host)
+
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
 
-	fsopsActions := fsops.NewActions(conf, version)
-	router.HandleFunc("/corpora-storage/available-locations", fsopsActions.AvailableDataLocations).Methods(http.MethodGet)
+	corpdataActions := corpdata.NewActions(conf, version)
+	router.HandleFunc("/corpora-storage/available-locations", corpdataActions.AvailableDataLocations).Methods(http.MethodGet)
 
 	jobActions := jobs.NewActions(conf, exitEvent, version)
 	corpusActions := corpus.NewActions(conf, jobActions, version)
-	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, version)
+	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
 
 	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
-	router.HandleFunc("/corpora/{corpusId}/_createLiveAttrs", liveattrsActions.Create).Methods(http.MethodPost)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+
+	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
+	router.HandleFunc("/liveAttributes/{corpusId}/search", liveattrsActions.Query)
+	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.Query)
 
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)
@@ -144,13 +161,8 @@ func main() {
 			exitEvent <- evt
 			close(exitEvent)
 		}
-	}([]ExitHandler{fsopsActions, jobActions, corpusActions, liveattrsActions})
+	}([]ExitHandler{corpdataActions, jobActions, corpusActions, liveattrsActions})
 
-	cncDB, err := cncdb.NewCNCMySQLHandler(conf.CNCDB.Host, conf.CNCDB.User, conf.CNCDB.Passwd, conf.CNCDB.DBName)
-	if err != nil {
-		log.Fatal("FATAL: ", err)
-	}
-	log.Printf("INFO: corpora SQL database at '%s'", conf.CNCDB.Host)
 	cncdbActions := cncdb.NewActions(conf, cncDB)
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
 

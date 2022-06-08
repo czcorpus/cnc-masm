@@ -21,8 +21,8 @@ package corpus
 import (
 	"encoding/json"
 	"log"
-	"masm/v2/api"
-	"masm/v2/cnf"
+	"masm/v3/api"
+	"masm/v3/cnf"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,7 +30,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
-	"masm/v2/jobs"
+	"masm/v3/jobs"
 )
 
 const (

@@ -20,9 +20,9 @@ package corpus
 
 import (
 	"fmt"
-	"masm/v2/cnf"
-	"masm/v2/fsops"
-	"masm/v2/mango"
+	"masm/v3/cnf"
+	"masm/v3/fsops"
+	"masm/v3/mango"
 	"path/filepath"
 	"strings"
 )

@@ -19,6 +19,8 @@ package cncdb
 
 import (
 	"database/sql"
+	"masm/v3/corpus"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -46,6 +48,36 @@ func (c *CNCMySQLHandler) UpdateDescription(transact *sql.Tx, corpus, descCs, de
 	return err
 }
 
+func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
+	var bibLabelStruct, bibLabelAttr, bibIDStruct, bibIDAttr sql.NullString
+	row := c.conn.QueryRow(
+		`SELECT name, active, bib_label_struct, bib_label_attr,
+		   bib_id_struct, bib_id_attr, bib_group_duplicates, locale
+		FROM corpora WHERE name = ?`, corpusID)
+	var ans corpus.DBInfo
+	err := row.Scan(
+		&ans.Name,
+		&ans.Active,
+		&bibLabelStruct,
+		&bibLabelAttr,
+		&bibIDStruct,
+		&bibIDAttr,
+		&ans.BibGroupDuplicates,
+		&ans.Locale,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if bibLabelStruct.Valid && bibLabelAttr.Valid {
+		ans.BibLabelAttr = bibLabelStruct.String + "." + bibLabelAttr.String
+	}
+	if bibIDStruct.Valid && bibIDAttr.Valid {
+		ans.BibIDAttr = bibIDStruct.String + "." + bibIDAttr.String
+	}
+	return &ans, nil
+
+}
+
 func (c *CNCMySQLHandler) StartTx() (*sql.Tx, error) {
 	return c.conn.Begin()
 }
@@ -58,6 +90,10 @@ func (c *CNCMySQLHandler) RollbackTx(transact *sql.Tx) error {
 	return transact.Rollback()
 }
 
+func (c *CNCMySQLHandler) Conn() *sql.DB {
+	return c.conn
+}
+
 func NewCNCMySQLHandler(host, user, pass, dbName string) (*CNCMySQLHandler, error) {
 	conf := mysql.NewConfig()
 	conf.Net = "tcp"
@@ -65,6 +101,8 @@ func NewCNCMySQLHandler(host, user, pass, dbName string) (*CNCMySQLHandler, erro
 	conf.User = user
 	conf.Passwd = pass
 	conf.DBName = dbName
+	conf.ParseTime = true
+	conf.Loc = time.Local
 	db, err := sql.Open("mysql", conf.FormatDSN())
 	if err != nil {
 		return nil, err
