@@ -22,25 +22,33 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+
+	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
 
-type CNCDBSetup struct {
+type databaseSetup struct {
 	Host   string `json:"host"`
 	User   string `json:"user"`
 	Passwd string `json:"passwd"`
 	DBName string `json:"db"`
 }
 
+type LiveAttrsConf struct {
+	DB          *vtedb.Conf `json:"db"`
+	ConfDirPath string      `json:"confDirPath"`
+}
+
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress         string        `json:"listenAddress"`
-	ListenPort            int           `json:"listenPort"`
-	ServerReadTimeoutSecs int           `json:"serverReadTimeoutSecs"`
-	CorporaSetup          *CorporaSetup `json:"corporaSetup"`
-	LogFile               string        `json:"logFile"`
-	CNCDB                 *CNCDBSetup   `json:"cncDb"`
-	StatusDataPath        string        `json:"statusDataPath"`
-	KontextSoftResetURL   string        `json:"kontextSoftResetURL"`
+	ListenAddress         string         `json:"listenAddress"`
+	ListenPort            int            `json:"listenPort"`
+	ServerReadTimeoutSecs int            `json:"serverReadTimeoutSecs"`
+	CorporaSetup          *CorporaSetup  `json:"corporaSetup"`
+	LogFile               string         `json:"logFile"`
+	CNCDB                 *databaseSetup `json:"cncDb"`
+	LiveAttrs             *LiveAttrsConf `json:"liveAttrs"`
+	StatusDataPath        string         `json:"statusDataPath"`
+	KontextSoftResetURL   string         `json:"kontextSoftResetURL"`
 }
 
 func LoadConfig(path string) *Conf {

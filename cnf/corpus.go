@@ -41,7 +41,6 @@ type CorporaSetup struct {
 	WordSketchDefDirPath string            `json:"wordSketchDefDirPath"`
 	SyncAllowedCorpora   []string          `json:"syncAllowedCorpora"`
 	VerticalFilesDirPath string            `json:"verticalFilesDirPath"`
-	LiveAttrsConfPath    string            `json:"liveAttrsConfPath"`
 	ManateeDynlibPath    string            `json:"manateeDynlibPath"`
 }
 

@@ -16,11 +16,12 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package fsops
+package corpdata
 
 import (
-	"masm/v2/api"
-	"masm/v2/cnf"
+	"masm/v3/api"
+	"masm/v3/cnf"
+	"masm/v3/fsops"
 	"net/http"
 	"os"
 )
@@ -61,7 +62,7 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 	subdirs := make(map[string]bool) // path => readonly
 
 	for _, regPathRoot := range a.conf.CorporaSetup.RegistryDirPaths {
-		regPaths, err := ListDirsInDir(regPathRoot, false)
+		regPaths, err := fsops.ListDirsInDir(regPathRoot, false)
 		if err != nil {
 			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 			return

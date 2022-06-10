@@ -16,7 +16,6 @@
         },
         "syncAllowedCorpora": ["susanne", "syn2015"],
         "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef",
-        "liveAttrsConfPath": "/home/ubuntu/tools/vert-tagextract",
         "manateeDynlibPath": "/a/path/to/ucnkdynfn.so"
     },
     "kontextSoftResetURL": "http://localhost:8080/kontext-services/soft-reset-all"

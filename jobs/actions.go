@@ -20,9 +20,9 @@ package jobs
 
 import (
 	"log"
-	"masm/v2/api"
-	"masm/v2/cnf"
-	"masm/v2/fsops"
+	"masm/v3/api"
+	"masm/v3/cnf"
+	"masm/v3/fsops"
 	"net/http"
 	"os"
 	"sort"

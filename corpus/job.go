@@ -19,7 +19,7 @@
 package corpus
 
 import (
-	"masm/v2/jobs"
+	"masm/v3/jobs"
 )
 
 // JobInfo collects information about corpus data synchronization job

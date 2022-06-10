@@ -20,8 +20,8 @@ package registry
 
 import (
 	"fmt"
-	"masm/v2/api"
-	"masm/v2/cnf"
+	"masm/v3/api"
+	"masm/v3/cnf"
 	"net/http"
 
 	"github.com/gorilla/mux"
