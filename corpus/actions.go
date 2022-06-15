@@ -19,7 +19,6 @@
 package corpus
 
 import (
-	"encoding/json"
 	"log"
 	"masm/v3/api"
 	"masm/v3/cnf"
@@ -40,24 +39,11 @@ const (
 // Actions contains all the server HTTP REST actions
 type Actions struct {
 	conf       *cnf.Conf
-	version    cnf.VersionInfo
 	osSignal   chan os.Signal
 	jobActions *jobs.Actions
 }
 
 func (a *Actions) OnExit() {}
-
-// RootAction is just an information action about the service
-func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
-	ans := make(map[string]interface{})
-	ans["message"] = "MASM - Manatee And Stuff Middleware"
-	ans["data"] = a.version
-	resp, err := json.Marshal(ans)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-	}
-	w.Write(resp)
-}
 
 // GetCorpusInfo provides some basic information about stored data
 func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
@@ -135,10 +121,9 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, jobActions *jobs.Actions, version cnf.VersionInfo) *Actions {
+func NewActions(conf *cnf.Conf, jobActions *jobs.Actions) *Actions {
 	return &Actions{
 		conf:       conf,
-		version:    version,
 		jobActions: jobActions,
 	}
 }

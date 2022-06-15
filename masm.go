@@ -39,6 +39,7 @@ import (
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
 	"masm/v3/registry"
+	"masm/v3/root"
 
 	"github.com/gorilla/mux"
 )
@@ -98,7 +99,7 @@ func main() {
 	}
 	conf := cnf.LoadConfig(flag.Arg(1))
 	setupLog(conf.LogFile)
-	log.Print("INFO: starting Portal Corpus Adminstration Manatee middleware server")
+	log.Print("INFO: Starting MASM (Manatee Assets, Services and Metadata)")
 
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -120,15 +121,17 @@ func main() {
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
 
+	rootActions := root.Actions{}
+
 	corpdataActions := corpdata.NewActions(conf, version)
 	router.HandleFunc("/corpora-storage/available-locations", corpdataActions.AvailableDataLocations).Methods(http.MethodGet)
 
 	jobActions := jobs.NewActions(conf, exitEvent, version)
-	corpusActions := corpus.NewActions(conf, jobActions, version)
+	corpusActions := corpus.NewActions(conf, jobActions)
 	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
 
-	router.HandleFunc("/", corpusActions.RootAction).Methods(http.MethodGet)
+	router.HandleFunc("/", rootActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
@@ -136,6 +139,7 @@ func main() {
 
 	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
+	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf)
 	router.HandleFunc("/liveAttributes/{corpusId}/search", liveattrsActions.Query)
 	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.Query)
 
