@@ -47,9 +47,11 @@ type WordSketchConf struct {
 
 // RegistryConf wraps registry configuration related info
 type RegistryConf struct {
-	Paths        []FileMappedValue `json:"paths"`
-	Vertical     FileMappedValue   `json:"vertical"`
-	WordSketches WordSketchConf    `json:"wordSketch"`
+	Paths        []FileMappedValue   `json:"paths"`
+	Vertical     FileMappedValue     `json:"vertical"`
+	WordSketches WordSketchConf      `json:"wordSketch"`
+	Encoding     string              `json:"encoding"`
+	SubcorpAttrs map[string][]string `json:"subcorpAttrs"`
 }
 
 // TTDBRecord wraps information about text types data configuration
@@ -154,6 +156,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 	ans.IndexedData = Data{}
 	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
 	ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
+	ans.RegistryConf.SubcorpAttrs = make(map[string][]string)
 	procCorpora := make(map[string]bool)
 
 	for _, regPathRoot := range setup.RegistryDirPaths {
@@ -198,6 +201,24 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 				LastModified: dataDirMtimeR,
 				FileExists:   fsops.IsDir(dataDirPath),
 				Size:         fsops.FileSize(dataDirPath),
+			}
+
+			// get encoding
+			ans.RegistryConf.Encoding, err = mango.GetCorpusConf(corp, "ENCODING")
+			if err != nil {
+				return nil, InfoError{err}
+			}
+
+			// parse SUBCORPATTRS
+			subcorpAttrsString, err := mango.GetCorpusConf(corp, "SUBCORPATTRS")
+			if err != nil {
+				return nil, InfoError{err}
+			}
+			for _, attr1 := range strings.Split(subcorpAttrsString, "|") {
+				for _, attr2 := range strings.Split(attr1, ",") {
+					split := strings.Split(attr2, ".")
+					ans.RegistryConf.SubcorpAttrs[split[0]] = append(ans.RegistryConf.SubcorpAttrs[split[0]], split[1])
+				}
 			}
 
 		} else {
