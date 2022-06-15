@@ -38,6 +38,7 @@ import (
 	"strings"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	vteDb "github.com/czcorpus/vert-tagextract/v2/db"
 	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -140,6 +141,44 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
 		return
+	} else if conf == nil {
+		corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
+		if err != nil {
+			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
+			return
+		}
+
+		newConf := cnf.NewVTEConf{}
+		newConf.Corpus = corpusID
+		newConf.VerticalFile = corpusInfo.RegistryConf.Vertical.Path
+		newConf.Encoding = corpusInfo.RegistryConf.Encoding
+		newConf.AtomStructure = req.URL.Query().Get("atomStructure")
+		newConf.StackStructEval = false
+		newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
+		if req.URL.Query().Get("bibView") == "1" {
+			bibView := vteDb.BibViewConf{}
+			bibView.IDAttr = req.URL.Query().Get("bibIdAttr")
+			for stru, attrs := range corpusInfo.RegistryConf.SubcorpAttrs {
+				for _, attr := range attrs {
+					bibView.Cols = append(bibView.Cols, fmt.Sprintf("%s_%s", stru, attr))
+				}
+			}
+			newConf.BibView = &bibView
+		}
+		// TODO
+		newConf.Ngrams = nil
+		newConf.SelfJoin = nil
+
+		err = a.laConfCache.Save(&newConf)
+		if err != nil {
+			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
+			return
+		}
+		conf, err = a.laConfCache.Get(corpusID)
+		if err != nil {
+			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
+			return
+		}
 	}
 
 	// TODO search collisions only in liveattrs type jobs

@@ -4,7 +4,7 @@
     "logFile": "/path/to/a/log/file",
     "serverReadTimeoutSecs": 120,
     "corporaSetup": {
-        "registryDirPath": "/var/local/corpora/registry",
+        "registryDirPaths": ["/var/local/corpora/registry"],
         "textTypesDbDirPath": "/var/local/corpora/metadata",
         "corpusDataPath": {
             "abstract": "/var/local/corpora/indexed-abstract",

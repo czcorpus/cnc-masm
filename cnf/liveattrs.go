@@ -19,7 +19,9 @@
 package cnf
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"masm/v3/fsops"
 	"path"
 
@@ -62,6 +64,32 @@ func (lcache *LiveAttrsBuildConfCache) Get(corpname string) (*vteconf.VTEConf, e
 		return v, nil
 	}
 	return nil, nil
+}
+
+type NewVTEConf struct {
+	Corpus          string              `json:"corpus"`
+	Encoding        string              `json:"encoding"`
+	VerticalFile    string              `json:"verticalFile"`
+	AtomStructure   string              `json:"atomStructure"`
+	StackStructEval bool                `json:"stackStructEval"`
+	Structures      map[string][]string `json:"structures"`
+
+	Ngrams   *vteconf.NgramConf  `json:"ngrams,omitempty"`
+	SelfJoin *vtedb.SelfJoinConf `json:"selfJoin,omitempty"`
+	BibView  *vtedb.BibViewConf  `json:"bibView,omitempty"`
+}
+
+func (lcache *LiveAttrsBuildConfCache) Save(data *NewVTEConf) error {
+	rawData, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return err
+	}
+	confPath := path.Join(lcache.confDirPath, data.Corpus+".json")
+	err = ioutil.WriteFile(confPath, rawData, 0777)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewLiveAttrsBuildConfCache(confDirPath string, globalDBConf *vtedb.Conf) *LiveAttrsBuildConfCache {
