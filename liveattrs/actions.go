@@ -116,7 +116,7 @@ func groupBibItems(data *qans.QueryAns, bibLabel string) {
 	}
 }
 
-func createLAConfig(corpusInfo *corpus.Info, atomStructure string, bibView bool, bibIdAttr string) *cnf.NewVTEConf {
+func createLAConfig(corpusInfo *corpus.Info, atomStructure string, bibIdAttr string) *cnf.NewVTEConf {
 	newConf := cnf.NewVTEConf{}
 	newConf.Corpus = corpusInfo.ID
 	newConf.VerticalFile = corpusInfo.RegistryConf.Vertical.Path
@@ -124,7 +124,7 @@ func createLAConfig(corpusInfo *corpus.Info, atomStructure string, bibView bool,
 	newConf.AtomStructure = atomStructure
 	newConf.StackStructEval = false
 	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
-	if bibView {
+	if bibIdAttr != "" {
 		bibView := vteDb.BibViewConf{}
 		bibView.IDAttr = bibIdAttr
 		for stru, attrs := range corpusInfo.RegistryConf.SubcorpAttrs {
@@ -146,7 +146,7 @@ type Actions struct {
 	exitEvent   <-chan os.Signal
 	conf        *cnf.Conf
 	jobActions  *jobs.Actions
-	laConfCache *cnf.LiveAttrsBuildConfCache
+	laConfCache *cnf.LiveAttrsBuildConfLoader
 	laDB        *sql.DB
 	cncDB       *cncdb.CNCMySQLHandler
 }
@@ -168,16 +168,29 @@ func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, conf)
 }
 
-// Create handles creating of liveattrs data for a specific corpus.
-// The verticals to be processed are by default defined in a respective
-// json conf file addressed by corpusId. In case request body JSON contains
-// a non-empty list {"files": [...]}, the paths are used instead. Please note
-// that the body must at least contain an empty JSON object {}.
+// Create starts a process of creating fresh liveattrs data for a a specified corpus.
+// URL args:
+// * atomStructure - a minimal structure masm will be able to search for (typically 'doc', 'text')
+// * noCache - if '1' then masm regenerates data extraction configuration based on actual corpus
+//   registry file
+// * bibIdAttr - if defined then masm will create bibliography entries with IDs matching values from
+//   from referred bibIdAttr values
 func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	noCache := false
+	if req.URL.Query().Get("noCache") == "1" {
+		noCache = true
+	}
+	var err error
+	var conf *vteCnf.VTEConf
+	if noCache {
+		conf, err = a.laConfCache.GetWithoutCache(corpusID)
 
-	conf, err := a.laConfCache.Get(corpusID)
+	} else {
+		conf, err = a.laConfCache.Get(corpusID)
+	}
+
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
 		return
@@ -191,9 +204,9 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		newConf := createLAConfig(
 			corpusInfo,
 			req.URL.Query().Get("atomStructure"),
-			req.URL.Query().Get("bibView") == "1",
 			req.URL.Query().Get("bibIdAttr"),
 		)
+
 		err = a.laConfCache.Save(newConf)
 		if err != nil {
 			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
@@ -436,7 +449,7 @@ func NewActions(
 		exitEvent:  exitEvent,
 		conf:       conf,
 		jobActions: jobActions,
-		laConfCache: cnf.NewLiveAttrsBuildConfCache(
+		laConfCache: cnf.NewLiveAttrsBuildConfLoader(
 			conf.LiveAttrs.ConfDirPath,
 			conf.LiveAttrs.DB,
 		),
