@@ -43,18 +43,18 @@ func LoadConf(path string) (*vteconf.VTEConf, error) {
 	return vteconf.LoadConf(path)
 }
 
-type LiveAttrsBuildConfCache struct {
+type LiveAttrsBuildConfLoader struct {
 	confDirPath  string
 	globalDBConf *vtedb.Conf
 	data         map[string]*vteconf.VTEConf
 }
 
-func (lcache *LiveAttrsBuildConfCache) Get(corpname string) (*vteconf.VTEConf, error) {
+func (lcache *LiveAttrsBuildConfLoader) get(corpname string, useCache bool) (*vteconf.VTEConf, error) {
 	if v, ok := lcache.data[corpname]; ok {
 		return v, nil
 	}
 	confPath := path.Join(lcache.confDirPath, corpname+".json")
-	if fsops.IsFile(confPath) {
+	if fsops.IsFile(confPath) && useCache {
 		v, err := LoadConf(confPath)
 		if err != nil {
 			return nil, err
@@ -64,6 +64,14 @@ func (lcache *LiveAttrsBuildConfCache) Get(corpname string) (*vteconf.VTEConf, e
 		return v, nil
 	}
 	return nil, nil
+}
+
+func (lcache *LiveAttrsBuildConfLoader) GetWithoutCache(corpname string) (*vteconf.VTEConf, error) {
+	return lcache.get(corpname, false)
+}
+
+func (lcache *LiveAttrsBuildConfLoader) Get(corpname string) (*vteconf.VTEConf, error) {
+	return lcache.get(corpname, true)
 }
 
 type NewVTEConf struct {
@@ -79,7 +87,7 @@ type NewVTEConf struct {
 	BibView  *vtedb.BibViewConf  `json:"bibView,omitempty"`
 }
 
-func (lcache *LiveAttrsBuildConfCache) Save(data *NewVTEConf) error {
+func (lcache *LiveAttrsBuildConfLoader) Save(data *NewVTEConf) error {
 	rawData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err
@@ -92,8 +100,8 @@ func (lcache *LiveAttrsBuildConfCache) Save(data *NewVTEConf) error {
 	return nil
 }
 
-func NewLiveAttrsBuildConfCache(confDirPath string, globalDBConf *vtedb.Conf) *LiveAttrsBuildConfCache {
-	return &LiveAttrsBuildConfCache{
+func NewLiveAttrsBuildConfLoader(confDirPath string, globalDBConf *vtedb.Conf) *LiveAttrsBuildConfLoader {
+	return &LiveAttrsBuildConfLoader{
 		confDirPath:  confDirPath,
 		globalDBConf: globalDBConf,
 		data:         make(map[string]*vteconf.VTEConf),
