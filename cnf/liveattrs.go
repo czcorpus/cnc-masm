@@ -74,20 +74,7 @@ func (lcache *LiveAttrsBuildConfLoader) Get(corpname string) (*vteconf.VTEConf, 
 	return lcache.get(corpname, true)
 }
 
-type NewVTEConf struct {
-	Corpus          string              `json:"corpus"`
-	Encoding        string              `json:"encoding"`
-	VerticalFile    string              `json:"verticalFile"`
-	AtomStructure   string              `json:"atomStructure"`
-	StackStructEval bool                `json:"stackStructEval"`
-	Structures      map[string][]string `json:"structures"`
-
-	Ngrams   *vteconf.NgramConf  `json:"ngrams,omitempty"`
-	SelfJoin *vtedb.SelfJoinConf `json:"selfJoin,omitempty"`
-	BibView  *vtedb.BibViewConf  `json:"bibView,omitempty"`
-}
-
-func (lcache *LiveAttrsBuildConfLoader) Save(data *NewVTEConf) error {
+func (lcache *LiveAttrsBuildConfLoader) Save(data *vteconf.VTEConf) error {
 	rawData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return err

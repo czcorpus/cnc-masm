@@ -51,10 +51,14 @@ func (c *CNCMySQLHandler) UpdateDescription(transact *sql.Tx, corpus, descCs, de
 func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 	var bibLabelStruct, bibLabelAttr, bibIDStruct, bibIDAttr sql.NullString
 	row := c.conn.QueryRow(
-		`SELECT name, active, bib_label_struct, bib_label_attr,
-		   bib_id_struct, bib_id_attr, bib_group_duplicates, locale
-		FROM corpora WHERE name = ?`, corpusID)
+		`SELECT c.name, c.active, c.bib_label_struct, c.bib_label_attr,
+		c.bib_id_struct, c.bib_id_attr, c.bib_group_duplicates, c.locale, p.name
+		FROM corpora AS c
+		LEFT JOIN parallel_corpus AS p ON p.id = c.parallel_corpus_id
+		WHERE c.name = ?`, corpusID)
 	var ans corpus.DBInfo
+	var pcName sql.NullString
+	var locale sql.NullString
 	err := row.Scan(
 		&ans.Name,
 		&ans.Active,
@@ -63,7 +67,8 @@ func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 		&bibIDStruct,
 		&bibIDAttr,
 		&ans.BibGroupDuplicates,
-		&ans.Locale,
+		&locale,
+		&pcName,
 	)
 	if err != nil {
 		return nil, err
@@ -73,6 +78,12 @@ func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 	}
 	if bibIDStruct.Valid && bibIDAttr.Valid {
 		ans.BibIDAttr = bibIDStruct.String + "." + bibIDAttr.String
+	}
+	if locale.Valid {
+		ans.Locale = locale.String
+	}
+	if pcName.Valid {
+		ans.ParallelCorpus = pcName.String
 	}
 	return &ans, nil
 
