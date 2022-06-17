@@ -23,6 +23,8 @@ type DBInfo struct {
 	Active int
 	Locale string
 
+	ParallelCorpus string
+
 	// BibLabelAttr contains both structure and attribute (e.g. 'doc.id')
 	BibLabelAttr string
 

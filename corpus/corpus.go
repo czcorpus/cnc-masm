@@ -68,10 +68,11 @@ type Data struct {
 
 // Info wraps information about a corpus installation
 type Info struct {
-	ID           string       `json:"id"`
-	IndexedData  Data         `json:"indexedData"`
-	TextTypesDB  TTDBRecord   `json:"textTypesDb"`
-	RegistryConf RegistryConf `json:"registry"`
+	ID             string       `json:"id"`
+	IndexedData    Data         `json:"indexedData"`
+	TextTypesDB    TTDBRecord   `json:"textTypesDb"`
+	IndexedStructs []string     `json:"indexedStructs"`
+	RegistryConf   RegistryConf `json:"registry"`
 }
 
 // NotFound is an error mapped to a similar Manatee error
@@ -165,7 +166,6 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 			continue
 		}
 		regPath := filepath.Join(regPathRoot, corpusID)
-
 		if fsops.IsFile(regPath) {
 			ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, bindValueToPath(regPath, regPath))
 			corp, err := mango.OpenCorpus(regPath)
@@ -219,6 +219,16 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 					split := strings.Split(attr2, ".")
 					ans.RegistryConf.SubcorpAttrs[split[0]] = append(ans.RegistryConf.SubcorpAttrs[split[0]], split[1])
 				}
+			}
+
+			unparsedStructs, err := mango.GetCorpusConf(corp, "STRUCTLIST")
+			if err != nil {
+				return nil, InfoError{err}
+			}
+			structs := strings.Split(unparsedStructs, ",")
+			ans.IndexedStructs = make([]string, len(structs))
+			for i, st := range structs {
+				ans.IndexedStructs[i] = st
 			}
 
 		} else {

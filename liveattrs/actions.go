@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"masm/v3/api"
 	"masm/v3/cncdb"
 	"masm/v3/cnf"
@@ -116,13 +117,24 @@ func groupBibItems(data *qans.QueryAns, bibLabel string) {
 	}
 }
 
-func createLAConfig(corpusInfo *corpus.Info, atomStructure string, bibIdAttr string) *cnf.NewVTEConf {
-	newConf := cnf.NewVTEConf{}
-	newConf.Corpus = corpusInfo.ID
-	newConf.VerticalFile = corpusInfo.RegistryConf.Vertical.Path
-	newConf.Encoding = corpusInfo.RegistryConf.Encoding
-	newConf.AtomStructure = atomStructure
-	newConf.StackStructEval = false
+func createLAConfig(
+	masmConf *cnf.Conf,
+	corpusInfo *corpus.Info,
+	corpusDBInfo *corpus.DBInfo,
+	atomStructure string,
+	bibIdAttr string,
+	mergeAttrs []string,
+) (*vteCnf.VTEConf, error) {
+	newConf := vteCnf.VTEConf{
+		Corpus:              corpusInfo.ID,
+		AtomParentStructure: "",
+		StackStructEval:     false,
+		MaxNumErrors:        1000,
+		Ngrams:              vteCnf.NgramConf{},
+		Encoding:            "UTF-8",
+		IndexedCols:         []string{},
+		VerticalFile:        corpusInfo.RegistryConf.Vertical.Path,
+	}
 	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
 	if bibIdAttr != "" {
 		bibView := vteDb.BibViewConf{}
@@ -132,13 +144,51 @@ func createLAConfig(corpusInfo *corpus.Info, atomStructure string, bibIdAttr str
 				bibView.Cols = append(bibView.Cols, fmt.Sprintf("%s_%s", stru, attr))
 			}
 		}
-		newConf.BibView = &bibView
+		newConf.BibView = bibView
 	}
-	// TODO
-	newConf.Ngrams = nil
-	newConf.SelfJoin = nil
+	if atomStructure == "" {
+		if len(newConf.Structures) == 1 {
+			for k := range newConf.Structures {
+				newConf.AtomStructure = k
+				break
+			}
+			log.Print("INFO: no atomStructure, inferred value: ", newConf.AtomStructure)
 
-	return &newConf
+		} else {
+			return nil, fmt.Errorf("no atomStructure specified and the value cannot be inferred due to multiple involved structures")
+		}
+
+	} else {
+		newConf.AtomStructure = atomStructure
+	}
+	atomExists := false
+	for _, st := range corpusInfo.IndexedStructs {
+		if st == newConf.AtomStructure {
+			atomExists = true
+			break
+		}
+	}
+	if !atomExists {
+		return nil, fmt.Errorf("atom structure '%s' does not exist in corpus %s", newConf.AtomStructure, corpusInfo.ID)
+	}
+
+	if len(mergeAttrs) > 0 {
+		newConf.SelfJoin.ArgColumns = mergeAttrs
+	}
+	newConf.DB = vteDb.Conf{
+		Type:           "mysql",
+		Host:           masmConf.LiveAttrs.DB.Host,
+		User:           masmConf.LiveAttrs.DB.User,
+		Password:       masmConf.LiveAttrs.DB.Password,
+		PreconfQueries: masmConf.LiveAttrs.DB.PreconfQueries,
+	}
+	if corpusDBInfo.ParallelCorpus != "" {
+		newConf.DB.Name = corpusDBInfo.ParallelCorpus
+
+	} else {
+		newConf.DB.Name = corpusInfo.ID
+	}
+	return &newConf, nil
 }
 
 // Actions wraps liveattrs-related actions
@@ -192,29 +242,44 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
 		return
+
 	} else if conf == nil {
 		corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
 			return
 		}
 
-		newConf := createLAConfig(
+		corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
+		if err != nil {
+			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
+			return
+		}
+
+		newConf, err := createLAConfig(
+			a.conf,
 			corpusInfo,
+			corpusDBInfo,
 			req.URL.Query().Get("atomStructure"),
 			req.URL.Query().Get("bibIdAttr"),
+			req.URL.Query()["mergeAttr"],
 		)
+
+		if err != nil {
+			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			return
+		}
 
 		err = a.laConfCache.Save(newConf)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
 		conf, err = a.laConfCache.Get(corpusID)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -230,7 +295,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	if prevRunning := a.jobActions.GetUnfinishedJob(corpusID, jobType); prevRunning != nil {
 		api.WriteJSONErrorResponse(
 			w,
-			api.NewActionError("Cannot run liveattrs generator - the previous job '%s' have not finished yet", prevRunning.GetID()),
+			api.NewActionError("LiveAttrs generator failed - the previous job '%s' have not finished yet", prevRunning.GetID()),
 			http.StatusConflict,
 		)
 		return
@@ -242,9 +307,10 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		Start:    jobs.CurrentDatetime(),
 	}
 
-	procStatus, err := vteLib.ExtractData(conf, false, a.exitEvent)
+	append := req.URL.Query().Get("append")
+	procStatus, err := vteLib.ExtractData(conf, append == "1", a.exitEvent)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run liveattrs generator:", err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed:", err), http.StatusNotFound)
 		return
 	}
 	go func() {
