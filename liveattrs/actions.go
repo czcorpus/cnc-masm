@@ -432,12 +432,6 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	// 2) in case of values exceeding max. allowed list size we just accumulate their size directly to ans[attr]
 	// {attr_id: {attr_val: num_positions,...},...}
 	tmpAns := make(map[string]map[string]*qans.ListedValue)
-	shortenVal := func(v string) string {
-		if len(v) > 20 {
-			return v[:20] + "..." // TODO !!
-		}
-		return v
-	}
 	bibID := qbuilder.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
 
 	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
