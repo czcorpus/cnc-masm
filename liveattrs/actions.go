@@ -394,7 +394,6 @@ func (a *Actions) getAttrValues(
 		}
 		qry.Attrs[qry.AutocompleteAttr] = fmt.Sprintf("%%%s%%", acVals[0])
 	}
-	fmt.Println("MODIFIED QRY: ", qry)
 	// also make sure that range attributes are expanded to full lists
 	for attr := range qry.Attrs {
 		if qry.Attrs.AttrIsRange(attr) {

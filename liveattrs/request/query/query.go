@@ -68,7 +68,6 @@ func (q Attrs) GetListingOf(attr string) ([]string, error) {
 
 // Payload represents a query arguments as required by an HTTP API endpoint
 type Payload struct {
-	Corpname         string   `json:"corpname"`
 	Aligned          []string `json:"aligned"`
 	Attrs            Attrs    `json:"attrs"`
 	AutocompleteAttr string   `json:"autocompleteAttr"`
