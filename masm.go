@@ -142,6 +142,7 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf)
 	router.HandleFunc("/liveAttributes/{corpusId}/search", liveattrsActions.Query)
 	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.Query)
+	router.HandleFunc("/liveAttributes/{corpusId}/selection-subc-size", liveattrsActions.GetAdhocSubcSize)
 
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)

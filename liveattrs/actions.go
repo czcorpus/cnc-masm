@@ -30,9 +30,11 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
 	"masm/v3/jobs"
-	"masm/v3/liveattrs/qans"
-	"masm/v3/liveattrs/qbuilder"
-	"masm/v3/liveattrs/query"
+	"masm/v3/liveattrs/db"
+	"masm/v3/liveattrs/db/qbuilder"
+	"masm/v3/liveattrs/request/equery"
+	"masm/v3/liveattrs/request/query"
+	"masm/v3/liveattrs/request/response"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -87,10 +89,10 @@ func arrayShowShortened(data []string) string {
 	return strings.Join(ans, ", ")
 }
 
-func groupBibItems(data *qans.QueryAns, bibLabel string) {
-	grouping := make(map[string]*qans.ListedValue)
+func groupBibItems(data *response.QueryAns, bibLabel string) {
+	grouping := make(map[string]*response.ListedValue)
 	entry := data.AttrValues[bibLabel]
-	tEntry, ok := entry.([]*qans.ListedValue)
+	tEntry, ok := entry.([]*response.ListedValue)
 	if !ok {
 		return
 	}
@@ -107,9 +109,9 @@ func groupBibItems(data *qans.QueryAns, bibLabel string) {
 			grouping[item.Label].ID = "@" + grouping[item.Label].Label
 		}
 	}
-	data.AttrValues[bibLabel] = make([]*qans.ListedValue, 0, len(grouping))
+	data.AttrValues[bibLabel] = make([]*response.ListedValue, 0, len(grouping))
 	for _, v := range grouping {
-		entry, ok := (data.AttrValues[bibLabel]).([]*qans.ListedValue)
+		entry, ok := (data.AttrValues[bibLabel]).([]*response.ListedValue)
 		if !ok {
 			continue
 		}
@@ -373,16 +375,17 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	corpusID := vars["corpusId"]
 	autocompleteAttr := req.URL.Query().Get("autocomplete_attr")
 
-	var qry query.Query
+	var qry query.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		return
 	}
 	laConf, err := a.laConfCache.Get(corpusID) // set(self._get_subcorp_attrs(corpus))
 	if err != nil {
 		api.WriteJSONErrorResponse(
 			w,
-			api.NewActionError(fmt.Sprintf("corpus %s not supported by liveattrs", corpusID)),
+			api.NewActionError(fmt.Sprintf("corpus %s not supported by masm-liveattrs", corpusID)),
 			http.StatusNotFound,
 		)
 	}
@@ -392,20 +395,20 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 	}
-	bibLabel := qbuilder.ImportKey(corpInfo.BibLabelAttr)
+	bibLabel := db.ImportKey(corpInfo.BibLabelAttr)
 	if bibLabel != "" {
 		srchAttrs.Add(bibLabel)
 	}
 	// if in autocomplete mode then always expand list of the target column
 	if autocompleteAttr != "" {
-		a := qbuilder.ImportKey(autocompleteAttr)
+		a := db.ImportKey(autocompleteAttr)
 		srchAttrs.Add(a)
 		expandAttrs.Add(a)
 	}
 	// also make sure that range attributes are expanded to full lists
 	for attr := range qry.Attrs {
 		if qry.Attrs.AttrIsRange(attr) {
-			expandAttrs.Add(qbuilder.ImportKey(attr))
+			expandAttrs.Add(db.ImportKey(attr))
 		}
 	}
 	qBuilder := &qbuilder.Builder{
@@ -421,30 +424,32 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		Builder: qBuilder,
 	}
 
-	ans := qans.QueryAns{
+	ans := response.QueryAns{
 		Poscount:   0,
 		AttrValues: make(map[string]any),
 	}
 	for _, sattr := range qBuilder.SearchAttrs {
-		ans.AttrValues[sattr] = make([]*qans.ListedValue, 0, 100)
+		ans.AttrValues[sattr] = make([]*response.ListedValue, 0, 100)
 	}
-	// 1) values collected one by one are collected in tmp_ans and then moved to 'ans' with some exporting tweaks
-	// 2) in case of values exceeding max. allowed list size we just accumulate their size directly to ans[attr]
+	// 1) values collected one by one are collected in tmp_ans and then moved to 'ans'
+	//    with some exporting tweaks
+	// 2) in case of values exceeding max. allowed list size we just accumulate their size
+	//    directly to ans[attr]
 	// {attr_id: {attr_val: num_positions,...},...}
-	tmpAns := make(map[string]map[string]*qans.ListedValue)
+	tmpAns := make(map[string]map[string]*response.ListedValue)
 	shortenVal := func(v string) string {
 		if len(v) > 20 {
 			return v[:20] + "..." // TODO !!
 		}
 		return v
 	}
-	bibID := qbuilder.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
+	bibID := db.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
 
 	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
 		for dbKey, dbVal := range row.Attrs {
-			colKey := qbuilder.ExportKey(dbKey)
+			colKey := db.ExportKey(dbKey)
 			switch tColVal := ans.AttrValues[colKey].(type) {
-			case []*qans.ListedValue:
+			case []*response.ListedValue:
 				var valIdent string
 				if colKey == bibLabel {
 					valIdent = row.Attrs[bibID]
@@ -452,7 +457,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 				} else {
 					valIdent = row.Attrs[dbKey]
 				}
-				attrVal := qans.ListedValue{
+				attrVal := response.ListedValue{
 					ID:         valIdent,
 					ShortLabel: shortenVal(dbVal),
 					Label:      dbVal,
@@ -460,7 +465,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 				}
 				_, ok := tmpAns[colKey]
 				if !ok {
-					tmpAns[colKey] = make(map[string]*qans.ListedValue)
+					tmpAns[colKey] = make(map[string]*response.ListedValue)
 				}
 				currAttrVal, ok := tmpAns[colKey][attrVal.ID]
 				if ok {
@@ -492,7 +497,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	if corpInfo.BibGroupDuplicates > 0 {
 		groupBibItems(&ans, bibLabel)
 	}
-	qans.ExportAttrValues(
+	response.ExportAttrValues(
 		ans,
 		qBuilder.AlignedCorpora,
 		expandAttrs.ToOrderedSlice(),
@@ -500,6 +505,25 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		dfltMaxAttrListSize,
 	)
 	api.WriteJSONResponse(w, &ans)
+}
+
+func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	var qry equery.Payload
+	err := json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	corpora := append([]string{corpusID}, qry.Aligned...)
+	size, err := db.GetSubcSize(a.laDB, corpora, qry.Attrs)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, response.GetSubcSize{Total: size})
 }
 
 // NewActions is the default factory for Actions

@@ -20,7 +20,8 @@ package qbuilder
 
 import (
 	"fmt"
-	"masm/v3/liveattrs/query"
+	"masm/v3/liveattrs/db"
+	"masm/v3/liveattrs/request/query"
 	"strings"
 )
 
@@ -32,7 +33,7 @@ func cmpOperator(val string) string {
 }
 
 type AttrArgs struct {
-	data                query.QueryAttrs
+	data                query.Attrs
 	bibID               string
 	bibLabel            string
 	autocompleteAttr    string
@@ -54,7 +55,7 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 	where := make([]string, 0, 20)
 	sqlValues := make([]string, 0, 20)
 	for dkey, values := range args.data {
-		key := ImportKey(dkey)
+		key := db.ImportKey(dkey)
 		if args.autocompleteAttr == args.bibLabel && key == args.bibID {
 			continue
 		}
