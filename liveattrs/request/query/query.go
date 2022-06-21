@@ -20,9 +20,9 @@ package query
 
 import "fmt"
 
-type QueryAttrs map[string]any
+type Attrs map[string]any
 
-func (q QueryAttrs) AttrIsRange(attr string) bool {
+func (q Attrs) AttrIsRange(attr string) bool {
 	v, ok := q[attr]
 	if !ok {
 		return false
@@ -31,7 +31,7 @@ func (q QueryAttrs) AttrIsRange(attr string) bool {
 	return ok && tv["from"] != "" && tv["to"] != ""
 }
 
-func (q QueryAttrs) GetAttrVals(attr string) ([]string, error) {
+func (q Attrs) GetAttrVals(attr string) ([]string, error) {
 	v, ok := q[attr]
 	if !ok {
 		return []string{}, nil
@@ -43,8 +43,8 @@ func (q QueryAttrs) GetAttrVals(attr string) ([]string, error) {
 	return tv[attr], nil
 }
 
-type Query struct {
-	Corpname string     `json:"corpname"`
-	Aligned  []string   `json:"aligned"`
-	Attrs    QueryAttrs `json:"attrs"`
+type Payload struct {
+	Corpname string   `json:"corpname"`
+	Aligned  []string `json:"aligned"`
+	Attrs    Attrs    `json:"attrs"`
 }

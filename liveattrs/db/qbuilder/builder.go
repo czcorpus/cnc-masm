@@ -23,21 +23,14 @@ import (
 	"fmt"
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
-	"masm/v3/liveattrs/query"
+	"masm/v3/liveattrs/db"
+	"masm/v3/liveattrs/request/query"
 	"strings"
 )
 
-func ImportKey(k string) string {
-	return strings.Replace(k, ".", "_", 1)
-}
-
-func ExportKey(k string) string {
-	return strings.Replace(k, "_", ".", 1)
-}
-
 type Builder struct {
 	CorpusInfo          *corpus.DBInfo
-	AttrMap             query.QueryAttrs
+	AttrMap             query.Attrs
 	SearchAttrs         []string
 	AlignedCorpora      []string
 	AutocompleteAttr    string
@@ -47,14 +40,14 @@ type Builder struct {
 func (b *Builder) attrToSQL(values []string, prefix string) []string {
 	ans := make([]string, len(values))
 	for i, v := range values {
-		ans[i] = prefix + "." + ImportKey(v)
+		ans[i] = prefix + "." + db.ImportKey(v)
 	}
 	return ans
 }
 
 func (b *Builder) CreateSQL() QueryComponents {
-	bibID := ImportKey(b.CorpusInfo.BibIDAttr)
-	bibLabel := ImportKey(b.CorpusInfo.BibLabelAttr)
+	bibID := db.ImportKey(b.CorpusInfo.BibIDAttr)
+	bibLabel := db.ImportKey(b.CorpusInfo.BibLabelAttr)
 	attrItems := AttrArgs{
 		data:                b.AttrMap,
 		bibID:               bibID,
