@@ -143,12 +143,15 @@ func (di *DataIterator) Iterate(fn func(row ResultRow) error) error {
 		if err := rows.Scan(pcols...); err != nil {
 			return err
 		}
-		for i, colname := range colnames[1:] {
+		for i, colname := range colnames[1 : len(colnames)-1] {
 			if ansAttrs[i].Valid {
 				ansRow.Attrs[colname] = ansAttrs[i].String
 			}
 		}
-		fn(ansRow)
+		err = fn(ansRow)
+		if err != nil {
+			return err
+		}
 
 	}
 	return nil

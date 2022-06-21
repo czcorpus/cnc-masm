@@ -38,6 +38,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
@@ -433,7 +434,6 @@ func (a *Actions) getAttrValues(
 		return v
 	}
 	bibID := db.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
-
 	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
 		for dbKey, dbVal := range row.Attrs {
 			colKey := db.ExportKey(dbKey)
@@ -451,7 +451,6 @@ func (a *Actions) getAttrValues(
 					ShortLabel: shortenVal(dbVal),
 					Label:      dbVal,
 					Grouping:   1,
-					Count:      row.Poscount,
 				}
 				_, ok := tmpAns[colKey]
 				if !ok {
@@ -462,12 +461,16 @@ func (a *Actions) getAttrValues(
 					currAttrVal.Count += row.Poscount
 
 				} else {
+					attrVal.Count = row.Poscount
 					tmpAns[colKey][attrVal.ID] = &attrVal
 				}
 			case int:
 				ans.AttrValues[colKey] = tColVal + row.Poscount
 			default:
-				return fmt.Errorf("invalid attr value type for data iterator")
+				return fmt.Errorf(
+					"invalid value type for attr %s for data iterator: %s",
+					colKey, reflect.TypeOf(ans.AttrValues[colKey]),
+				)
 			}
 		}
 		return nil
