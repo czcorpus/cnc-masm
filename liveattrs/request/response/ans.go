@@ -44,7 +44,7 @@ type QueryAns struct {
 }
 
 func (qa *QueryAns) MarshalJSON() ([]byte, error) {
-	expAllAttrValues := make(map[string][]any)
+	expAllAttrValues := make(map[string]any)
 	for k, v := range qa.AttrValues {
 		var attrValues any
 		tv, ok := v.([]*ListedValue)
@@ -57,8 +57,8 @@ func (qa *QueryAns) MarshalJSON() ([]byte, error) {
 						item.ShortLabel,
 						item.ID,
 						item.Label,
-						item.Count,
 						item.Grouping,
+						item.Count,
 					},
 				)
 			}
@@ -67,13 +67,13 @@ func (qa *QueryAns) MarshalJSON() ([]byte, error) {
 		} else {
 			attrValues = v
 		}
-		expAllAttrValues[k] = append(expAllAttrValues[k], attrValues)
+		expAllAttrValues[k] = attrValues
 
 	}
 	return json.Marshal(&struct {
-		Poscount       int              `json:"poscount"`
-		AttrValues     map[string][]any `json:"attr_values"`
-		AlignedCorpora []string         `json:"aligned"`
+		Poscount       int            `json:"poscount"`
+		AttrValues     map[string]any `json:"attr_values"`
+		AlignedCorpora []string       `json:"aligned"`
 	}{
 		Poscount:       qa.Poscount,
 		AttrValues:     expAllAttrValues,

@@ -451,6 +451,7 @@ func (a *Actions) getAttrValues(
 					ShortLabel: shortenVal(dbVal),
 					Label:      dbVal,
 					Grouping:   1,
+					Count:      row.Poscount,
 				}
 				_, ok := tmpAns[colKey]
 				if !ok {
