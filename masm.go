@@ -140,9 +140,10 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
 	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf)
-	router.HandleFunc("/liveAttributes/{corpusId}/search", liveattrsActions.Query)
-	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.Query)
-	router.HandleFunc("/liveAttributes/{corpusId}/selection-subc-size", liveattrsActions.GetAdhocSubcSize)
+	router.HandleFunc("/liveAttributes/{corpusId}/search", liveattrsActions.Query).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.Query).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/selection-subc-size", liveattrsActions.GetAdhocSubcSize).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/attr-val-autocomplete", liveattrsActions.AttrValAutocomplete).Methods(http.MethodPost)
 
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)
