@@ -370,41 +370,31 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
-	autocompleteAttr := req.URL.Query().Get("autocomplete_attr")
+func (a *Actions) getAttrValues(
+	corpusInfo *corpus.DBInfo, qry query.Payload) (*response.QueryAns, error) {
 
-	var qry query.Payload
-	err := json.NewDecoder(req.Body).Decode(&qry)
+	laConf, err := a.laConfCache.Get(corpusInfo.Name) // set(self._get_subcorp_attrs(corpus))
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
-		return
-	}
-	laConf, err := a.laConfCache.Get(corpusID) // set(self._get_subcorp_attrs(corpus))
-	if err != nil {
-		api.WriteJSONErrorResponse(
-			w,
-			api.NewActionError(fmt.Sprintf("corpus %s not supported by masm-liveattrs", corpusID)),
-			http.StatusNotFound,
-		)
+		return nil, err
 	}
 	srchAttrs := collections.NewSet(cnf.GetSubcorpAttrs(laConf)...)
 	expandAttrs := collections.NewSet[string]()
-	corpInfo, err := a.cncDB.LoadInfo(corpusID)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-	}
-	bibLabel := db.ImportKey(corpInfo.BibLabelAttr)
+	bibLabel := db.ImportKey(corpusInfo.BibLabelAttr)
 	if bibLabel != "" {
 		srchAttrs.Add(bibLabel)
 	}
 	// if in autocomplete mode then always expand list of the target column
-	if autocompleteAttr != "" {
-		a := db.ImportKey(autocompleteAttr)
+	if qry.AutocompleteAttr != "" {
+		a := db.ImportKey(qry.AutocompleteAttr)
 		srchAttrs.Add(a)
 		expandAttrs.Add(a)
+		acVals, err := qry.Attrs.GetListingOf(qry.AutocompleteAttr)
+		if err != nil {
+			return nil, err
+		}
+		qry.Attrs[qry.AutocompleteAttr] = fmt.Sprintf("%%%s%%", acVals[0])
 	}
+	fmt.Println("MODIFIED QRY: ", qry)
 	// also make sure that range attributes are expanded to full lists
 	for attr := range qry.Attrs {
 		if qry.Attrs.AttrIsRange(attr) {
@@ -412,11 +402,11 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	qBuilder := &qbuilder.Builder{
-		CorpusInfo:          corpInfo,
+		CorpusInfo:          corpusInfo,
 		AttrMap:             qry.Attrs,
 		SearchAttrs:         srchAttrs.ToOrderedSlice(),
 		AlignedCorpora:      qry.Aligned,
-		AutocompleteAttr:    autocompleteAttr,
+		AutocompleteAttr:    qry.AutocompleteAttr,
 		EmptyValPlaceholder: emptyValuePlaceholder,
 	}
 	dataIterator := qbuilder.DataIterator{
@@ -482,28 +472,46 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		}
 		return nil
 	})
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-	}
-
 	for attr, v := range tmpAns {
 		for _, c := range v {
 			ans.AddListedValue(attr, c)
 		}
 	}
-
 	// now each line contains: (shortened_label, identifier, label, num_grouped_items, num_positions)
 	// where num_grouped_items is initialized to 1
-	if corpInfo.BibGroupDuplicates > 0 {
+	if corpusInfo.BibGroupDuplicates > 0 {
 		groupBibItems(&ans, bibLabel)
 	}
 	response.ExportAttrValues(
 		ans,
 		qBuilder.AlignedCorpora,
 		expandAttrs.ToOrderedSlice(),
-		corpInfo.Locale,
+		corpusInfo.Locale,
 		dfltMaxAttrListSize,
 	)
+	return &ans, nil
+}
+
+func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	var qry query.Payload
+	err := json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		return
+	}
+	corpInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	ans, err := a.getAttrValues(corpInfo, qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
 	api.WriteJSONResponse(w, &ans)
 }
 
@@ -524,6 +532,29 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	api.WriteJSONResponse(w, response.GetSubcSize{Total: size})
+}
+
+func (a *Actions) AttrValAutocomplete(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	var qry query.Payload
+	err := json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		return
+	}
+	corpInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	ans, err := a.getAttrValues(corpInfo, qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, &ans)
 }
 
 // NewActions is the default factory for Actions
