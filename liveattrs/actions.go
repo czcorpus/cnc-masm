@@ -52,6 +52,7 @@ const (
 	jobType               = "liveattrs"
 	emptyValuePlaceholder = "?"
 	dfltMaxAttrListSize   = 50
+	shortLabelMaxLength   = 30
 )
 
 type CreateLiveAttrsReqBody struct {
@@ -427,12 +428,6 @@ func (a *Actions) getAttrValues(
 	//    directly to ans[attr]
 	// {attr_id: {attr_val: num_positions,...},...}
 	tmpAns := make(map[string]map[string]*response.ListedValue)
-	shortenVal := func(v string) string {
-		if len(v) > 20 {
-			return v[:20] + "..." // TODO !!
-		}
-		return v
-	}
 	bibID := db.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
 	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
 		for dbKey, dbVal := range row.Attrs {
@@ -448,7 +443,7 @@ func (a *Actions) getAttrValues(
 				}
 				attrVal := response.ListedValue{
 					ID:         valIdent,
-					ShortLabel: shortenVal(dbVal),
+					ShortLabel: shortenVal(dbVal, shortLabelMaxLength),
 					Label:      dbVal,
 					Grouping:   1,
 				}

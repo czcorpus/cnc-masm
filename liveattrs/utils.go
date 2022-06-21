@@ -1,4 +1,5 @@
 // Copyright 2020 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2020 Martin Zimandl <martin.zimandl@gmail.com>
 // Copyright 2020 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of CNC-MASM.
@@ -17,3 +18,24 @@
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
 package liveattrs
+
+import "strings"
+
+func shortenVal(v string, maxLength int) string {
+	if len(v) <= maxLength {
+		return v
+	}
+
+	words := strings.Split(v, " ")
+	length := 0
+	for i, word := range words {
+		length += len(word)
+		if length > maxLength {
+			if i == 0 {
+				return word[:maxLength] + "..."
+			}
+			return strings.Join(words[:i], " ") + "..."
+		}
+	}
+	return v
+}
