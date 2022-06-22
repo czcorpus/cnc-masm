@@ -141,7 +141,7 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
 	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf)
 	router.HandleFunc("/liveAttributes/{corpusId}/search", liveattrsActions.Query).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.Query).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.FillAttrs).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/selection-subc-size", liveattrsActions.GetAdhocSubcSize).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/attr-val-autocomplete", liveattrsActions.AttrValAutocomplete).Methods(http.MethodPost)
 
