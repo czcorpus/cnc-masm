@@ -16,42 +16,10 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package db
+package fillattrs
 
-import (
-	"errors"
-	"fmt"
-	"strings"
-)
-
-var ErrorEmptyResult = errors.New("no result")
-
-type StructAttr struct {
-	Struct string
-	Attr   string
-}
-
-func (sattr StructAttr) Values() [2]string {
-	return [2]string{sattr.Struct, sattr.Attr}
-}
-
-func (sattr StructAttr) Key() string {
-	return fmt.Sprintf("%s.%s", sattr.Struct, sattr.Attr)
-}
-
-// --
-
-func ImportStructAttr(v string) StructAttr {
-	tmp := strings.Split(v, ".")
-	return StructAttr{Struct: tmp[0], Attr: tmp[1]}
-}
-
-// ---
-
-func ImportKey(k string) string {
-	return strings.Replace(k, ".", "_", 1)
-}
-
-func ExportKey(k string) string {
-	return strings.Replace(k, "_", ".", 1)
+type Payload struct {
+	Search string   `json:"search"`
+	Values []string `json:"values"`
+	Fill   []string `json:"fill"`
 }

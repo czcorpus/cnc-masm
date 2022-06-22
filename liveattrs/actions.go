@@ -33,6 +33,7 @@ import (
 	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/db/qbuilder"
 	"masm/v3/liveattrs/request/equery"
+	"masm/v3/liveattrs/request/fillattrs"
 	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/request/response"
 	"net/http"
@@ -507,6 +508,28 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	}
 	ans, err := a.getAttrValues(corpInfo, qry)
 	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, &ans)
+}
+
+func (a *Actions) FillAttrs(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	var qry fillattrs.Payload
+	err := json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	ans, err := db.FillAttrs(a.laDB, corpusID, qry)
+	if err == db.ErrorEmptyResult {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		return
+
+	} else if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
