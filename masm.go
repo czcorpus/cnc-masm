@@ -144,6 +144,8 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/fill-attrs", liveattrsActions.FillAttrs).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/selection-subc-size", liveattrsActions.GetAdhocSubcSize).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/attr-val-autocomplete", liveattrsActions.AttrValAutocomplete).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/get-bibliography", liveattrsActions.GetBibliography).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/find-bib-titles", liveattrsActions.FindBibTitles).Methods(http.MethodPost)
 
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)

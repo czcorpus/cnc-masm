@@ -32,6 +32,7 @@ import (
 	"masm/v3/jobs"
 	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/db/qbuilder"
+	"masm/v3/liveattrs/request/biblio"
 	"masm/v3/liveattrs/request/equery"
 	"masm/v3/liveattrs/request/fillattrs"
 	"masm/v3/liveattrs/request/query"
@@ -553,6 +554,70 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	api.WriteJSONResponse(w, response.GetSubcSize{Total: size})
+}
+
+func (a *Actions) GetBibliography(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	var qry biblio.Payload
+	err := json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		return
+	}
+	corpInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	laConf, err := a.laConfCache.Get(corpInfo.Name)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	ans, err := db.GetBibliography(a.laDB, corpInfo, laConf, qry)
+	if err == db.ErrorEmptyResult {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		return
+
+	} else if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, &ans)
+}
+
+func (a *Actions) FindBibTitles(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	var qry biblio.PayloadList
+	err := json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		return
+	}
+	corpInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	laConf, err := a.laConfCache.Get(corpInfo.Name)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	ans, err := db.FindBibTitles(a.laDB, corpInfo, laConf, qry)
+	if err == db.ErrorEmptyResult {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		return
+
+	} else if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, &ans)
 }
 
 func (a *Actions) AttrValAutocomplete(w http.ResponseWriter, req *http.Request) {
