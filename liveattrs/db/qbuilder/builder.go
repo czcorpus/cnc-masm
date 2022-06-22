@@ -73,14 +73,11 @@ func (b *Builder) CreateSQL() QueryComponents {
 	if bibID != "" && !collections.SliceContains(b.SearchAttrs, bibID) {
 		hiddenAttrs.Add(bibID)
 	}
-	if bibID == "" {
-		hiddenAttrs.Add("id")
-	}
 	selectedAttrs := collections.NewSet(b.SearchAttrs...).Union(*hiddenAttrs)
 	var sqlTemplate string
 	if len(whereSQL) > 0 {
 		sqlTemplate = fmt.Sprintf(
-			"SELECT DISTINCT poscount, %s FROM %s_item AS t1 %s WHERE %s",
+			"SELECT DISTINCT poscount, id, %s FROM %s_item AS t1 %s WHERE %s",
 			strings.Join(b.attrToSQL(selectedAttrs.ToOrderedSlice(), "t1"), ", "),
 			b.CorpusInfo.Name,
 			strings.Join(joinSQL, " "),
@@ -115,7 +112,6 @@ type DataIterator struct {
 }
 
 func (di *DataIterator) Iterate(fn func(row ResultRow) error) error {
-
 	qc := di.Builder.CreateSQL()
 	args := make([]any, len(qc.whereValues))
 	for i, v := range qc.whereValues {
@@ -132,7 +128,7 @@ func (di *DataIterator) Iterate(fn func(row ResultRow) error) error {
 	for rows.Next() {
 		pcols := make([]any, len(colnames))
 		ansRow := ResultRow{
-			Attrs: make(map[string]string, len(colnames)-1),
+			Attrs: make(map[string]string, len(colnames)-2),
 		}
 		ansAttrs := make([]sql.NullString, len(colnames)-1)
 		pcols[0] = &ansRow.Poscount
@@ -143,9 +139,10 @@ func (di *DataIterator) Iterate(fn func(row ResultRow) error) error {
 		if err := rows.Scan(pcols...); err != nil {
 			return err
 		}
-		for i, colname := range colnames[1 : len(colnames)-1] {
-			if ansAttrs[i].Valid {
-				ansRow.Attrs[colname] = ansAttrs[i].String
+		for i, colname := range colnames[2:] {
+			// we ignore 1 st item which is db ID
+			if ansAttrs[i+1].Valid {
+				ansRow.Attrs[colname] = ansAttrs[i+1].String
 			}
 		}
 		err = fn(ansRow)
