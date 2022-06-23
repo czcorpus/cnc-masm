@@ -97,7 +97,7 @@ func exportKey(k string) string {
 }
 
 func ExportAttrValues(
-	data QueryAns,
+	data *QueryAns,
 	alignedCorpora []string,
 	expandAttrs []string,
 	collatorLocale string,
@@ -105,8 +105,8 @@ func ExportAttrValues(
 ) {
 	values := make(map[string]any)
 	for k, v := range data.AttrValues {
-		tVal, ok := v.([]*ListedValue)
-		if ok {
+		switch tVal := v.(type) {
+		case []*ListedValue:
 			if maxAttrListSize == 0 || len(tVal) < maxAttrListSize ||
 				collections.SliceContains(expandAttrs, k) {
 				sort.Slice(
@@ -117,11 +117,12 @@ func ExportAttrValues(
 				)
 				values[exportKey(k)] = tVal
 
-			} else if tVal, ok := v.(int); ok {
-				values[exportKey(k)] = SummarizedValue{Length: tVal}
+			} else {
+				values[exportKey(k)] = SummarizedValue{Length: len(tVal)}
 			}
-
-		} else {
+		case int:
+			values[exportKey(k)] = SummarizedValue{Length: tVal}
+		default:
 			values[exportKey(k)] = v
 		}
 	}

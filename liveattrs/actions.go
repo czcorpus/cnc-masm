@@ -54,7 +54,7 @@ import (
 const (
 	jobType               = "liveattrs"
 	emptyValuePlaceholder = "?"
-	dfltMaxAttrListSize   = 50
+	dfltMaxAttrListSize   = 30
 	shortLabelMaxLength   = 30
 )
 
@@ -485,7 +485,7 @@ func (a *Actions) getAttrValues(
 		groupBibItems(&ans, bibLabel)
 	}
 	response.ExportAttrValues(
-		ans,
+		&ans,
 		qBuilder.AlignedCorpora,
 		expandAttrs.ToOrderedSlice(),
 		corpusInfo.Locale,
