@@ -657,6 +657,17 @@ func (a *Actions) AttrValAutocomplete(w http.ResponseWriter, req *http.Request) 
 	api.WriteJSONResponse(w, &ans)
 }
 
+func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	ans, err := db.LoadUsage(a.laDB, corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, &ans)
+}
+
 // NewActions is the default factory for Actions
 func NewActions(
 	conf *cnf.Conf,

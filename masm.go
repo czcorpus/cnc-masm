@@ -146,6 +146,7 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/attrValAutocomplete", liveattrsActions.AttrValAutocomplete).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/getBibliography", liveattrsActions.GetBibliography).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/findBibTitles", liveattrsActions.FindBibTitles).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/stats", liveattrsActions.Stats)
 
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)
