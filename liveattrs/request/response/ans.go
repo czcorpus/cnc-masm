@@ -115,15 +115,15 @@ func ExportAttrValues(
 						return strings.Compare(tVal[i].Label, tVal[j].Label) == -1
 					},
 				)
-				values[exportKey(k)] = tVal
+				values[k] = tVal
 
 			} else {
-				values[exportKey(k)] = SummarizedValue{Length: len(tVal)}
+				values[k] = SummarizedValue{Length: len(tVal)}
 			}
 		case int:
-			values[exportKey(k)] = SummarizedValue{Length: tVal}
+			values[k] = SummarizedValue{Length: tVal}
 		default:
-			values[exportKey(k)] = v
+			values[k] = v
 		}
 	}
 	data.AttrValues = values
