@@ -54,7 +54,7 @@ import (
 const (
 	jobType               = "liveattrs"
 	emptyValuePlaceholder = "?"
-	dfltMaxAttrListSize   = 50
+	dfltMaxAttrListSize   = 30
 	shortLabelMaxLength   = 30
 )
 
@@ -484,12 +484,16 @@ func (a *Actions) getAttrValues(
 	if corpusInfo.BibGroupDuplicates > 0 {
 		groupBibItems(&ans, bibLabel)
 	}
+	maxAttrListSize := qry.MaxAttrListSize
+	if maxAttrListSize == 0 {
+		maxAttrListSize = dfltMaxAttrListSize
+	}
 	response.ExportAttrValues(
-		ans,
+		&ans,
 		qBuilder.AlignedCorpora,
 		expandAttrs.ToOrderedSlice(),
 		corpusInfo.Locale,
-		dfltMaxAttrListSize,
+		maxAttrListSize,
 	)
 	return &ans, nil
 }

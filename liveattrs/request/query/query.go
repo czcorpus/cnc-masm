@@ -71,4 +71,5 @@ type Payload struct {
 	Aligned          []string `json:"aligned"`
 	Attrs            Attrs    `json:"attrs"`
 	AutocompleteAttr string   `json:"autocompleteAttr"`
+	MaxAttrListSize  int      `json:"maxAttrListSize"`
 }
