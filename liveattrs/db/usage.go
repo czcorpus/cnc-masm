@@ -30,9 +30,11 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"masm/v3/liveattrs/request/query"
 	"os"
+	"strings"
 )
 
 type RequestData struct {
@@ -105,5 +107,79 @@ func LoadUsage(laDB *sql.DB, corpusId string) (map[string]int, error) {
 		}
 		ans[structattrName] = numUsed
 	}
+	return ans, nil
+}
+
+func UpdateIndexes(laDB *sql.DB, corpusId string, maxColumns int) (map[string][]any, error) {
+	// get most used columns
+	rows, err := laDB.Query("SELECT `structattr_name` FROM `usage` WHERE `corpus_id` = ? ORDER BY `num_used` DESC LIMIT ?", corpusId, maxColumns)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	columns := make([]string, 0, maxColumns)
+	for rows.Next() {
+		var structattrName string
+		if err := rows.Scan(&structattrName); err != nil {
+			return nil, err
+		}
+		columns = append(columns, structattrName)
+	}
+
+	// create indexes if necessary with `_autoindex` appendix
+	sqlTemplate := "CREATE INDEX IF NOT EXISTS `%s` ON `%s_item` (`%s`)"
+	usedIndexes := make([]any, len(columns))
+	context, err := laDB.Begin()
+	if err != nil {
+		return nil, err
+	}
+	for i, column := range columns {
+		usedIndexes[i] = fmt.Sprintf("%s_autoindex", column)
+		_, err := context.Query(fmt.Sprintf(sqlTemplate, usedIndexes[i], corpusId, column))
+		if err != nil {
+			return nil, err
+		}
+	}
+	context.Commit()
+
+	// get remaining unused indexes with `_autoindex` appendix
+	valuesPlaceholders := make([]string, len(usedIndexes))
+	for i := 0; i < len(valuesPlaceholders); i++ {
+		valuesPlaceholders[i] = "?"
+	}
+	sqlTemplate = fmt.Sprintf(
+		"SELECT INDEX_NAME FROM information_schema.statistics where TABLE_NAME = ? AND INDEX_NAME LIKE '%%_autoindex' AND INDEX_NAME NOT IN (%s)",
+		strings.Join(valuesPlaceholders, ", "),
+	)
+	values := append([]any{fmt.Sprintf("%s_item", corpusId)}, usedIndexes...)
+	rows, err = laDB.Query(sqlTemplate, values...)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	unusedIndexes := make([]any, 0, 10)
+	for rows.Next() {
+		var indexName string
+		if err := rows.Scan(&indexName); err != nil {
+			return nil, err
+		}
+		unusedIndexes = append(unusedIndexes, indexName)
+	}
+
+	// drop unused indexes
+	sqlTemplate = "DROP INDEX %s ON `%s_item`"
+	context, err = laDB.Begin()
+	if err != nil {
+		return nil, err
+	}
+	for _, index := range unusedIndexes {
+		_, err := context.Query(fmt.Sprintf(sqlTemplate, index, corpusId))
+		if err != nil {
+			return nil, err
+		}
+	}
+	context.Commit()
+
+	ans := make(map[string][]any)
+	ans["usedIndexes"] = usedIndexes
+	ans["removedIndexes"] = unusedIndexes
 	return ans, nil
 }

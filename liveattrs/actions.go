@@ -42,6 +42,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
@@ -661,6 +662,22 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
 	ans, err := db.LoadUsage(a.laDB, corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, &ans)
+}
+
+func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	maxColumns, err := strconv.Atoi(req.URL.Query().Get("maxColumns"))
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	ans, err := db.UpdateIndexes(a.laDB, corpusID, maxColumns)
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
