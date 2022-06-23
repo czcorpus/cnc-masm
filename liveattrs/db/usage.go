@@ -19,7 +19,7 @@
 // This struct tracks column usage in liveattrs search.
 // We use it to optimize db indexes.
 //
-// CREATE TABLE structattr_usage (
+// CREATE TABLE usage (
 //	corpus_id varchar(127) NOT NULL,
 //	structattr_name varchar(127) NOT NULL,
 //	num_used int NOT NULL DEFAULT 1,
@@ -85,4 +85,25 @@ func (sau *StructAttrUsage) save(data RequestData) error {
 func NewStructAttrUsage(laDB *sql.DB) *StructAttrUsage {
 	attrStats := StructAttrUsage{db: laDB, channel: make(chan RequestData)}
 	return &attrStats
+}
+
+func LoadUsage(laDB *sql.DB, corpusId string) (map[string]int, error) {
+	rows, err := laDB.Query("SELECT `structattr_name`, `num_used` FROM `usage` WHERE `corpus_id` = ?", corpusId)
+	ans := make(map[string]int)
+	if err == sql.ErrNoRows {
+		return ans, nil
+
+	} else if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var structattrName string
+		var numUsed int
+		if err := rows.Scan(&structattrName, &numUsed); err != nil {
+			return nil, err
+		}
+		ans[structattrName] = numUsed
+	}
+	return ans, nil
 }

@@ -114,14 +114,12 @@ func FindBibTitles(
 	}
 
 	for rows.Next() {
-		var bibIdVal, bibLabelVal sql.NullString
+		var bibIdVal, bibLabelVal string
 		err = rows.Scan(&bibIdVal, &bibLabelVal)
 		if err != nil {
 			return nil, err
 		}
-		if bibLabelVal.Valid {
-			ans[bibIdVal.String] = bibLabelVal.String
-		}
+		ans[bibIdVal] = bibLabelVal
 	}
 
 	return ans, nil
