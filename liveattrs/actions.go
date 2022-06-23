@@ -484,12 +484,16 @@ func (a *Actions) getAttrValues(
 	if corpusInfo.BibGroupDuplicates > 0 {
 		groupBibItems(&ans, bibLabel)
 	}
+	maxAttrListSize := qry.MaxAttrListSize
+	if maxAttrListSize == 0 {
+		maxAttrListSize = dfltMaxAttrListSize
+	}
 	response.ExportAttrValues(
 		&ans,
 		qBuilder.AlignedCorpora,
 		expandAttrs.ToOrderedSlice(),
 		corpusInfo.Locale,
-		dfltMaxAttrListSize,
+		maxAttrListSize,
 	)
 	return &ans, nil
 }
