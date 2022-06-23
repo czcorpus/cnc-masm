@@ -30,6 +30,7 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
 	"masm/v3/jobs"
+	"masm/v3/liveattrs/cache"
 	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/db/qbuilder"
 	"masm/v3/liveattrs/request/biblio"
@@ -205,6 +206,7 @@ type Actions struct {
 	laConfCache *cnf.LiveAttrsBuildConfLoader
 	laDB        *sql.DB
 	cncDB       *cncdb.CNCMySQLHandler
+	eqCache     *cache.EmptyQueryCache
 }
 
 func (a *Actions) OnExit() {}
@@ -507,11 +509,17 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	ans, err := a.getAttrValues(corpInfo, qry)
+	ans := a.eqCache.Get(corpusID, qry)
+	if ans != nil {
+		api.WriteJSONResponse(w, &ans)
+		return
+	}
+	ans, err = a.getAttrValues(corpInfo, qry)
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
+	a.eqCache.Set(corpusID, qry, ans)
 	api.WriteJSONResponse(w, &ans)
 }
 
@@ -660,7 +668,8 @@ func NewActions(
 			conf.LiveAttrs.ConfDirPath,
 			conf.LiveAttrs.DB,
 		),
-		cncDB: cncDB,
-		laDB:  laDB,
+		cncDB:   cncDB,
+		laDB:    laDB,
+		eqCache: cache.NewEmptyQueryCache(),
 	}
 }
