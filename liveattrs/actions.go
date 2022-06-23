@@ -200,13 +200,14 @@ func createLAConfig(
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
-	exitEvent   <-chan os.Signal
-	conf        *cnf.Conf
-	jobActions  *jobs.Actions
-	laConfCache *cnf.LiveAttrsBuildConfLoader
-	laDB        *sql.DB
-	cncDB       *cncdb.CNCMySQLHandler
-	eqCache     *cache.EmptyQueryCache
+	exitEvent       <-chan os.Signal
+	conf            *cnf.Conf
+	jobActions      *jobs.Actions
+	laConfCache     *cnf.LiveAttrsBuildConfLoader
+	laDB            *sql.DB
+	cncDB           *cncdb.CNCMySQLHandler
+	eqCache         *cache.EmptyQueryCache
+	structAttrStats *db.StructAttrUsage
 }
 
 func (a *Actions) OnExit() {}
@@ -523,6 +524,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
+	go a.structAttrStats.SendData(corpusID, qry)
 	a.eqCache.Set(corpusID, qry, ans)
 	api.WriteJSONResponse(w, &ans)
 }
@@ -664,7 +666,7 @@ func NewActions(
 	laDB *sql.DB,
 	version cnf.VersionInfo,
 ) *Actions {
-	return &Actions{
+	actions := &Actions{
 		exitEvent:  exitEvent,
 		conf:       conf,
 		jobActions: jobActions,
@@ -672,8 +674,11 @@ func NewActions(
 			conf.LiveAttrs.ConfDirPath,
 			conf.LiveAttrs.DB,
 		),
-		cncDB:   cncDB,
-		laDB:    laDB,
-		eqCache: cache.NewEmptyQueryCache(),
+		cncDB:           cncDB,
+		laDB:            laDB,
+		eqCache:         cache.NewEmptyQueryCache(),
+		structAttrStats: db.NewStructAttrUsage(laDB),
 	}
+	go actions.structAttrStats.RunHandler(exitEvent)
+	return actions
 }
