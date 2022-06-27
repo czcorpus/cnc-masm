@@ -30,6 +30,7 @@ package db
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"masm/v3/liveattrs/request/query"
@@ -110,17 +111,48 @@ func LoadUsage(laDB *sql.DB, corpusId string) (map[string]int, error) {
 	return ans, nil
 }
 
-func UpdateIndexes(laDB *sql.DB, corpusId string, maxColumns int) (map[string][]any, error) {
+// --
+
+type updIdxResult struct {
+	UsedIndexes    []string
+	RemovedIndexes []string
+	Error          error
+}
+
+func (res *updIdxResult) MarshalJSON() ([]byte, error) {
+	var errStr string
+	if res.Error != nil {
+		errStr = res.Error.Error()
+	}
+	return json.Marshal(struct {
+		UsedIndexes    []string `json:"usedIndexes"`
+		RemovedIndexes []string `json:"removedIndexes"`
+		Error          string   `json:"error,omitempty"`
+	}{
+		UsedIndexes:    res.UsedIndexes,
+		RemovedIndexes: res.RemovedIndexes,
+		Error:          errStr,
+	})
+}
+
+// --
+
+func UpdateIndexes(laDB *sql.DB, corpusId string, maxColumns int) updIdxResult {
 	// get most used columns
-	rows, err := laDB.Query("SELECT `structattr_name` FROM `usage` WHERE `corpus_id` = ? ORDER BY `num_used` DESC LIMIT ?", corpusId, maxColumns)
+	rows, err := laDB.Query(
+		"SELECT structattr_name "+
+			"FROM `usage` "+
+			"WHERE corpus_id = ? AND num_used > 0 ORDER BY num_used DESC LIMIT ?",
+		corpusId, maxColumns,
+	)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+		return updIdxResult{Error: err}
 	}
 	columns := make([]string, 0, maxColumns)
 	for rows.Next() {
 		var structattrName string
 		if err := rows.Scan(&structattrName); err != nil {
-			return nil, err
+			return updIdxResult{Error: err}
 		}
 		columns = append(columns, structattrName)
 	}
@@ -130,13 +162,13 @@ func UpdateIndexes(laDB *sql.DB, corpusId string, maxColumns int) (map[string][]
 	usedIndexes := make([]any, len(columns))
 	context, err := laDB.Begin()
 	if err != nil {
-		return nil, err
+		return updIdxResult{Error: err}
 	}
 	for i, column := range columns {
 		usedIndexes[i] = fmt.Sprintf("%s_autoindex", column)
 		_, err := context.Query(fmt.Sprintf(sqlTemplate, usedIndexes[i], corpusId, column))
 		if err != nil {
-			return nil, err
+			return updIdxResult{Error: err}
 		}
 	}
 	context.Commit()
@@ -153,13 +185,13 @@ func UpdateIndexes(laDB *sql.DB, corpusId string, maxColumns int) (map[string][]
 	values := append([]any{fmt.Sprintf("%s_item", corpusId)}, usedIndexes...)
 	rows, err = laDB.Query(sqlTemplate, values...)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+		return updIdxResult{Error: err}
 	}
-	unusedIndexes := make([]any, 0, 10)
+	unusedIndexes := make([]string, 0, 10)
 	for rows.Next() {
 		var indexName string
 		if err := rows.Scan(&indexName); err != nil {
-			return nil, err
+			return updIdxResult{Error: err}
 		}
 		unusedIndexes = append(unusedIndexes, indexName)
 	}
@@ -168,18 +200,22 @@ func UpdateIndexes(laDB *sql.DB, corpusId string, maxColumns int) (map[string][]
 	sqlTemplate = "DROP INDEX %s ON `%s_item`"
 	context, err = laDB.Begin()
 	if err != nil {
-		return nil, err
+		return updIdxResult{Error: err}
 	}
 	for _, index := range unusedIndexes {
 		_, err := context.Query(fmt.Sprintf(sqlTemplate, index, corpusId))
 		if err != nil {
-			return nil, err
+			return updIdxResult{Error: err}
 		}
 	}
 	context.Commit()
 
-	ans := make(map[string][]any)
-	ans["usedIndexes"] = usedIndexes
-	ans["removedIndexes"] = unusedIndexes
-	return ans, nil
+	ans := updIdxResult{
+		UsedIndexes:    make([]string, len(usedIndexes)),
+		RemovedIndexes: unusedIndexes,
+	}
+	for i, v := range usedIndexes {
+		ans.UsedIndexes[i] = v.(string)
+	}
+	return ans
 }
