@@ -50,7 +50,11 @@ func (q Attrs) GetListingOf(attr string) ([]string, error) {
 
 	tv, ok := v.([]any)
 	if !ok {
-		return []string{}, fmt.Errorf("attribute %s does not contain value listing", attr)
+		tv, ok := v.(string)
+		if ok {
+			return []string{tv}, nil
+		}
+		return []string{}, fmt.Errorf("attribute %s does not contain value listing or string", attr)
 	}
 	ans := make([]string, len(tv))
 	for i, v := range tv {
