@@ -673,14 +673,21 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	maxColumns, err := strconv.Atoi(req.URL.Query().Get("maxColumns"))
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+	maxColumnsArg := req.URL.Query().Get("maxColumns")
+	if maxColumnsArg == "" {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionError("missing maxColumns argument"), http.StatusBadRequest)
 		return
 	}
-	ans, err := db.UpdateIndexes(a.laDB, corpusID, maxColumns)
+	maxColumns, err := strconv.Atoi(maxColumnsArg)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusUnprocessableEntity)
+		return
+	}
+	ans := db.UpdateIndexes(a.laDB, corpusID, maxColumns)
+	if ans.Error != nil {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(ans.Error), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
