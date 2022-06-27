@@ -436,6 +436,7 @@ func (a *Actions) getAttrValues(
 	tmpAns := make(map[string]map[string]*response.ListedValue)
 	bibID := db.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
 	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
+		ans.Poscount += row.Poscount
 		for dbKey, dbVal := range row.Attrs {
 			colKey := db.ExportKey(dbKey)
 			switch tColVal := ans.AttrValues[colKey].(type) {
