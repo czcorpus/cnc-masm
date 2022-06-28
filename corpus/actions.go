@@ -115,7 +115,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if prevRunning := a.jobActions.GetUnfinishedJob(corpusID, jobTypeSyncCNK); prevRunning != nil {
+	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, jobTypeSyncCNK); ok {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
 		return
 	}

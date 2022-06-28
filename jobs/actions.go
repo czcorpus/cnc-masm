@@ -24,6 +24,7 @@ import (
 	"masm/v3/fsops"
 	"net/http"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"time"
@@ -58,16 +59,11 @@ type Actions struct {
 	conf         *Conf
 	syncJobs     map[string]GeneralJobInfo
 	detachedJobs map[string]GeneralJobInfo
+	jobStop      chan<- string
 
 	// tableUpdate is the only way syncJobs are actually
 	// updated
 	tableUpdate chan TableUpdate
-}
-
-// GetUnfinishedJob returns a first matching unfinished job
-// for the same corpus and job type
-func (a *Actions) GetUnfinishedJob(corpusID, jobType string) GeneralJobInfo {
-	return FindUnfinishedJobOfType(a.syncJobs, corpusID, jobType)
 }
 
 // AddJobInfo add a new job to the job table and provides
@@ -126,15 +122,27 @@ func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// SyncJobInfo gives an information about a specific data sync job
-func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
+// JobInfo gives an information about a specific data sync job
+func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	job := FindJob(a.syncJobs, vars["jobId"])
 	if job != nil {
 		api.WriteJSONResponse(w, job)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Synchronization job not found"), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+	}
+}
+
+func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	job := FindJob(a.syncJobs, vars["jobId"])
+	if job != nil {
+		a.jobStop <- job.GetID()
+		api.WriteJSONResponse(w, job)
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -168,13 +176,34 @@ func (a *Actions) ClearDetachedJob(jobID string) bool {
 	return ok
 }
 
+func (a *Actions) LastUnfinishedJobOfType(corpusID string, jobType string) (GeneralJobInfo, bool) {
+	var tmp GeneralJobInfo
+	for _, v := range a.syncJobs {
+		if v.GetCorpus() == corpusID && v.GetType() == jobType && !v.IsFinished() &&
+			(v == nil || reflect.ValueOf(v).IsNil() || v.GetStartDT().Before(tmp.GetStartDT())) {
+			tmp = v
+		}
+	}
+	return tmp, tmp != nil && !reflect.ValueOf(tmp).IsNil()
+}
+
+func (a *Actions) GetJob(jobID string) (GeneralJobInfo, bool) {
+	v, ok := a.syncJobs[jobID]
+	return v, ok
+}
+
 // NewActions is the default factory
-func NewActions(conf *Conf, exitEvent <-chan os.Signal) *Actions {
+func NewActions(
+	conf *Conf,
+	exitEvent <-chan os.Signal,
+	jobStop chan<- string,
+) *Actions {
 	ans := &Actions{
 		conf:         conf,
 		syncJobs:     make(map[string]GeneralJobInfo),
 		detachedJobs: make(map[string]GeneralJobInfo),
 		tableUpdate:  make(chan TableUpdate),
+		jobStop:      jobStop,
 	}
 	if fsops.IsFile(conf.StatusDataPath) {
 		log.Printf("INFO: found status data in %s - loading...", conf.StatusDataPath)

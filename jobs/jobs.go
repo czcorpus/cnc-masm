@@ -118,17 +118,6 @@ func clearOldJobs(data map[string]GeneralJobInfo) {
 	}
 }
 
-// FindUnfinishedJobOfType searches for a job matching all the passed
-// criteria (corpusID, jobType). If nothing is found, nil is returned.
-func FindUnfinishedJobOfType(data map[string]GeneralJobInfo, corpusID string, jobType string) GeneralJobInfo {
-	for _, v := range data {
-		if v.GetCorpus() == corpusID && v.GetType() == jobType && !v.IsFinished() {
-			return v
-		}
-	}
-	return nil
-}
-
 // FindJob searches a job by providing either full id or its prefix.
 // In case a prefix is used and there is more than one job matching the
 // prefix, nil is returned
