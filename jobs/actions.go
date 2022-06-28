@@ -21,10 +21,10 @@ package jobs
 import (
 	"log"
 	"masm/v3/api"
-	"masm/v3/cnf"
 	"masm/v3/fsops"
 	"net/http"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"time"
@@ -56,24 +56,24 @@ type TableUpdate struct {
 
 // Actions contains async job-related actions
 type Actions struct {
-	conf     *cnf.Conf
-	version  cnf.VersionInfo
-	syncJobs map[string]GeneralJobInfo
+	conf         *Conf
+	syncJobs     map[string]GeneralJobInfo
+	detachedJobs map[string]GeneralJobInfo
+	jobStop      chan<- string
 
 	// tableUpdate is the only way syncJobs are actually
 	// updated
 	tableUpdate chan TableUpdate
 }
 
-// GetUnfinishedJob returns a first matching unfinished job
-// for the same corpus and job type
-func (a *Actions) GetUnfinishedJob(corpusID, jobType string) GeneralJobInfo {
-	return FindUnfinishedJobOfType(a.syncJobs, corpusID, jobType)
-}
-
 // AddJobInfo add a new job to the job table and provides
 // a channel to update its status
 func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
+	_, ok := a.detachedJobs[j.GetID()]
+	if ok {
+		log.Printf("Registering again detached job %s", j.GetID())
+		delete(a.detachedJobs, j.GetID())
+	}
 	a.syncJobs[j.GetID()] = j
 	syncUpdates := make(chan GeneralJobInfo, 10)
 	go func() {
@@ -122,15 +122,27 @@ func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// SyncJobInfo gives an information about a specific data sync job
-func (a *Actions) SyncJobInfo(w http.ResponseWriter, req *http.Request) {
+// JobInfo gives an information about a specific data sync job
+func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	job := FindJob(a.syncJobs, vars["jobId"])
 	if job != nil {
 		api.WriteJSONResponse(w, job)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Synchronization job not found"), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+	}
+}
+
+func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	job := FindJob(a.syncJobs, vars["jobId"])
+	if job != nil {
+		a.jobStop <- job.GetID()
+		api.WriteJSONResponse(w, job)
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -148,13 +160,50 @@ func (a *Actions) OnExit() {
 	}
 }
 
+func (a *Actions) GetDetachedJobs() []GeneralJobInfo {
+	ans := make([]GeneralJobInfo, len(a.detachedJobs))
+	i := 0
+	for _, v := range a.detachedJobs {
+		ans[i] = v
+		i++
+	}
+	return ans
+}
+
+func (a *Actions) ClearDetachedJob(jobID string) bool {
+	_, ok := a.detachedJobs[jobID]
+	delete(a.detachedJobs, jobID)
+	return ok
+}
+
+func (a *Actions) LastUnfinishedJobOfType(corpusID string, jobType string) (GeneralJobInfo, bool) {
+	var tmp GeneralJobInfo
+	for _, v := range a.syncJobs {
+		if v.GetCorpus() == corpusID && v.GetType() == jobType && !v.IsFinished() &&
+			(v == nil || reflect.ValueOf(v).IsNil() || v.GetStartDT().Before(tmp.GetStartDT())) {
+			tmp = v
+		}
+	}
+	return tmp, tmp != nil && !reflect.ValueOf(tmp).IsNil()
+}
+
+func (a *Actions) GetJob(jobID string) (GeneralJobInfo, bool) {
+	v, ok := a.syncJobs[jobID]
+	return v, ok
+}
+
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, exitEvent <-chan os.Signal, version cnf.VersionInfo) *Actions {
+func NewActions(
+	conf *Conf,
+	exitEvent <-chan os.Signal,
+	jobStop chan<- string,
+) *Actions {
 	ans := &Actions{
-		conf:        conf,
-		version:     version,
-		syncJobs:    make(map[string]GeneralJobInfo),
-		tableUpdate: make(chan TableUpdate),
+		conf:         conf,
+		syncJobs:     make(map[string]GeneralJobInfo),
+		detachedJobs: make(map[string]GeneralJobInfo),
+		tableUpdate:  make(chan TableUpdate),
+		jobStop:      jobStop,
 	}
 	if fsops.IsFile(conf.StatusDataPath) {
 		log.Printf("INFO: found status data in %s - loading...", conf.StatusDataPath)
@@ -162,10 +211,10 @@ func NewActions(conf *cnf.Conf, exitEvent <-chan os.Signal, version cnf.VersionI
 		if err != nil {
 			log.Print("ERROR: failed to load status data - ", err)
 		}
-		log.Printf("INFO: loaded %d job(s)", len(jobs))
 		for _, job := range jobs {
 			if job != nil {
-				ans.syncJobs[job.GetID()] = job
+				ans.detachedJobs[job.GetID()] = job
+				log.Printf("INFO: added detached job %s", job.GetID())
 			}
 		}
 	}

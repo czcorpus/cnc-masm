@@ -61,7 +61,19 @@ func WriteJSONResponse(w http.ResponseWriter, value interface{}) {
 	jsonAns, err := json.Marshal(value)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Write(jsonAns)
+}
+
+// WriteJSONResponseWithStatus writes 'value' to an HTTP response encoded as JSON
+func WriteJSONResponseWithStatus(w http.ResponseWriter, status int, value interface{}) {
+	jsonAns, err := json.Marshal(value)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(status)
 	w.Write(jsonAns)
 }
 

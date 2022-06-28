@@ -19,6 +19,7 @@
 package corpus
 
 import (
+	"fmt"
 	"log"
 	"masm/v3/api"
 	"masm/v3/cnf"
@@ -72,6 +73,28 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (a *Actions) RestartJob(jinfo *JobInfo) error {
+	if jinfo.NumRestarts >= a.conf.Jobs.MaxNumRestarts {
+		return fmt.Errorf("cannot restart job %s - max. num. of restarts reached", jinfo.ID)
+	}
+	jinfo.Start = jobs.CurrentDatetime()
+	jinfo.NumRestarts++
+	jinfo.Update = jobs.CurrentDatetime()
+	updateJobChan := a.jobActions.AddJobInfo(jinfo)
+	// now let's start with the actual synchronization
+	go func(jobRec JobInfo) {
+		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, jobRec.CorpusID)
+		if err != nil {
+			jobRec.Error = jobs.NewJSONError(err)
+		}
+		jobRec.Result = &resp
+		jobRec.SetFinished()
+		updateJobChan <- &jobRec
+	}(*jinfo)
+	log.Printf("Restarted corpus job %s", jinfo.ID)
+	return nil
+}
+
 // SynchronizeCorpusData synchronizes data between CNC corpora data and KonText data
 // for a specified corpus (the corpus must be explicitly allowed in the configuration).
 func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request) {
@@ -92,7 +115,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	if prevRunning := a.jobActions.GetUnfinishedJob(corpusID, jobTypeSyncCNK); prevRunning != nil {
+	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, jobTypeSyncCNK); ok {
 		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
 		return
 	}

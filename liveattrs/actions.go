@@ -201,7 +201,14 @@ func createLAConfig(
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
-	exitEvent       <-chan os.Signal
+	exitEvent <-chan os.Signal
+
+	// vteExitEvent allows us to send "fake" exit signals to
+	// the vte library even when masm is not exiting
+	vteExitEvents map[string]chan os.Signal
+
+	jobStopChannel <-chan string
+
 	conf            *cnf.Conf
 	jobActions      *jobs.Actions
 	laConfCache     *cnf.LiveAttrsBuildConfLoader
@@ -209,9 +216,12 @@ type Actions struct {
 	cncDB           *cncdb.CNCMySQLHandler
 	eqCache         *cache.EmptyQueryCache
 	structAttrStats *db.StructAttrUsage
+	usageData       chan<- db.RequestData
 }
 
-func (a *Actions) OnExit() {}
+func (a *Actions) OnExit() {
+	close(a.usageData)
+}
 
 func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
@@ -302,36 +312,56 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if prevRunning := a.jobActions.GetUnfinishedJob(corpusID, jobType); prevRunning != nil {
+	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, jobType); ok {
 		api.WriteJSONErrorResponse(
 			w,
-			api.NewActionError("LiveAttrs generator failed - the previous job '%s' have not finished yet", prevRunning.GetID()),
+			api.NewActionError(
+				"LiveAttrs generator failed - the previous job '%s' have not finished yet",
+				prevRunning.GetID(),
+			),
 			http.StatusConflict,
 		)
 		return
 	}
 
-	status := &JobInfo{
+	append := req.URL.Query().Get("append")
+	status := &LiveAttrsJobInfo{
 		ID:       jobID.String(),
 		CorpusID: corpusID,
 		Start:    jobs.CurrentDatetime(),
+		Args: jobInfoArgs{
+			VteConf: *conf,
+			Append:  append == "1",
+		},
 	}
-
-	append := req.URL.Query().Get("append")
-	procStatus, err := vteLib.ExtractData(conf, append == "1", a.exitEvent)
+	err = a.createDataFromJobStatus(status)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed:", err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
+	}
+	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status)
+}
+
+func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
+	a.vteExitEvents[status.ID] = make(chan os.Signal)
+	procStatus, err := vteLib.ExtractData(
+		&status.Args.VteConf, status.Args.Append, a.vteExitEvents[status.ID])
+	if err != nil {
+		return fmt.Errorf("failed to start vert-tagextract: %s", err)
 	}
 	go func() {
 		updateJobChan := a.jobActions.AddJobInfo(status)
-		defer close(updateJobChan)
+		defer func() {
+			close(updateJobChan)
+			close(a.vteExitEvents[status.ID])
+			delete(a.vteExitEvents, status.ID)
+		}()
 		var lastErr error
 		for upd := range procStatus {
 			if upd.Error != nil {
 				lastErr = upd.Error
 			}
-			updateJobChan <- &JobInfo{
+			updateJobChan <- &LiveAttrsJobInfo{
 				ID:             status.ID,
 				Type:           jobType,
 				CorpusID:       status.CorpusID,
@@ -340,42 +370,65 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 				Error:          jobs.NewJSONError(upd.Error),
 				ProcessedAtoms: upd.ProcessedAtoms,
 				ProcessedLines: upd.ProcessedLines,
+				NumRestarts:    status.NumRestarts,
+				Args:           status.Args,
 			}
 		}
 		if lastErr != nil {
 			return
 		}
 
-		if conf.DB.Type == "sqlite" {
-			err := installDatabase(conf.Corpus, conf.DB.Name, a.conf.CorporaSetup.TextTypesDbDirPath)
+		if status.Args.VteConf.DB.Type == "sqlite" {
+			err := installDatabase(
+				status.Args.VteConf.Corpus,
+				status.Args.VteConf.DB.Name,
+				a.conf.CorporaSetup.TextTypesDbDirPath,
+			)
 			if err != nil {
-				updateJobChan <- &JobInfo{
-					ID:       status.ID,
-					Type:     jobType,
-					CorpusID: status.CorpusID,
-					Start:    status.Start,
-					Error:    jobs.NewJSONError(err),
+				updateJobChan <- &LiveAttrsJobInfo{
+					ID:          status.ID,
+					Type:        jobType,
+					CorpusID:    status.CorpusID,
+					Start:       status.Start,
+					Error:       jobs.NewJSONError(err),
+					NumRestarts: status.NumRestarts,
+					Args:        status.Args,
 				}
 
 			} else {
 				resp, err := http.Post(a.conf.KontextSoftResetURL, "application/json", nil)
 				if err != nil || resp.StatusCode < 400 {
-					updateJobChan <- &JobInfo{
-						ID:       status.ID,
-						Type:     jobType,
-						CorpusID: status.CorpusID,
-						Start:    status.Start,
-						Error:    jobs.NewJSONError(err),
+					updateJobChan <- &LiveAttrsJobInfo{
+						ID:          status.ID,
+						Type:        jobType,
+						CorpusID:    status.CorpusID,
+						Start:       status.Start,
+						Error:       jobs.NewJSONError(err),
+						NumRestarts: status.NumRestarts,
+						Args:        status.Args,
 					}
 				}
 			}
 		}
 	}()
-	api.WriteJSONResponse(w, status)
+	return nil
 }
 
+// Delete removes all the live attributes data for a corpus
 func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
+	// TODO
+}
 
+func (a *Actions) runStopJobListener() {
+	for id := range a.jobStopChannel {
+		if job, ok := a.jobActions.GetJob(id); ok {
+			if tJob, ok2 := job.(*LiveAttrsJobInfo); ok2 {
+				if stopChan, ok3 := a.vteExitEvents[tJob.ID]; ok3 {
+					stopChan <- os.Interrupt
+				}
+			}
+		}
+	}
 }
 
 func (a *Actions) getAttrValues(
@@ -526,7 +579,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	go a.structAttrStats.SendData(corpusID, qry)
+	a.usageData <- db.RequestData{CorpusID: corpusID, Payload: qry}
 	a.eqCache.Set(corpusID, qry, ans)
 	api.WriteJSONResponse(w, &ans)
 }
@@ -670,6 +723,23 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, &ans)
 }
 
+func (a *Actions) updateIndexesFromJobStatus(status *IdxUpdateJobInfo) {
+	go func() {
+		updateJobChan := a.jobActions.AddJobInfo(status)
+		defer close(updateJobChan)
+		ans := db.UpdateIndexes(a.laDB, status.CorpusID, status.Args.MaxColumns)
+		finalStatus := *status
+		if ans.Error != nil {
+			finalStatus.Error = jobs.NewJSONError(ans.Error)
+		}
+		finalStatus.Update = jobs.CurrentDatetime()
+		finalStatus.Finished = true
+		finalStatus.Result.RemovedIndexes = ans.RemovedIndexes
+		finalStatus.Result.UsedIndexes = ans.UsedIndexes
+		updateJobChan <- &finalStatus
+	}()
+}
+
 func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
@@ -684,28 +754,68 @@ func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusUnprocessableEntity)
 		return
 	}
-	ans := db.UpdateIndexes(a.laDB, corpusID, maxColumns)
-	if ans.Error != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(ans.Error), http.StatusInternalServerError)
+	jobID, err := uuid.NewUUID()
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start 'update indexes' job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
-	api.WriteJSONResponse(w, &ans)
+	newStatus := IdxUpdateJobInfo{
+		ID:       jobID.String(),
+		Type:     "liveattrs-idx-update",
+		CorpusID: corpusID,
+		Start:    jobs.CurrentDatetime(),
+		Update:   jobs.CurrentDatetime(),
+		Finished: false,
+		Args:     idxJobInfoArgs{MaxColumns: maxColumns},
+	}
+	a.updateIndexesFromJobStatus(&newStatus)
+	api.WriteJSONResponseWithStatus(w, http.StatusCreated, &newStatus)
+}
+
+func (a *Actions) RestartLiveAttrsJob(jinfo *LiveAttrsJobInfo) error {
+	if jinfo.NumRestarts >= a.conf.Jobs.MaxNumRestarts {
+		return fmt.Errorf("cannot restart job %s - max. num. of restarts reached", jinfo.ID)
+	}
+	jinfo.Start = jobs.CurrentDatetime()
+	jinfo.NumRestarts++
+	jinfo.Update = jobs.CurrentDatetime()
+	err := a.createDataFromJobStatus(jinfo)
+	if err != nil {
+		return err
+	}
+	log.Printf("Restarted liveAttributes job %s", jinfo.ID)
+	return nil
+}
+
+func (a *Actions) RestartIdxUpdateJob(jinfo *IdxUpdateJobInfo) error {
+	return nil
 }
 
 // NewActions is the default factory for Actions
 func NewActions(
 	conf *cnf.Conf,
 	exitEvent <-chan os.Signal,
+	jobStopChannel <-chan string,
 	jobActions *jobs.Actions,
 	cncDB *cncdb.CNCMySQLHandler,
 	laDB *sql.DB,
 	version cnf.VersionInfo,
 ) *Actions {
+	usageChan := make(chan db.RequestData)
+	vteExitEvents := make(map[string]chan os.Signal)
+	go func() {
+		for v := range exitEvent {
+			for _, ch := range vteExitEvents {
+				ch <- v
+			}
+		}
+	}()
 	actions := &Actions{
-		exitEvent:  exitEvent,
-		conf:       conf,
-		jobActions: jobActions,
+		exitEvent:      exitEvent,
+		vteExitEvents:  vteExitEvents,
+		conf:           conf,
+		jobActions:     jobActions,
+		jobStopChannel: jobStopChannel,
 		laConfCache: cnf.NewLiveAttrsBuildConfLoader(
 			conf.LiveAttrs.ConfDirPath,
 			conf.LiveAttrs.DB,
@@ -713,8 +823,10 @@ func NewActions(
 		cncDB:           cncDB,
 		laDB:            laDB,
 		eqCache:         cache.NewEmptyQueryCache(),
-		structAttrStats: db.NewStructAttrUsage(laDB),
+		structAttrStats: db.NewStructAttrUsage(laDB, usageChan),
+		usageData:       usageChan,
 	}
-	go actions.structAttrStats.RunHandler(exitEvent)
+	go actions.structAttrStats.RunHandler()
+	go actions.runStopJobListener()
 	return actions
 }

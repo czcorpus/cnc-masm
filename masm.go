@@ -72,8 +72,9 @@ func coreMiddleware(next http.Handler) http.Handler {
 }
 
 func init() {
-	gob.Register(liveattrs.JobInfo{})
-	gob.Register(corpus.JobInfo{})
+	gob.Register(&liveattrs.LiveAttrsJobInfo{})
+	gob.Register(&liveattrs.IdxUpdateJobInfo{})
+	gob.Register(&corpus.JobInfo{})
 }
 
 func main() {
@@ -126,10 +127,41 @@ func main() {
 	corpdataActions := corpdata.NewActions(conf, version)
 	router.HandleFunc("/corpora-storage/available-locations", corpdataActions.AvailableDataLocations).Methods(http.MethodGet)
 
-	jobActions := jobs.NewActions(conf, exitEvent, version)
+	jobStopChannel := make(chan string)
+
+	jobActions := jobs.NewActions(conf.Jobs, exitEvent, jobStopChannel)
 	corpusActions := corpus.NewActions(conf, jobActions)
-	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, cncDB, laDB, version)
+	liveattrsActions := liveattrs.NewActions(
+		conf, exitEvent, jobStopChannel, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
+
+	for _, dj := range jobActions.GetDetachedJobs() {
+		if dj.IsFinished() {
+			continue
+		}
+		switch tdj := dj.(type) {
+		case *liveattrs.LiveAttrsJobInfo:
+			err := liveattrsActions.RestartLiveAttrsJob(tdj)
+			if err != nil {
+				log.Printf("Failed to restart job %s. The job will be removed.", err)
+			}
+			jobActions.ClearDetachedJob(tdj.ID)
+		case *liveattrs.IdxUpdateJobInfo:
+			err := liveattrsActions.RestartIdxUpdateJob(tdj)
+			if err != nil {
+				log.Printf("Failed to restart job %s. The job will be removed.", err)
+			}
+			jobActions.ClearDetachedJob(tdj.ID)
+		case *corpus.JobInfo:
+			err := corpusActions.RestartJob(tdj)
+			if err != nil {
+				log.Printf("Failed to restart job %s. The job will be removed.", err)
+			}
+			jobActions.ClearDetachedJob(tdj.ID)
+		default:
+			log.Println("ERROR: unknown detached job type")
+		}
+	}
 
 	router.HandleFunc("/", rootActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
@@ -150,7 +182,8 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/updateIndexes", liveattrsActions.UpdateIndexes).Methods(http.MethodPost)
 
 	router.HandleFunc("/jobs", jobActions.SyncJobsList).Methods(http.MethodGet)
-	router.HandleFunc("/jobs/{jobId}", jobActions.SyncJobInfo).Methods(http.MethodGet)
+	router.HandleFunc("/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
+	router.HandleFunc("/jobs/{jobId}", jobActions.Delete).Methods(http.MethodDelete)
 
 	router.HandleFunc("/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)

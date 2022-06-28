@@ -20,10 +20,17 @@ package liveattrs
 
 import (
 	"masm/v3/jobs"
+
+	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 )
 
-// JobInfo collects information about corpus data synchronization job
-type JobInfo struct {
+type jobInfoArgs struct {
+	Append  bool           `json:"append"`
+	VteConf vteCnf.VTEConf `json:"vteConf"`
+}
+
+// LiveAttrsJobInfo collects information about corpus data synchronization job
+type LiveAttrsJobInfo struct {
 	ID             string         `json:"id"`
 	Type           string         `json:"type"`
 	CorpusID       string         `json:"corpusId"`
@@ -33,34 +40,40 @@ type JobInfo struct {
 	Error          jobs.JSONError `json:"error"`
 	ProcessedAtoms int            `json:"processedAtoms"`
 	ProcessedLines int            `json:"processedLines"`
+	NumRestarts    int            `json:"numRestarts"`
+	Args           jobInfoArgs    `json:"args"`
 }
 
-func (j *JobInfo) GetID() string {
+func (j *LiveAttrsJobInfo) GetID() string {
 	return j.ID
 }
 
-func (j *JobInfo) GetType() string {
+func (j *LiveAttrsJobInfo) GetType() string {
 	return j.Type
 }
 
-func (j *JobInfo) GetStartDT() jobs.JSONTime {
+func (j *LiveAttrsJobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
 }
 
-func (j *JobInfo) GetCorpus() string {
+func (j *LiveAttrsJobInfo) GetNumRestarts() int {
+	return j.NumRestarts
+}
+
+func (j *LiveAttrsJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *JobInfo) SetFinished() {
+func (j *LiveAttrsJobInfo) SetFinished() {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 }
 
-func (j *JobInfo) IsFinished() bool {
+func (j *LiveAttrsJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
+func (j *LiveAttrsJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
 		Type:     j.Type,

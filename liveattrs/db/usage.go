@@ -34,37 +34,24 @@ import (
 	"fmt"
 	"log"
 	"masm/v3/liveattrs/request/query"
-	"os"
 	"strings"
 )
 
 type RequestData struct {
-	corpusId string
-	payload  query.Payload
+	CorpusID string
+	Payload  query.Payload
 }
 
 type StructAttrUsage struct {
 	db      *sql.DB
-	channel chan RequestData
+	channel <-chan RequestData
 }
 
-func (sau *StructAttrUsage) SendData(corpusId string, payload query.Payload) {
-	sau.channel <- RequestData{corpusId, payload}
-}
-
-func (sau *StructAttrUsage) RunHandler(exitEvent <-chan os.Signal) {
-	for {
-		select {
-		case data, ok := <-sau.channel:
-			if !ok {
-				break
-			}
-			err := sau.save(data)
-			if err != nil {
-				log.Printf("Unable to save structattr usage data: %s", err)
-			}
-		case <-exitEvent:
-			close(sau.channel)
+func (sau *StructAttrUsage) RunHandler() {
+	for data := range sau.channel {
+		err := sau.save(data)
+		if err != nil {
+			log.Printf("Unable to save structattr usage data: %s", err)
 		}
 	}
 }
@@ -75,8 +62,8 @@ func (sau *StructAttrUsage) save(data RequestData) error {
 	if err != nil {
 		return err
 	}
-	for attr := range data.payload.Attrs {
-		_, err := context.Query(sql_template, data.corpusId, ImportKey(attr))
+	for attr := range data.Payload.Attrs {
+		_, err := context.Query(sql_template, data.CorpusID, ImportKey(attr))
 		if err != nil {
 			return err
 		}
@@ -85,9 +72,11 @@ func (sau *StructAttrUsage) save(data RequestData) error {
 	return nil
 }
 
-func NewStructAttrUsage(laDB *sql.DB) *StructAttrUsage {
-	attrStats := StructAttrUsage{db: laDB, channel: make(chan RequestData)}
-	return &attrStats
+func NewStructAttrUsage(laDB *sql.DB, saveData <-chan RequestData) *StructAttrUsage {
+	return &StructAttrUsage{
+		db:      laDB,
+		channel: saveData,
+	}
 }
 
 func LoadUsage(laDB *sql.DB, corpusId string) (map[string]int, error) {
