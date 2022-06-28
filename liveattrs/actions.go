@@ -209,9 +209,12 @@ type Actions struct {
 	cncDB           *cncdb.CNCMySQLHandler
 	eqCache         *cache.EmptyQueryCache
 	structAttrStats *db.StructAttrUsage
+	usageData       chan<- db.RequestData
 }
 
-func (a *Actions) OnExit() {}
+func (a *Actions) OnExit() {
+	close(a.usageData)
+}
 
 func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
@@ -526,7 +529,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	go a.structAttrStats.SendData(corpusID, qry)
+	a.usageData <- db.RequestData{CorpusID: corpusID, Payload: qry}
 	a.eqCache.Set(corpusID, qry, ans)
 	api.WriteJSONResponse(w, &ans)
 }
@@ -702,6 +705,7 @@ func NewActions(
 	laDB *sql.DB,
 	version cnf.VersionInfo,
 ) *Actions {
+	usageChan := make(chan db.RequestData)
 	actions := &Actions{
 		exitEvent:  exitEvent,
 		conf:       conf,
@@ -713,8 +717,9 @@ func NewActions(
 		cncDB:           cncDB,
 		laDB:            laDB,
 		eqCache:         cache.NewEmptyQueryCache(),
-		structAttrStats: db.NewStructAttrUsage(laDB),
+		structAttrStats: db.NewStructAttrUsage(laDB, usageChan),
+		usageData:       usageChan,
 	}
-	go actions.structAttrStats.RunHandler(exitEvent)
+	go actions.structAttrStats.RunHandler()
 	return actions
 }
