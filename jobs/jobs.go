@@ -26,6 +26,11 @@ import (
 	"time"
 )
 
+type Conf struct {
+	StatusDataPath string `json:"statusDataPath"`
+	MaxNumRestarts int    `json:"maxNumRestarts"`
+}
+
 // GeneralJobInfo defines a general job information
 type GeneralJobInfo interface {
 
@@ -50,6 +55,11 @@ type GeneralJobInfo interface {
 	// time information is stored.
 	SetFinished()
 
+	// GetNumRestarts returns how many times was the job restarted. For the normally run
+	// job, this should be always 0. The number > 0 is expect to happen e.g. in case the
+	// service is shut down while some jobs are running.
+	GetNumRestarts() int
+
 	// CompactVersion produces simplified, unified job info for quick job reviews
 	CompactVersion() JobInfoCompact
 }
@@ -59,7 +69,7 @@ type JobInfoList []GeneralJobInfo
 
 // Serialize gob-encodes the list and stores
 // it to a specified path
-func (jil *JobInfoList) Serialize(path string) error {
+func (jil JobInfoList) Serialize(path string) error {
 	fw, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err

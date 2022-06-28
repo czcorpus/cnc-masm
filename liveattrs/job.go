@@ -20,7 +20,14 @@ package liveattrs
 
 import (
 	"masm/v3/jobs"
+
+	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 )
+
+type jobInfoArgs struct {
+	Append  bool           `json:"append"`
+	VteConf vteCnf.VTEConf `json:"vteConf"`
+}
 
 // JobInfo collects information about corpus data synchronization job
 type JobInfo struct {
@@ -33,6 +40,8 @@ type JobInfo struct {
 	Error          jobs.JSONError `json:"error"`
 	ProcessedAtoms int            `json:"processedAtoms"`
 	ProcessedLines int            `json:"processedLines"`
+	NumRestarts    int            `json:"numRestarts"`
+	Args           jobInfoArgs    `json:"args"`
 }
 
 func (j *JobInfo) GetID() string {
@@ -45,6 +54,10 @@ func (j *JobInfo) GetType() string {
 
 func (j *JobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
+}
+
+func (j *JobInfo) GetNumRestarts() int {
+	return j.NumRestarts
 }
 
 func (j *JobInfo) GetCorpus() string {

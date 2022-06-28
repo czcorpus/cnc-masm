@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"masm/v3/jobs"
 
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
@@ -47,6 +48,7 @@ type Conf struct {
 	LogFile               string         `json:"logFile"`
 	CNCDB                 *databaseSetup `json:"cncDb"`
 	LiveAttrs             *LiveAttrsConf `json:"liveAttrs"`
+	Jobs                  *jobs.Conf     `json:"jobs"`
 	StatusDataPath        string         `json:"statusDataPath"`
 	KontextSoftResetURL   string         `json:"kontextSoftResetURL"`
 }

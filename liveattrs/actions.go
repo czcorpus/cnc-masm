@@ -314,17 +314,28 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	append := req.URL.Query().Get("append")
 	status := &JobInfo{
 		ID:       jobID.String(),
 		CorpusID: corpusID,
 		Start:    jobs.CurrentDatetime(),
+		Args: jobInfoArgs{
+			VteConf: *conf,
+			Append:  append == "1",
+		},
 	}
-
-	append := req.URL.Query().Get("append")
-	procStatus, err := vteLib.ExtractData(conf, append == "1", a.exitEvent)
+	err = a.createFromJobStatus(status)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed:", err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
+	}
+	api.WriteJSONResponse(w, status)
+}
+
+func (a *Actions) createFromJobStatus(status *JobInfo) error {
+	procStatus, err := vteLib.ExtractData(&status.Args.VteConf, status.Args.Append, a.exitEvent)
+	if err != nil {
+		return fmt.Errorf("failed to start vert-tagextract: %s", err)
 	}
 	go func() {
 		updateJobChan := a.jobActions.AddJobInfo(status)
@@ -343,38 +354,48 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 				Error:          jobs.NewJSONError(upd.Error),
 				ProcessedAtoms: upd.ProcessedAtoms,
 				ProcessedLines: upd.ProcessedLines,
+				NumRestarts:    status.NumRestarts,
+				Args:           status.Args,
 			}
 		}
 		if lastErr != nil {
 			return
 		}
 
-		if conf.DB.Type == "sqlite" {
-			err := installDatabase(conf.Corpus, conf.DB.Name, a.conf.CorporaSetup.TextTypesDbDirPath)
+		if status.Args.VteConf.DB.Type == "sqlite" {
+			err := installDatabase(
+				status.Args.VteConf.Corpus,
+				status.Args.VteConf.DB.Name,
+				a.conf.CorporaSetup.TextTypesDbDirPath,
+			)
 			if err != nil {
 				updateJobChan <- &JobInfo{
-					ID:       status.ID,
-					Type:     jobType,
-					CorpusID: status.CorpusID,
-					Start:    status.Start,
-					Error:    jobs.NewJSONError(err),
+					ID:          status.ID,
+					Type:        jobType,
+					CorpusID:    status.CorpusID,
+					Start:       status.Start,
+					Error:       jobs.NewJSONError(err),
+					NumRestarts: status.NumRestarts,
+					Args:        status.Args,
 				}
 
 			} else {
 				resp, err := http.Post(a.conf.KontextSoftResetURL, "application/json", nil)
 				if err != nil || resp.StatusCode < 400 {
 					updateJobChan <- &JobInfo{
-						ID:       status.ID,
-						Type:     jobType,
-						CorpusID: status.CorpusID,
-						Start:    status.Start,
-						Error:    jobs.NewJSONError(err),
+						ID:          status.ID,
+						Type:        jobType,
+						CorpusID:    status.CorpusID,
+						Start:       status.Start,
+						Error:       jobs.NewJSONError(err),
+						NumRestarts: status.NumRestarts,
+						Args:        status.Args,
 					}
 				}
 			}
 		}
 	}()
-	api.WriteJSONResponse(w, status)
+	return nil
 }
 
 func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
@@ -694,6 +715,21 @@ func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
+}
+
+func (a *Actions) RestartJob(jinfo *JobInfo) error {
+	if jinfo.NumRestarts >= a.conf.Jobs.MaxNumRestarts {
+		return fmt.Errorf("cannot restart job %s - max. num. of restarts reached", jinfo.ID)
+	}
+	jinfo.Start = jobs.CurrentDatetime()
+	jinfo.NumRestarts++
+	jinfo.Update = jobs.CurrentDatetime()
+	err := a.createFromJobStatus(jinfo)
+	if err != nil {
+		return err
+	}
+	log.Printf("Restarted liveAttributes job %s", jinfo.ID)
+	return nil
 }
 
 // NewActions is the default factory for Actions

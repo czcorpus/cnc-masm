@@ -72,8 +72,8 @@ func coreMiddleware(next http.Handler) http.Handler {
 }
 
 func init() {
-	gob.Register(liveattrs.JobInfo{})
-	gob.Register(corpus.JobInfo{})
+	gob.Register(&liveattrs.JobInfo{})
+	gob.Register(&corpus.JobInfo{})
 }
 
 func main() {
@@ -126,10 +126,29 @@ func main() {
 	corpdataActions := corpdata.NewActions(conf, version)
 	router.HandleFunc("/corpora-storage/available-locations", corpdataActions.AvailableDataLocations).Methods(http.MethodGet)
 
-	jobActions := jobs.NewActions(conf, exitEvent, version)
+	jobActions := jobs.NewActions(conf.Jobs, exitEvent)
 	corpusActions := corpus.NewActions(conf, jobActions)
 	liveattrsActions := liveattrs.NewActions(conf, exitEvent, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
+
+	for _, dj := range jobActions.GetDetachedJobs() {
+		switch tdj := dj.(type) {
+		case *liveattrs.JobInfo:
+			err := liveattrsActions.RestartJob(tdj)
+			if err != nil {
+				log.Printf("Failed to restart job %s. The job will be removed.", err)
+			}
+			jobActions.ClearDetachedJob(tdj.ID)
+		case *corpus.JobInfo:
+			err := corpusActions.RestartJob(tdj)
+			if err != nil {
+				log.Printf("Failed to restart job %s. The job will be removed.", err)
+			}
+			jobActions.ClearDetachedJob(tdj.ID)
+		default:
+			log.Println("ERROR: unknown detached job type")
+		}
+	}
 
 	router.HandleFunc("/", rootActions.RootAction).Methods(http.MethodGet)
 	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)

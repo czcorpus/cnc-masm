@@ -24,14 +24,15 @@ import (
 
 // JobInfo collects information about corpus data synchronization job
 type JobInfo struct {
-	ID       string         `json:"id"`
-	Type     string         `json:"type"`
-	CorpusID string         `json:"corpusId"`
-	Start    jobs.JSONTime  `json:"start"`
-	Update   jobs.JSONTime  `json:"update"`
-	Finished bool           `json:"finished"`
-	Error    jobs.JSONError `json:"error"`
-	Result   *syncResponse  `json:"result"`
+	ID          string         `json:"id"`
+	Type        string         `json:"type"`
+	CorpusID    string         `json:"corpusId"`
+	Start       jobs.JSONTime  `json:"start"`
+	Update      jobs.JSONTime  `json:"update"`
+	Finished    bool           `json:"finished"`
+	Error       jobs.JSONError `json:"error"`
+	Result      *syncResponse  `json:"result"`
+	NumRestarts int            `json:"numRestarts"`
 }
 
 func (j *JobInfo) GetID() string {
@@ -44,6 +45,10 @@ func (j *JobInfo) GetType() string {
 
 func (j *JobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
+}
+
+func (j *JobInfo) GetNumRestarts() int {
+	return j.NumRestarts
 }
 
 func (j *JobInfo) GetCorpus() string {
