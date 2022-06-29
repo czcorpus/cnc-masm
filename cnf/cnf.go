@@ -49,7 +49,6 @@ type Conf struct {
 	CNCDB                 *databaseSetup `json:"cncDb"`
 	LiveAttrs             *LiveAttrsConf `json:"liveAttrs"`
 	Jobs                  *jobs.Conf     `json:"jobs"`
-	StatusDataPath        string         `json:"statusDataPath"`
 	KontextSoftResetURL   string         `json:"kontextSoftResetURL"`
 }
 
