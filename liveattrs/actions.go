@@ -201,22 +201,35 @@ func createLAConfig(
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
+	// exitEvent channel recieves value once user (or OS) terminates masm process
 	exitEvent <-chan os.Signal
 
-	// vteExitEvent allows us to send "fake" exit signals to
-	// the vte library even when masm is not exiting
+	// vteExitEvent stores "exit" channels for running vert-tagextract jobs
+	// (max 1 per corpus)
 	vteExitEvents map[string]chan os.Signal
 
+	// jobStopChannel receives job ID based on user interaction with job HTTP API in
+	// case users asks for stopping the vte process
 	jobStopChannel <-chan string
 
-	conf            *cnf.Conf
-	jobActions      *jobs.Actions
-	laConfCache     *cnf.LiveAttrsBuildConfLoader
-	laDB            *sql.DB
-	cncDB           *cncdb.CNCMySQLHandler
-	eqCache         *cache.EmptyQueryCache
+	conf *cnf.Conf
+
+	jobActions *jobs.Actions
+
+	laConfCache *cnf.LiveAttrsBuildConfLoader
+
+	// laDB is a live-attributes-specific database where masm needs full privileges
+	laDB *sql.DB
+
+	// cncDB is CNC's main database
+	cncDB *cncdb.CNCMySQLHandler
+
+	// eqCache stores results for live-attributes empty queries (= initial text types data)
+	eqCache *cache.EmptyQueryCache
+
 	structAttrStats *db.StructAttrUsage
-	usageData       chan<- db.RequestData
+
+	usageData chan<- db.RequestData
 }
 
 func (a *Actions) OnExit() {
@@ -342,6 +355,8 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status)
 }
 
+// createDataFromJobStatus starts data extraction and generation
+// based on (initial) job status
 func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 	a.vteExitEvents[status.ID] = make(chan os.Signal)
 	procStatus, err := vteLib.ExtractData(
@@ -495,7 +510,7 @@ func (a *Actions) getAttrValues(
 			switch tColVal := ans.AttrValues[colKey].(type) {
 			case []*response.ListedValue:
 				var valIdent string
-				if colKey == bibLabel {
+				if colKey == corpusInfo.BibLabelAttr {
 					valIdent = row.Attrs[bibID]
 
 				} else {
