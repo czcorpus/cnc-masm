@@ -49,12 +49,12 @@ type LiveAttrsBuildConfLoader struct {
 	data         map[string]*vteconf.VTEConf
 }
 
-func (lcache *LiveAttrsBuildConfLoader) get(corpname string, useCache bool) (*vteconf.VTEConf, error) {
+func (lcache *LiveAttrsBuildConfLoader) Get(corpname string) (*vteconf.VTEConf, error) {
 	if v, ok := lcache.data[corpname]; ok {
 		return v, nil
 	}
 	confPath := path.Join(lcache.confDirPath, corpname+".json")
-	if fsops.IsFile(confPath) && useCache {
+	if fsops.IsFile(confPath) {
 		v, err := LoadConf(confPath)
 		if err != nil {
 			return nil, err
@@ -64,14 +64,6 @@ func (lcache *LiveAttrsBuildConfLoader) get(corpname string, useCache bool) (*vt
 		return v, nil
 	}
 	return nil, nil
-}
-
-func (lcache *LiveAttrsBuildConfLoader) GetWithoutCache(corpname string) (*vteconf.VTEConf, error) {
-	return lcache.get(corpname, false)
-}
-
-func (lcache *LiveAttrsBuildConfLoader) Get(corpname string) (*vteconf.VTEConf, error) {
-	return lcache.get(corpname, true)
 }
 
 func (lcache *LiveAttrsBuildConfLoader) Save(data *vteconf.VTEConf) error {

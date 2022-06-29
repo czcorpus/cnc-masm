@@ -267,10 +267,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	}
 	var err error
 	var conf *vteCnf.VTEConf
-	if noCache {
-		conf, err = a.laConfCache.GetWithoutCache(corpusID)
-
-	} else {
+	if !noCache {
 		conf, err = a.laConfCache.Get(corpusID)
 	}
 
