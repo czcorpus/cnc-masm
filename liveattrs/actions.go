@@ -267,10 +267,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	}
 	var err error
 	var conf *vteCnf.VTEConf
-	if noCache {
-		conf, err = a.laConfCache.GetWithoutCache(corpusID)
-
-	} else {
+	if !noCache {
 		conf, err = a.laConfCache.Get(corpusID)
 	}
 
@@ -609,7 +606,12 @@ func (a *Actions) FillAttrs(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	ans, err := db.FillAttrs(a.laDB, corpusID, qry)
+	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
+		return
+	}
+	ans, err := db.FillAttrs(a.laDB, corpusDBInfo, qry)
 	if err == db.ErrorEmptyResult {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
 		return
@@ -632,7 +634,12 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	corpora := append([]string{corpusID}, qry.Aligned...)
-	size, err := db.GetSubcSize(a.laDB, corpora, qry.Attrs)
+	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
+		return
+	}
+	size, err := db.GetSubcSize(a.laDB, corpusDBInfo.LiveattrsTableName(), corpora, qry.Attrs)
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
@@ -742,8 +749,12 @@ func (a *Actions) updateIndexesFromJobStatus(status *IdxUpdateJobInfo) {
 	go func() {
 		updateJobChan := a.jobActions.AddJobInfo(status)
 		defer close(updateJobChan)
-		ans := db.UpdateIndexes(a.laDB, status.CorpusID, status.Args.MaxColumns)
 		finalStatus := *status
+		corpusDBInfo, err := a.cncDB.LoadInfo(status.CorpusID)
+		if err != nil {
+			finalStatus.Error = jobs.NewJSONError(err)
+		}
+		ans := db.UpdateIndexes(a.laDB, corpusDBInfo, status.Args.MaxColumns)
 		if ans.Error != nil {
 			finalStatus.Error = jobs.NewJSONError(ans.Error)
 		}

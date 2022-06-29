@@ -24,7 +24,7 @@ import (
 	"strings"
 )
 
-func GetSubcSize(db *sql.DB, corpora []string, attrMap map[string][]string) (int, error) {
+func GetSubcSize(db *sql.DB, tableName string, corpora []string, attrMap map[string][]string) (int, error) {
 	joinSQL := make([]string, 0, 10)
 	whereSQL := []string{
 		"t1.corpus_id = ?",
@@ -60,8 +60,8 @@ func GetSubcSize(db *sql.DB, corpora []string, attrMap map[string][]string) (int
 	}
 	cur := db.QueryRow(
 		fmt.Sprintf(
-			"SELECT SUM(t1.poscount) FROM %s_item AS t1 %s WHERE %s",
-			corpora[0],
+			"SELECT SUM(t1.poscount) FROM %s AS t1 %s WHERE %s",
+			tableName,
 			strings.Join(joinSQL, " "),
 			strings.Join(whereSQL, " AND "),
 		),

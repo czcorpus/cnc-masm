@@ -77,18 +77,18 @@ func (b *Builder) CreateSQL() QueryComponents {
 	var sqlTemplate string
 	if len(whereSQL) > 0 {
 		sqlTemplate = fmt.Sprintf(
-			"SELECT DISTINCT poscount, id, %s FROM %s_item AS t1 %s WHERE %s",
+			"SELECT DISTINCT poscount, id, %s FROM %s AS t1 %s WHERE %s",
 			strings.Join(b.attrToSQL(selectedAttrs.ToOrderedSlice(), "t1"), ", "),
-			b.CorpusInfo.Name,
+			b.CorpusInfo.LiveattrsTableName(),
 			strings.Join(joinSQL, " "),
 			strings.Join(whereSQL, " "),
 		)
 
 	} else {
 		sqlTemplate = fmt.Sprintf(
-			"SELECT DISTINCT poscount, %s FROM %s_item AS t1 %s",
+			"SELECT DISTINCT poscount, %s FROM %s AS t1 %s",
 			strings.Join(b.attrToSQL(selectedAttrs.ToOrderedSlice(), "t1"), ", "),
-			b.CorpusInfo.Name,
+			b.CorpusInfo.LiveattrsTableName(),
 			strings.Join(joinSQL, " "),
 		)
 	}
