@@ -510,7 +510,7 @@ func (a *Actions) getAttrValues(
 			switch tColVal := ans.AttrValues[colKey].(type) {
 			case []*response.ListedValue:
 				var valIdent string
-				if colKey == bibLabel {
+				if colKey == corpusInfo.BibLabelAttr {
 					valIdent = row.Attrs[bibID]
 
 				} else {

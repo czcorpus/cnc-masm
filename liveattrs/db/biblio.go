@@ -35,6 +35,9 @@ func GetBibliography(
 	laConf *vteconf.VTEConf,
 	qry biblio.Payload,
 ) (map[string]string, error) {
+	if corpusInfo.BibIDAttr == "" {
+		return map[string]string{}, fmt.Errorf("cannot get bibliography for %s - bibIdAttr/Label not defined", corpusInfo.Name)
+	}
 	subcorpAttrs := cnf.GetSubcorpAttrs(laConf)
 	selAttrs := make([]string, len(subcorpAttrs))
 	for i, attr := range subcorpAttrs {
@@ -48,24 +51,19 @@ func GetBibliography(
 		ImportKey(corpusInfo.BibIDAttr),
 	)
 
-	rows, err := db.Query(sql1, qry.ItemID)
+	rows := db.QueryRow(sql1, qry.ItemID)
 	ans := make(map[string]string)
-	if err == sql.ErrNoRows {
-		return ans, ErrorEmptyResult
-
-	} else if err != nil {
-		return map[string]string{}, err
-	}
-
 	ansVals := make([]sql.NullString, len(selAttrs))
 	ansPvals := make([]any, len(selAttrs))
 	for i := range ansVals {
 		ansPvals[i] = &ansVals[i]
 	}
-	rows.Next()
-	err = rows.Scan(ansPvals...)
+	err := rows.Scan(ansPvals...)
+	if err == sql.ErrNoRows {
+		return map[string]string{}, ErrorEmptyResult
+	}
 	if err != nil {
-		return nil, err
+		return map[string]string{}, err
 	}
 	for i, val := range ansVals {
 		if val.Valid {
