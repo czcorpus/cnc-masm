@@ -32,3 +32,13 @@ type DBInfo struct {
 	BibIDAttr          string
 	BibGroupDuplicates int
 }
+
+// LiveattrsTableName returns actual table name used for live-attrs querying.
+// For non-aligned corpora, this is just [corpus name]_item. For aligned ones,
+// we use data from parallel_corpus table and create [parallel corpus name]_item
+func (info *DBInfo) LiveattrsTableName() string {
+	if info.ParallelCorpus != "" {
+		return info.ParallelCorpus + "_item"
+	}
+	return info.Name + "_item"
+}

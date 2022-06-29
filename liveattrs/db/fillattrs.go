@@ -21,6 +21,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"masm/v3/corpus"
 	"masm/v3/liveattrs/request/fillattrs"
 	"strings"
 )
@@ -30,7 +31,7 @@ import (
 // In case nothing is found, ErrorEmptyResult is returned
 func FillAttrs(
 	db *sql.DB,
-	corpusID string,
+	corpusInfo *corpus.DBInfo,
 	qry fillattrs.Payload,
 ) (map[string]map[string]string, error) {
 
@@ -44,9 +45,9 @@ func FillAttrs(
 		valuesPlaceholders[i] = "?"
 	}
 	sql1 := fmt.Sprintf(
-		"SELECT %s FROM %s_item WHERE %s IN (%s)",
+		"SELECT %s FROM %s WHERE %s IN (%s)",
 		strings.Join(selAttrs, ", "),
-		corpusID,
+		corpusInfo.LiveattrsTableName(),
 		ImportKey(qry.Search),
 		strings.Join(valuesPlaceholders, ", "),
 	)
