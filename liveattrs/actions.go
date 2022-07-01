@@ -135,6 +135,7 @@ func createLAConfig(
 ) (*vteCnf.VTEConf, error) {
 	newConf := vteCnf.VTEConf{
 		Corpus:              corpusInfo.ID,
+		ParallelCorpus:      corpusDBInfo.ParallelCorpus,
 		AtomParentStructure: "",
 		StackStructEval:     false,
 		MaxNumErrors:        1000,
