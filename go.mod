@@ -13,6 +13,6 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0 // indirect
-	github.com/tomachalek/vertigo/v5 v5.0.3 // indirect
+	github.com/tomachalek/vertigo/v5 v5.1.0 // indirect
 	golang.org/x/text v0.3.3 // indirect
 )
