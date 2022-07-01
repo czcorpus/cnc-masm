@@ -184,6 +184,18 @@ func createLAConfig(
 
 	if len(mergeAttrs) > 0 {
 		newConf.SelfJoin.ArgColumns = mergeAttrs
+		for _, argCol := range newConf.SelfJoin.ArgColumns {
+			tmp := strings.Split(argCol, "_")
+			_, ok := newConf.Structures[tmp[0]]
+			if ok {
+				if !collections.SliceContains(newConf.Structures[tmp[0]], tmp[1]) {
+					newConf.Structures[tmp[0]] = append(newConf.Structures[tmp[0]], tmp[1])
+				}
+
+			} else {
+				newConf.Structures[tmp[0]] = []string{tmp[1]}
+			}
+		}
 		newConf.SelfJoin.GeneratorFn = mergeFn
 	}
 	newConf.DB = vteDb.Conf{
