@@ -132,6 +132,7 @@ func createLAConfig(
 	atomStructure string,
 	bibIdAttr string,
 	mergeAttrs []string,
+	mergeFn string,
 ) (*vteCnf.VTEConf, error) {
 	newConf := vteCnf.VTEConf{
 		Corpus:              corpusInfo.ID,
@@ -183,6 +184,7 @@ func createLAConfig(
 
 	if len(mergeAttrs) > 0 {
 		newConf.SelfJoin.ArgColumns = mergeAttrs
+		newConf.SelfJoin.GeneratorFn = mergeFn
 	}
 	newConf.DB = vteDb.Conf{
 		Type:           "mysql",
@@ -296,6 +298,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 			req.URL.Query().Get("atomStructure"),
 			req.URL.Query().Get("bibIdAttr"),
 			req.URL.Query()["mergeAttr"],
+			req.URL.Query().Get("mergeFn"), // e.g. "identity", "intecorp"
 		)
 
 		if err != nil {
