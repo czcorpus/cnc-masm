@@ -266,6 +266,10 @@ func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, conf)
 }
 
+type liveattrsJsonArgs struct {
+	VerticalFiles []string `json:"verticalFiles"`
+}
+
 // Create starts a process of creating fresh liveattrs data for a a specified corpus.
 // URL args:
 // * atomStructure - a minimal structure masm will be able to search for (typically 'doc', 'text')
@@ -284,6 +288,13 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	var conf *vteCnf.VTEConf
 	if !noCache {
 		conf, err = a.laConfCache.Get(corpusID)
+	}
+
+	var jsonArgs liveattrsJsonArgs
+	err = json.NewDecoder(req.Body).Decode(&jsonArgs)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		return
 	}
 
 	if err != nil {
@@ -328,6 +339,10 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
+	}
+
+	if len(jsonArgs.VerticalFiles) > 0 {
+		conf.VerticalFiles = jsonArgs.VerticalFiles
 	}
 
 	// TODO search collisions only in liveattrs type jobs
