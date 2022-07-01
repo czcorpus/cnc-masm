@@ -64,7 +64,10 @@ func (b *Builder) CreateSQL() QueryComponents {
 	for i, item := range b.AlignedCorpora {
 		joinSQL = append(
 			joinSQL,
-			fmt.Sprintf("JOIN item AS t%d ON t1.item_id = t%d.item_id", i+2, i+2),
+			fmt.Sprintf(
+				"JOIN %s_item AS t%d ON t1.item_id = t%d.item_id", b.CorpusInfo.GroupedName(),
+				i+2, i+2,
+			),
 		)
 		whereSQL = append(whereSQL, fmt.Sprintf(" AND t%d.corpus_id = ?", i+2))
 		whereValues = append(whereValues, item)
@@ -77,18 +80,18 @@ func (b *Builder) CreateSQL() QueryComponents {
 	var sqlTemplate string
 	if len(whereSQL) > 0 {
 		sqlTemplate = fmt.Sprintf(
-			"SELECT DISTINCT poscount, id, %s FROM %s AS t1 %s WHERE %s",
+			"SELECT DISTINCT poscount, id, %s FROM %s_item AS t1 %s WHERE %s",
 			strings.Join(b.attrToSQL(selectedAttrs.ToOrderedSlice(), "t1"), ", "),
-			b.CorpusInfo.LiveattrsTableName(),
+			b.CorpusInfo.GroupedName(),
 			strings.Join(joinSQL, " "),
 			strings.Join(whereSQL, " "),
 		)
 
 	} else {
 		sqlTemplate = fmt.Sprintf(
-			"SELECT DISTINCT poscount, %s FROM %s AS t1 %s",
+			"SELECT DISTINCT poscount, %s FROM %s_item AS t1 %s",
 			strings.Join(b.attrToSQL(selectedAttrs.ToOrderedSlice(), "t1"), ", "),
-			b.CorpusInfo.LiveattrsTableName(),
+			b.CorpusInfo.GroupedName(),
 			strings.Join(joinSQL, " "),
 		)
 	}

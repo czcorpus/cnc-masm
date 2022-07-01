@@ -1,5 +1,5 @@
-github.com/czcorpus/vert-tagextract/v2 v2.0.3 h1:GpKde57h3ZpXEFbSx1dPOVtrvS8Fz94BAR4Q4Lo2JhA=
-github.com/czcorpus/vert-tagextract/v2 v2.0.3/go.mod h1:wbsvenMtHWASoM0/Yt++D9dLI1fz7fx9eVXzmVjJlTk=
+github.com/czcorpus/vert-tagextract/v2 v2.1.0 h1:85mi0ptMiMCMfNm4modG8efeZh/XkAuK8e8augsk5hg=
+github.com/czcorpus/vert-tagextract/v2 v2.1.0/go.mod h1:wbsvenMtHWASoM0/Yt++D9dLI1fz7fx9eVXzmVjJlTk=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

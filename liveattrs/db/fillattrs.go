@@ -45,9 +45,9 @@ func FillAttrs(
 		valuesPlaceholders[i] = "?"
 	}
 	sql1 := fmt.Sprintf(
-		"SELECT %s FROM %s WHERE %s IN (%s)",
+		"SELECT %s FROM %s_item WHERE %s IN (%s)",
 		strings.Join(selAttrs, ", "),
-		corpusInfo.LiveattrsTableName(),
+		corpusInfo.GroupedName(),
 		ImportKey(qry.Search),
 		strings.Join(valuesPlaceholders, ", "),
 	)
