@@ -231,6 +231,18 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 				ans.IndexedStructs[i] = st
 			}
 
+			// try registry's VERTICAL
+			regVertical, err := mango.GetCorpusConf(corp, "VERTICAL")
+			if err != nil {
+				return nil, InfoError{err}
+			}
+			if regVertical != "" {
+				ans.RegistryConf.Vertical.Path = regVertical
+				ans.RegistryConf.Vertical.FileExists = false
+				ans.RegistryConf.Vertical.LastModified = nil
+				ans.RegistryConf.Vertical.Size = 0
+			}
+
 		} else {
 			dataDirPath := filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID))
 			dataDirMtime := fsops.GetFileMtime(dataDirPath)

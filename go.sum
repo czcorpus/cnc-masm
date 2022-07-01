@@ -1,5 +1,5 @@
-github.com/czcorpus/vert-tagextract/v2 v2.1.0 h1:85mi0ptMiMCMfNm4modG8efeZh/XkAuK8e8augsk5hg=
-github.com/czcorpus/vert-tagextract/v2 v2.1.0/go.mod h1:wbsvenMtHWASoM0/Yt++D9dLI1fz7fx9eVXzmVjJlTk=
+github.com/czcorpus/vert-tagextract/v2 v2.2.1 h1:Tl/77fE+P6t/IILRc01uwv58UNYb3s/WycnW5IXMX1o=
+github.com/czcorpus/vert-tagextract/v2 v2.2.1/go.mod h1:FeQ3C0Bucv1lnjpRCmFL4enu7IGeKoUVZz5YKmY1y2o=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -16,8 +16,8 @@ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZN
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/tomachalek/vertigo/v5 v5.0.3 h1:6DoN2Ov0XcgNVJ2kVEAlsjfXs1fwKWznHe045pGFZ+4=
-github.com/tomachalek/vertigo/v5 v5.0.3/go.mod h1:Kr4P4+S5guPcvro1gzKwjyJSPMLNSaXdCTv5had1xIc=
+github.com/tomachalek/vertigo/v5 v5.1.0 h1:WHoLSO92JHRZasrqiZ/TDWFW6uPyhkm2TlOFdUL6zgM=
+github.com/tomachalek/vertigo/v5 v5.1.0/go.mod h1:Kr4P4+S5guPcvro1gzKwjyJSPMLNSaXdCTv5had1xIc=
 golang.org/x/exp v0.0.0-20220608143224-64259d1afd70 h1:8uGxpY2cLF9H/NSHUiEWUIBZqIcsMzMWIMPCCUkyYgc=
 golang.org/x/exp v0.0.0-20220608143224-64259d1afd70/go.mod h1:yh0Ynu2b5ZUe3MQfp2nM0ecK7wsgouWTDN0FNeJuIys=
 golang.org/x/text v0.3.3 h1:cokOdA+Jmi5PJGXLlLllQSgYigAEfHXJAERHVMaCc2k=
