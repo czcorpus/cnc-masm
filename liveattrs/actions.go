@@ -639,7 +639,7 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionError("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
 		return
 	}
-	size, err := db.GetSubcSize(a.laDB, corpusDBInfo.LiveattrsTableName(), corpora, qry.Attrs)
+	size, err := db.GetSubcSize(a.laDB, corpusDBInfo.GroupedName(), corpora, qry.Attrs)
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return

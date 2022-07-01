@@ -33,12 +33,13 @@ type DBInfo struct {
 	BibGroupDuplicates int
 }
 
-// LiveattrsTableName returns actual table name used for live-attrs querying.
-// For non-aligned corpora, this is just [corpus name]_item. For aligned ones,
-// we use data from parallel_corpus table and create [parallel corpus name]_item
-func (info *DBInfo) LiveattrsTableName() string {
+// GroupedName returns corpus name in a form compatible with storing multiple
+// (aligned) corpora together in a single table. E.g. for InterCorp corpora
+// this means stripping a language code suffix (e.g. intercorp_v13_en => intercorp_v13).
+// For single corpora, this returns the original name.
+func (info *DBInfo) GroupedName() string {
 	if info.ParallelCorpus != "" {
-		return info.ParallelCorpus + "_item"
+		return info.ParallelCorpus
 	}
-	return info.Name + "_item"
+	return info.Name
 }

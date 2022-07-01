@@ -133,7 +133,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 		"SELECT structattr_name "+
 			"FROM `usage` "+
 			"WHERE corpus_id = ? AND num_used > 0 ORDER BY num_used DESC LIMIT ?",
-		corpusInfo.LiveattrsTableName(), maxColumns,
+		corpusInfo.Name, maxColumns,
 	)
 	if err != nil && err != sql.ErrNoRows {
 		return updIdxResult{Error: err}
@@ -148,7 +148,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 	}
 
 	// create indexes if necessary with `_autoindex` appendix
-	sqlTemplate := "CREATE INDEX IF NOT EXISTS `%s` ON `%s` (`%s`)"
+	sqlTemplate := "CREATE INDEX IF NOT EXISTS `%s` ON `%s_item` (`%s`)"
 	usedIndexes := make([]any, len(columns))
 	context, err := laDB.Begin()
 	if err != nil {
@@ -156,7 +156,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 	}
 	for i, column := range columns {
 		usedIndexes[i] = fmt.Sprintf("%s_autoindex", column)
-		_, err := context.Query(fmt.Sprintf(sqlTemplate, usedIndexes[i], corpusInfo.LiveattrsTableName(), column))
+		_, err := context.Query(fmt.Sprintf(sqlTemplate, usedIndexes[i], corpusInfo.GroupedName(), column))
 		if err != nil {
 			return updIdxResult{Error: err}
 		}
@@ -172,7 +172,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 		"SELECT INDEX_NAME FROM information_schema.statistics where TABLE_NAME = ? AND INDEX_NAME LIKE '%%_autoindex' AND INDEX_NAME NOT IN (%s)",
 		strings.Join(valuesPlaceholders, ", "),
 	)
-	values := append([]any{fmt.Sprintf("%s", corpusInfo.LiveattrsTableName())}, usedIndexes...)
+	values := append([]any{fmt.Sprintf("%s_item", corpusInfo.GroupedName())}, usedIndexes...)
 	rows, err = laDB.Query(sqlTemplate, values...)
 	if err != nil && err != sql.ErrNoRows {
 		return updIdxResult{Error: err}
@@ -187,13 +187,13 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 	}
 
 	// drop unused indexes
-	sqlTemplate = "DROP INDEX %s ON `%s`"
+	sqlTemplate = "DROP INDEX %s ON `%s_item`"
 	context, err = laDB.Begin()
 	if err != nil {
 		return updIdxResult{Error: err}
 	}
 	for _, index := range unusedIndexes {
-		_, err := context.Query(fmt.Sprintf(sqlTemplate, index, corpusInfo.LiveattrsTableName()))
+		_, err := context.Query(fmt.Sprintf(sqlTemplate, index, corpusInfo.GroupedName()))
 		if err != nil {
 			return updIdxResult{Error: err}
 		}
