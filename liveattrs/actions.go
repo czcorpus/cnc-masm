@@ -573,6 +573,9 @@ func (a *Actions) getAttrValues(
 		}
 		return nil
 	})
+	if err != nil {
+		return &ans, err
+	}
 	for attr, v := range tmpAns {
 		for _, c := range v {
 			ans.AddListedValue(attr, c)

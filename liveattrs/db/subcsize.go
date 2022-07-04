@@ -60,7 +60,7 @@ func GetSubcSize(db *sql.DB, groupedName string, corpora []string, attrMap map[s
 	}
 	cur := db.QueryRow(
 		fmt.Sprintf(
-			"SELECT SUM(t1.poscount) FROM %s_item AS t1 %s WHERE %s",
+			"SELECT SUM(t1.poscount) FROM %s_liveattrs_entry AS t1 %s WHERE %s",
 			groupedName,
 			strings.Join(joinSQL, " "),
 			strings.Join(whereSQL, " AND "),

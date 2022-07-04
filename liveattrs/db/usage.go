@@ -148,7 +148,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 	}
 
 	// create indexes if necessary with `_autoindex` appendix
-	sqlTemplate := "CREATE INDEX IF NOT EXISTS `%s` ON `%s_item` (`%s`)"
+	sqlTemplate := "CREATE INDEX IF NOT EXISTS `%s` ON `%s_liveattrs_entry` (`%s`)"
 	usedIndexes := make([]any, len(columns))
 	context, err := laDB.Begin()
 	if err != nil {
@@ -172,7 +172,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 		"SELECT INDEX_NAME FROM information_schema.statistics where TABLE_NAME = ? AND INDEX_NAME LIKE '%%_autoindex' AND INDEX_NAME NOT IN (%s)",
 		strings.Join(valuesPlaceholders, ", "),
 	)
-	values := append([]any{fmt.Sprintf("%s_item", corpusInfo.GroupedName())}, usedIndexes...)
+	values := append([]any{fmt.Sprintf("%s_liveattrs_entry", corpusInfo.GroupedName())}, usedIndexes...)
 	rows, err = laDB.Query(sqlTemplate, values...)
 	if err != nil && err != sql.ErrNoRows {
 		return updIdxResult{Error: err}
@@ -187,7 +187,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 	}
 
 	// drop unused indexes
-	sqlTemplate = "DROP INDEX %s ON `%s_item`"
+	sqlTemplate = "DROP INDEX %s ON `%s_liveattrs_entry`"
 	context, err = laDB.Begin()
 	if err != nil {
 		return updIdxResult{Error: err}
