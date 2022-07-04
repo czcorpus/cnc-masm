@@ -65,7 +65,7 @@ func (b *Builder) CreateSQL() QueryComponents {
 		joinSQL = append(
 			joinSQL,
 			fmt.Sprintf(
-				"JOIN %s_item AS t%d ON t1.item_id = t%d.item_id", b.CorpusInfo.GroupedName(),
+				"JOIN %s_liveattrs_entry AS t%d ON t1.item_id = t%d.item_id", b.CorpusInfo.GroupedName(),
 				i+2, i+2,
 			),
 		)
@@ -80,7 +80,7 @@ func (b *Builder) CreateSQL() QueryComponents {
 	var sqlTemplate string
 	if len(whereSQL) > 0 {
 		sqlTemplate = fmt.Sprintf(
-			"SELECT DISTINCT poscount, id, %s FROM %s_item AS t1 %s WHERE %s",
+			"SELECT DISTINCT poscount, id, %s FROM %s_liveattrs_entry AS t1 %s WHERE %s",
 			strings.Join(b.attrToSQL(selectedAttrs.ToOrderedSlice(), "t1"), ", "),
 			b.CorpusInfo.GroupedName(),
 			strings.Join(joinSQL, " "),
@@ -89,7 +89,7 @@ func (b *Builder) CreateSQL() QueryComponents {
 
 	} else {
 		sqlTemplate = fmt.Sprintf(
-			"SELECT DISTINCT poscount, %s FROM %s_item AS t1 %s",
+			"SELECT DISTINCT poscount, %s FROM %s_liveattrs_entry AS t1 %s",
 			strings.Join(b.attrToSQL(selectedAttrs.ToOrderedSlice(), "t1"), ", "),
 			b.CorpusInfo.GroupedName(),
 			strings.Join(joinSQL, " "),
