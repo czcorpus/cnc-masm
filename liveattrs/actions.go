@@ -284,6 +284,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Query().Get("noCache") == "1" {
 		noCache = true
 	}
+
 	var err error
 	var conf *vteCnf.VTEConf
 	if !noCache {
@@ -292,28 +293,21 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 
 	var jsonArgs liveattrsJsonArgs
 	err = json.NewDecoder(req.Body).Decode(&jsonArgs)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
-		return
-	}
-
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
+	if err != nil && err != io.EOF {
+		api.WriteJSONErrorResponse(w, api.NewActionError("liveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
 		return
 
 	} else if conf == nil {
 		corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
+			api.WriteJSONErrorResponse(w, api.NewActionError("liveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
 			return
 		}
-
 		corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
+			api.WriteJSONErrorResponse(w, api.NewActionError("liveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
 			return
 		}
-
 		newConf, err := createLAConfig(
 			a.conf,
 			corpusInfo,
@@ -323,7 +317,6 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 			req.URL.Query()["mergeAttr"],
 			req.URL.Query().Get("mergeFn"), // e.g. "identity", "intecorp"
 		)
-
 		if err != nil {
 			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
@@ -334,6 +327,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
+
 		conf, err = a.laConfCache.Get(corpusID)
 		if err != nil {
 			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
