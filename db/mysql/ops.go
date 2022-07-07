@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package db
+package mysql
 
 import (
 	"database/sql"
