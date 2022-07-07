@@ -35,7 +35,7 @@ import (
 	"masm/v3/cnf"
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
-	"masm/v3/db"
+	"masm/v3/db/mysql"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
 	"masm/v3/registry"
@@ -113,7 +113,7 @@ func main() {
 	}
 	log.Printf("INFO: CNC SQL database at '%s'", conf.CNCDB.Host)
 
-	laDB, err := db.OpenDB(conf.LiveAttrs.DB)
+	laDB, err := mysql.OpenDB(conf.LiveAttrs.DB)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
 	}

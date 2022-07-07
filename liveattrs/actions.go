@@ -28,6 +28,7 @@ import (
 	"masm/v3/cncdb"
 	"masm/v3/cnf"
 	"masm/v3/corpus"
+	"masm/v3/db/sqlite"
 	"masm/v3/general/collections"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs/cache"
@@ -65,21 +66,6 @@ type CreateLiveAttrsReqBody struct {
 
 func loadConf(basePath, corpname string) (*vteCnf.VTEConf, error) {
 	return vteCnf.LoadConf(filepath.Join(basePath, fmt.Sprintf("%s.json", corpname)))
-}
-
-func installDatabase(corpusID, tmpPath, textTypesDbDirPath string) error {
-	dbFileName := corpus.GenCorpusGroupName(corpusID) + ".db"
-	absPath := filepath.Join(textTypesDbDirPath, dbFileName)
-	srcFile, err := os.Open(tmpPath)
-	if err != nil {
-		return err
-	}
-	dstFile, err := os.Create(absPath)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(dstFile, srcFile)
-	return err
 }
 
 func arrayShowShortened(data []string) string {
@@ -338,7 +324,6 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	if len(jsonArgs.VerticalFiles) > 0 {
 		conf.VerticalFiles = jsonArgs.VerticalFiles
 	}
-
 	// TODO search collisions only in liveattrs type jobs
 
 	jobID, err := uuid.NewUUID()
@@ -393,11 +378,8 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 			close(a.vteExitEvents[status.ID])
 			delete(a.vteExitEvents, status.ID)
 		}()
-		var lastErr error
+
 		for upd := range procStatus {
-			if upd.Error != nil {
-				lastErr = upd.Error
-			}
 			updateJobChan <- &LiveAttrsJobInfo{
 				ID:             status.ID,
 				Type:           jobType,
@@ -410,13 +392,14 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 				NumRestarts:    status.NumRestarts,
 				Args:           status.Args,
 			}
-		}
-		if lastErr != nil {
-			return
+			if upd.Error != nil {
+				log.Print("ERROR: live attributes extraction failed - ", upd.Error)
+				return
+			}
 		}
 
 		if status.Args.VteConf.DB.Type == "sqlite" {
-			err := installDatabase(
+			err := sqlite.InstallSqliteDatabase(
 				status.Args.VteConf.Corpus,
 				status.Args.VteConf.DB.Name,
 				a.conf.CorporaSetup.TextTypesDbDirPath,
