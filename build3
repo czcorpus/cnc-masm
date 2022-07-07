@@ -1,18 +1,39 @@
 #!/usr/bin/env python3
-import re
 import sys
 import os
 import subprocess
 import argparse
-import stat
 import datetime
 
 APP_NAME = 'masm'
 
 KNOWN_VERSIONS = {
-    '2.167.8': None,
-    '2.167.10': None
+    '2.167.8',
+    '2.167.10',
+    '2.208'
 }
+
+class Version:
+
+    def __init__(self, ver: str):
+        tmp = ver.split('.')
+        self.major = int(tmp[0])
+        self.minor = int(tmp[1])
+        self.patch = int(tmp[2]) if len(tmp) > 2 else 0
+
+    def ge(self, other: 'Version') -> bool:
+        if self.major > other.major:
+            return True
+        elif self.major < other.major:
+            return False
+        elif self.minor > other.minor:
+            return True
+        elif self.minor < other.minor:
+            return False
+        elif self.patch >= other.patch:
+            return True
+        return False
+
 
 class NoManatee(object):
 
@@ -70,29 +91,6 @@ def download_manatee_src(version):
         return '/tmp/manatee-open-{0}'.format(version)
     else:
         raise Exception('Failed to download and extract manatee. Please do this manually and run the script with --manatee-src ...')
-    return ans
-
-
-def download_finlib_src(version):
-    out_file = '/tmp/finlib-{0}.tar.gz'.format(version)
-    print('\nLooking for {0} ...'.format(os.path.basename(out_file)))
-    if not os.path.exists(out_file):
-        url = 'https://corpora.fi.muni.cz/noske/src/finlib/finlib-{0}.tar.gz'.format(version)
-        ans = _download_file(url, out_file)
-        if ans > 0:
-            url = 'https://corpora.fi.muni.cz/noske/src/finlib/archive/finlib-{0}.tar.gz'.format(version)
-            print('...failed.')
-            ans = _download_file(url, out_file)
-    else:
-        print('...found in /tmp')
-        ans = 0
-    if ans == 0:
-        ans = unpack_archive(out_file)
-    if ans == 0:
-        return '/tmp/finlib-{0}'.format(version)
-    else:
-        raise Exception('Failed to download and extract finlib. Please do this manually and run the script with --manatee-src ...')
-
 
 def unpack_archive(path):
     p = subprocess.Popen(['tar', 'xzf', path, '-C', '/tmp'])
@@ -119,23 +117,24 @@ def init_sources(manatee_src):
         subprocess.Popen('make clean', shell=True, cwd=manatee_src, env=env, executable='/bin/bash').wait()
         subprocess.Popen(['./configure', '--with-pcre'], shell=True, env=env, cwd=manatee_src, executable='/bin/bash').wait()
 
-def build_project(manatee_src, finlib_src, manatee_lib, test=False):
+def build_project(version: Version, manatee_src, manatee_lib, test=False):
     ver = get_version_info()
     commit = get_commit_info()
     dt = get_current_datetime()
     LDFLAGS = f'-w -s -X main.version="{ver}" -X main.buildDate="{dt}" -X main.gitCommit="{commit}"'
 
-    if finlib_src:
+
+    subdirs = [f'-I{manatee_src}']
+    if version.ge(Version('2.208')):
+        subdirs += ['-I{}'.format(os.path.join(manatee_src, s)) for s in ['finlib', 'fsa3', 'hat-trie']]
         build_env = {
-            'CGO_CPPFLAGS': '-I{0} -I{1}'.format(manatee_src, finlib_src),
-            'CGO_LDFLAGS': '-lmanatee -L{0}'.format(manatee_lib)
-        }
+            'CGO_CPPFLAGS': ' '.join(subdirs),
+            'CGO_LDFLAGS': '-lmanatee -L{lm} -lhat-trie -L{lm} -lfsa3 -L{lfsa}'.format(
+                lm=manatee_lib, lfsa=os.path.join(manatee_src, 'fsa3/.libs'))}
     else:
         build_env = {
-            'CGO_CPPFLAGS': '-I{0}'.format(manatee_src),
-            'CGO_LDFLAGS': '-lmanatee -L{0}'.format(manatee_lib)
-
-        }
+        'CGO_CPPFLAGS': ' '.join(subdirs),
+        'CGO_LDFLAGS': '-lmanatee -L{lm}'.format(lm=manatee_lib)}
     print('\nBuilding the project with the following env. variables:\n{0}'.format('\n'.join(['{0} {1}'.format(*x) for x in build_env.items()])))
     env = dict(os.environ)
     env.update(build_env)
@@ -147,7 +146,7 @@ def build_project(manatee_src, finlib_src, manatee_lib, test=False):
     p.wait()
 
 def list_supported_versions():
-    return sorted(KNOWN_VERSIONS.keys(), reverse=True)
+    return sorted(KNOWN_VERSIONS, reverse=True)
 
 
 def show_version_mismatch(found_v, expected_v):
@@ -166,7 +165,6 @@ if __name__ == '__main__':
                            help="Manatee version used along with {0}. Supported versions: {1}".format(
                                APP_NAME, ', '.join(list_supported_versions())))
     argparser.add_argument('-t', '--test', action='store_const', const=True)
-    argparser.add_argument('-f', '--finlib-src', type=str, help='Location of Finlib source files')
     argparser.add_argument('-m', '--manatee-src', type=str, help='Location of Manatee source files')
     argparser.add_argument('-M', '--manatee-lib', type=str, help='Location of libmanatee.so')
     args = argparser.parse_args()
@@ -186,17 +184,6 @@ if __name__ == '__main__':
         print('\nAssuming that provided Manatee src path matches required version {0}'.format(args.version))
         manatee_src = args.manatee_src
 
-    if KNOWN_VERSIONS[args.version] is not None:
-        if not args.finlib_src:
-            finlib_src = download_finlib_src(KNOWN_VERSIONS[args.version])
-        else:
-            print('\nAssuming that provided Finlib src path matches required version {0}'.format(KNOWN_VERSIONS[args.version]))
-            finlib_src = args.finlib_src
-    else:
-        # new versions of Manatee come with Finlib embedded (= None here)
-        finlib_src = None
-        print('\nAssuming embedded Finlib')
-
 
     manatee_ver = None
     if not args.manatee_lib:
@@ -214,6 +201,7 @@ if __name__ == '__main__':
     else:
         print('\nAssuming that provided {0}/libmanatee.so matches required version {1}'.format(args.manatee_lib, args.version))
         manatee_lib = args.manatee_lib
+        manatee_ver = args.version
         should_generate_run_script = True
 
     bin_path = os.path.join(os.path.dirname(__file__), '{0}.bin'.format(APP_NAME))
@@ -228,7 +216,7 @@ if __name__ == '__main__':
         pass
 
     init_sources(manatee_src)
-    build_project(manatee_src, finlib_src, manatee_lib, test=bool(args.test))
+    build_project(Version(manatee_ver), manatee_src, manatee_lib, test=bool(args.test))
 
     if should_generate_run_script:
         os.rename(rs_path, bin_path)
