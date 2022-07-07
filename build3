@@ -142,7 +142,7 @@ def build_project(version: Version, manatee_src, manatee_lib, test=False):
         print('Running TESTS:\n')
         p = subprocess.Popen('go test ./...', shell=True, env=env, executable='/bin/bash')
     else:
-        p = subprocess.Popen([f'go build -ldflags "{LDFLAGS}"'], shell=True, env=env, executable='/bin/bash')
+        p = subprocess.Popen([f'go build -o masm3 -ldflags "{LDFLAGS}"'], shell=True, env=env, executable='/bin/bash')
     p.wait()
 
 def list_supported_versions():
