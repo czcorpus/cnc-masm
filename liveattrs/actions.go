@@ -50,6 +50,7 @@ import (
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	vteDb "github.com/czcorpus/vert-tagextract/v2/db"
 	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
+	vteProc "github.com/czcorpus/vert-tagextract/v2/proc"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
@@ -400,7 +401,7 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 				NumRestarts:    status.NumRestarts,
 				Args:           status.Args,
 			}
-			if upd.Error != nil {
+			if upd.Error == vteProc.ErrorTooManyParsingErrors {
 				log.Print("ERROR: live attributes extraction failed - ", upd.Error)
 				return
 			}
