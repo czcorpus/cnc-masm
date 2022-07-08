@@ -198,7 +198,7 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 		"SELECT INDEX_NAME FROM information_schema.statistics where TABLE_NAME = ? AND INDEX_NAME LIKE '%%_autoindex' AND INDEX_NAME NOT IN (%s)",
 		strings.Join(valuesPlaceholders, ", "),
 	)
-	values := append([]any{fmt.Sprintf("%s_liveattrs_entry", corpusInfo.GroupedName())}, usedIndexes...)
+	values := append([]any{fmt.Sprintf("`%s_liveattrs_entry`", corpusInfo.GroupedName())}, usedIndexes...)
 	rows, err = laDB.Query(sqlTemplate, values...)
 	if err != nil && err != sql.ErrNoRows {
 		return updIdxResult{Error: err}

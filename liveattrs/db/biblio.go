@@ -45,7 +45,7 @@ func GetBibliography(
 	}
 
 	sql1 := fmt.Sprintf(
-		"SELECT %s FROM %s_liveattrs_entry WHERE %s = ? LIMIT 1",
+		"SELECT %s FROM `%s_liveattrs_entry` WHERE %s = ? LIMIT 1",
 		strings.Join(selAttrs, ", "),
 		corpusInfo.GroupedName(),
 		ImportKey(corpusInfo.BibIDAttr),
@@ -90,7 +90,7 @@ func FindBibTitles(
 		valuesPlaceholders[i] = "?"
 	}
 	sql1 := fmt.Sprintf(
-		"SELECT %s, %s FROM %s_liveattrs_entry WHERE %s IN (%s)",
+		"SELECT %s, %s FROM `%s_liveattrs_entry` WHERE %s IN (%s)",
 		ImportKey(corpusInfo.BibIDAttr),
 		ImportKey(corpusInfo.BibLabelAttr),
 		corpusInfo.GroupedName(),
