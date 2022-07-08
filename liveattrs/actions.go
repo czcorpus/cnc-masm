@@ -45,6 +45,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	vteDb "github.com/czcorpus/vert-tagextract/v2/db"
@@ -128,7 +129,7 @@ func createLAConfig(
 		ParallelCorpus:      corpusDBInfo.ParallelCorpus,
 		AtomParentStructure: "",
 		StackStructEval:     false,
-		MaxNumErrors:        1000,
+		MaxNumErrors:        100000, // TODO should not be hardcoded here
 		Ngrams:              vteCnf.NgramConf{},
 		Encoding:            "UTF-8",
 		IndexedCols:         []string{},
@@ -599,9 +600,18 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
+
+	usageEntry := db.RequestData{
+		CorpusID: corpusID,
+		Payload:  qry,
+		Created:  time.Now(),
+	}
+
 	ans := a.eqCache.Get(corpusID, qry)
 	if ans != nil {
 		api.WriteJSONResponse(w, &ans)
+		usageEntry.IsCached = true
+		a.usageData <- usageEntry
 		return
 	}
 	ans, err = a.getAttrValues(corpInfo, qry)
@@ -609,7 +619,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	a.usageData <- db.RequestData{CorpusID: corpusID, Payload: qry}
+	a.usageData <- usageEntry
 	a.eqCache.Set(corpusID, qry, ans)
 	api.WriteJSONResponse(w, &ans)
 }

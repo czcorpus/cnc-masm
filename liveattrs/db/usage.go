@@ -36,11 +36,34 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/request/query"
 	"strings"
+	"time"
 )
 
 type RequestData struct {
 	CorpusID string
 	Payload  query.Payload
+	Created  time.Time
+	IsCached bool
+}
+
+func (rd RequestData) toLogJSON() []byte {
+	ans, err := json.Marshal(struct {
+		Created        string   `json:"time"`
+		Corpus         string   `json:"corpus"`
+		AlignedCorpora []string `json:"alignedCorpora,omitempty"`
+		IsAutocomplete bool     `json:"isAutocomplete"`
+		IsCached       bool     `json:"isCached"`
+	}{
+		Created:        rd.Created.Format(time.RFC3339),
+		Corpus:         rd.CorpusID,
+		AlignedCorpora: rd.Payload.Aligned,
+		IsAutocomplete: rd.Payload.AutocompleteAttr != "",
+		IsCached:       rd.IsCached,
+	})
+	if err != nil {
+		log.Print("ERROR: failed to marshal query log: ", err)
+	}
+	return ans
 }
 
 type StructAttrUsage struct {
@@ -50,9 +73,12 @@ type StructAttrUsage struct {
 
 func (sau *StructAttrUsage) RunHandler() {
 	for data := range sau.channel {
-		err := sau.save(data)
-		if err != nil {
-			log.Printf("Unable to save structattr usage data: %s", err)
+		log.Printf("QUERY: %s", data.toLogJSON())
+		if !data.IsCached {
+			err := sau.save(data)
+			if err != nil {
+				log.Printf("Unable to save struct. attrs usage data: %s", err)
+			}
 		}
 	}
 }
