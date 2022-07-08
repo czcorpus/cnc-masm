@@ -129,7 +129,7 @@ func createLAConfig(
 		ParallelCorpus:      corpusDBInfo.ParallelCorpus,
 		AtomParentStructure: "",
 		StackStructEval:     false,
-		MaxNumErrors:        1000,
+		MaxNumErrors:        100000, // TODO should not be hardcoded here
 		Ngrams:              vteCnf.NgramConf{},
 		Encoding:            "UTF-8",
 		IndexedCols:         []string{},
