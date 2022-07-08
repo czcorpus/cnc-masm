@@ -111,6 +111,9 @@ func groupBibItems(data *response.QueryAns, bibLabel string) {
 	}
 }
 
+// createLAConfig creates a new live attribute extraction configuration based
+// on provided args.
+// note: bibIdAttr and mergeAttrs use dot notation (e.g. "doc.author")
 func createLAConfig(
 	masmConf *cnf.Conf,
 	corpusInfo *corpus.Info,
@@ -134,7 +137,7 @@ func createLAConfig(
 	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
 	if bibIdAttr != "" {
 		bibView := vteDb.BibViewConf{}
-		bibView.IDAttr = bibIdAttr
+		bibView.IDAttr = db.ImportKey(bibIdAttr)
 		for stru, attrs := range corpusInfo.RegistryConf.SubcorpAttrs {
 			for _, attr := range attrs {
 				bibView.Cols = append(bibView.Cols, fmt.Sprintf("%s_%s", stru, attr))
@@ -169,9 +172,13 @@ func createLAConfig(
 	}
 
 	if len(mergeAttrs) > 0 {
-		newConf.SelfJoin.ArgColumns = mergeAttrs
-		for _, argCol := range newConf.SelfJoin.ArgColumns {
-			tmp := strings.Split(argCol, "_")
+		newConf.SelfJoin.ArgColumns = make([]string, len(mergeAttrs))
+		for i, argCol := range mergeAttrs {
+			tmp := strings.Split(argCol, ".")
+			if len(tmp) != 2 {
+				return nil, fmt.Errorf("invalid mergeAttr format: %s", argCol)
+			}
+			newConf.SelfJoin.ArgColumns[i] = tmp[0] + "_" + tmp[1]
 			_, ok := newConf.Structures[tmp[0]]
 			if ok {
 				if !collections.SliceContains(newConf.Structures[tmp[0]], tmp[1]) {
