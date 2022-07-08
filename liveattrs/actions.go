@@ -111,6 +111,9 @@ func groupBibItems(data *response.QueryAns, bibLabel string) {
 	}
 }
 
+// createLAConfig creates a new live attribute extraction configuration based
+// on provided args.
+// note: bibIdAttr and mergeAttrs use dot notation (e.g. "doc.author")
 func createLAConfig(
 	masmConf *cnf.Conf,
 	corpusInfo *corpus.Info,
@@ -134,7 +137,7 @@ func createLAConfig(
 	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
 	if bibIdAttr != "" {
 		bibView := vteDb.BibViewConf{}
-		bibView.IDAttr = bibIdAttr
+		bibView.IDAttr = db.ImportKey(bibIdAttr)
 		for stru, attrs := range corpusInfo.RegistryConf.SubcorpAttrs {
 			for _, attr := range attrs {
 				bibView.Cols = append(bibView.Cols, fmt.Sprintf("%s_%s", stru, attr))
