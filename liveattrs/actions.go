@@ -169,9 +169,13 @@ func createLAConfig(
 	}
 
 	if len(mergeAttrs) > 0 {
-		newConf.SelfJoin.ArgColumns = mergeAttrs
-		for _, argCol := range newConf.SelfJoin.ArgColumns {
-			tmp := strings.Split(argCol, "_")
+		newConf.SelfJoin.ArgColumns = make([]string, len(mergeAttrs))
+		for i, argCol := range mergeAttrs {
+			tmp := strings.Split(argCol, ".")
+			if len(tmp) != 2 {
+				return nil, fmt.Errorf("invalid mergeAttr format: %s", argCol)
+			}
+			newConf.SelfJoin.ArgColumns[i] = tmp[0] + "_" + tmp[1]
 			_, ok := newConf.Structures[tmp[0]]
 			if ok {
 				if !collections.SliceContains(newConf.Structures[tmp[0]], tmp[1]) {
