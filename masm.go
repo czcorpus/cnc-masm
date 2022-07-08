@@ -122,7 +122,7 @@ func main() {
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
 
-	rootActions := root.Actions{}
+	rootActions := root.Actions{Version: version}
 
 	corpdataActions := corpdata.NewActions(conf, version)
 	router.HandleFunc("/corpora-storage/available-locations", corpdataActions.AvailableDataLocations).Methods(http.MethodGet)
