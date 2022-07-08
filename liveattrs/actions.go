@@ -146,6 +146,16 @@ func createLAConfig(
 			}
 		}
 		newConf.BibView = bibView
+		bibIdElms := strings.Split(bibIdAttr, ".")
+		tmp, ok := newConf.Structures[bibIdElms[0]]
+		if ok {
+			if !collections.SliceContains(tmp, bibIdElms[1]) {
+				newConf.Structures[bibIdElms[0]] = append(newConf.Structures[bibIdElms[0]], bibIdElms[1])
+			}
+
+		} else {
+			newConf.Structures[bibIdElms[0]] = []string{bibIdElms[1]}
+		}
 	}
 	if atomStructure == "" {
 		if len(newConf.Structures) == 1 {
