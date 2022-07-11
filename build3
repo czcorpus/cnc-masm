@@ -116,6 +116,8 @@ def init_sources(manatee_src):
         env['PYTHON'] = '/usr/bin/python3'
         subprocess.Popen('make clean', shell=True, cwd=manatee_src, env=env, executable='/bin/bash').wait()
         subprocess.Popen(['./configure', '--with-pcre'], shell=True, env=env, cwd=manatee_src, executable='/bin/bash').wait()
+        subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'hat-trie'), executable='/bin/bash').wait()
+        subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'fsa3'), executable='/bin/bash').wait()
 
 def build_project(version: Version, manatee_src, manatee_lib, test=False):
     ver = get_version_info()
