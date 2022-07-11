@@ -21,6 +21,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"masm/v3/liveattrs/utils"
 	"strings"
 )
 
@@ -50,7 +51,7 @@ func GetSubcSize(db *sql.DB, groupedName string, corpora []string, attrMap map[s
 			whereValues = append(whereValues, v)
 			tmp = append(
 				tmp,
-				fmt.Sprintf("t1.%s = ?", ImportKey(k)),
+				fmt.Sprintf("t1.%s = ?", utils.ImportKey(k)),
 			)
 		}
 		whereSQL = append(

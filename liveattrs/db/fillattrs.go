@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/request/fillattrs"
+	"masm/v3/liveattrs/utils"
 	"strings"
 )
 
@@ -36,9 +37,9 @@ func FillAttrs(
 ) (map[string]map[string]string, error) {
 
 	selAttrs := make([]string, len(qry.Fill)+1)
-	selAttrs[0] = ImportKey(qry.Search)
+	selAttrs[0] = utils.ImportKey(qry.Search)
 	for i, f := range qry.Fill {
-		selAttrs[i+1] = ImportKey(f)
+		selAttrs[i+1] = utils.ImportKey(f)
 	}
 	valuesPlaceholders := make([]string, len(qry.Values))
 	for i := range qry.Values {
@@ -48,7 +49,7 @@ func FillAttrs(
 		"SELECT %s FROM `%s_liveattrs_entry` WHERE %s IN (%s)",
 		strings.Join(selAttrs, ", "),
 		corpusInfo.GroupedName(),
-		ImportKey(qry.Search),
+		utils.ImportKey(qry.Search),
 		strings.Join(valuesPlaceholders, ", "),
 	)
 	sqlVals := make([]any, len(qry.Values))

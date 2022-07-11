@@ -21,9 +21,10 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"masm/v3/cnf"
 	"masm/v3/corpus"
+	"masm/v3/liveattrs/laconf"
 	"masm/v3/liveattrs/request/biblio"
+	"masm/v3/liveattrs/utils"
 	"strings"
 
 	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
@@ -38,17 +39,17 @@ func GetBibliography(
 	if corpusInfo.BibIDAttr == "" {
 		return map[string]string{}, fmt.Errorf("cannot get bibliography for %s - bibIdAttr/Label not defined", corpusInfo.Name)
 	}
-	subcorpAttrs := cnf.GetSubcorpAttrs(laConf)
+	subcorpAttrs := laconf.GetSubcorpAttrs(laConf)
 	selAttrs := make([]string, len(subcorpAttrs))
 	for i, attr := range subcorpAttrs {
-		selAttrs[i] = ImportKey(attr)
+		selAttrs[i] = utils.ImportKey(attr)
 	}
 
 	sql1 := fmt.Sprintf(
 		"SELECT %s FROM `%s_liveattrs_entry` WHERE %s = ? LIMIT 1",
 		strings.Join(selAttrs, ", "),
 		corpusInfo.GroupedName(),
-		ImportKey(corpusInfo.BibIDAttr),
+		utils.ImportKey(corpusInfo.BibIDAttr),
 	)
 
 	rows := db.QueryRow(sql1, qry.ItemID)
@@ -67,7 +68,7 @@ func GetBibliography(
 	}
 	for i, val := range ansVals {
 		if val.Valid {
-			ans[ExportKey(selAttrs[i])] = val.String
+			ans[utils.ExportKey(selAttrs[i])] = val.String
 		}
 	}
 	return ans, nil
@@ -79,10 +80,10 @@ func FindBibTitles(
 	laConf *vteconf.VTEConf,
 	qry biblio.PayloadList,
 ) (map[string]string, error) {
-	subcorpAttrs := cnf.GetSubcorpAttrs(laConf)
+	subcorpAttrs := laconf.GetSubcorpAttrs(laConf)
 	selAttrs := make([]string, len(subcorpAttrs))
 	for i, attr := range subcorpAttrs {
-		selAttrs[i] = ImportKey(attr)
+		selAttrs[i] = utils.ImportKey(attr)
 	}
 
 	valuesPlaceholders := make([]string, len(qry.ItemIDs))
@@ -91,10 +92,10 @@ func FindBibTitles(
 	}
 	sql1 := fmt.Sprintf(
 		"SELECT %s, %s FROM `%s_liveattrs_entry` WHERE %s IN (%s)",
-		ImportKey(corpusInfo.BibIDAttr),
-		ImportKey(corpusInfo.BibLabelAttr),
+		utils.ImportKey(corpusInfo.BibIDAttr),
+		utils.ImportKey(corpusInfo.BibLabelAttr),
 		corpusInfo.GroupedName(),
-		ImportKey(corpusInfo.BibIDAttr),
+		utils.ImportKey(corpusInfo.BibIDAttr),
 		strings.Join(valuesPlaceholders, ", "),
 	)
 	sqlVals := make([]any, len(qry.ItemIDs))

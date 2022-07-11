@@ -26,19 +26,21 @@ import (
 	"log"
 	"masm/v3/api"
 	"masm/v3/cncdb"
-	"masm/v3/cnf"
 	"masm/v3/corpus"
 	"masm/v3/db/sqlite"
+	"masm/v3/general"
 	"masm/v3/general/collections"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs/cache"
 	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/db/qbuilder"
+	"masm/v3/liveattrs/laconf"
 	"masm/v3/liveattrs/request/biblio"
 	"masm/v3/liveattrs/request/equery"
 	"masm/v3/liveattrs/request/fillattrs"
 	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/request/response"
+	"masm/v3/liveattrs/utils"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,7 +50,6 @@ import (
 	"time"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	vteDb "github.com/czcorpus/vert-tagextract/v2/db"
 	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
 	vteProc "github.com/czcorpus/vert-tagextract/v2/proc"
 	"github.com/google/uuid"
@@ -113,112 +114,6 @@ func groupBibItems(data *response.QueryAns, bibLabel string) {
 	}
 }
 
-// createLAConfig creates a new live attribute extraction configuration based
-// on provided args.
-// note: bibIdAttr and mergeAttrs use dot notation (e.g. "doc.author")
-func createLAConfig(
-	masmConf *cnf.Conf,
-	corpusInfo *corpus.Info,
-	corpusDBInfo *corpus.DBInfo,
-	atomStructure string,
-	bibIdAttr string,
-	mergeAttrs []string,
-	mergeFn string,
-) (*vteCnf.VTEConf, error) {
-	newConf := vteCnf.VTEConf{
-		Corpus:              corpusInfo.ID,
-		ParallelCorpus:      corpusDBInfo.ParallelCorpus,
-		AtomParentStructure: "",
-		StackStructEval:     false,
-		MaxNumErrors:        100000, // TODO should not be hardcoded here
-		Ngrams:              vteCnf.NgramConf{},
-		Encoding:            "UTF-8",
-		IndexedCols:         []string{},
-		VerticalFile:        corpusInfo.RegistryConf.Vertical.Path,
-	}
-	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
-	if bibIdAttr != "" {
-		bibView := vteDb.BibViewConf{}
-		bibView.IDAttr = db.ImportKey(bibIdAttr)
-		for stru, attrs := range corpusInfo.RegistryConf.SubcorpAttrs {
-			for _, attr := range attrs {
-				bibView.Cols = append(bibView.Cols, fmt.Sprintf("%s_%s", stru, attr))
-			}
-		}
-		newConf.BibView = bibView
-		bibIdElms := strings.Split(bibIdAttr, ".")
-		tmp, ok := newConf.Structures[bibIdElms[0]]
-		if ok {
-			if !collections.SliceContains(tmp, bibIdElms[1]) {
-				newConf.Structures[bibIdElms[0]] = append(newConf.Structures[bibIdElms[0]], bibIdElms[1])
-			}
-
-		} else {
-			newConf.Structures[bibIdElms[0]] = []string{bibIdElms[1]}
-		}
-	}
-	if atomStructure == "" {
-		if len(newConf.Structures) == 1 {
-			for k := range newConf.Structures {
-				newConf.AtomStructure = k
-				break
-			}
-			log.Print("INFO: no atomStructure, inferred value: ", newConf.AtomStructure)
-
-		} else {
-			return nil, fmt.Errorf("no atomStructure specified and the value cannot be inferred due to multiple involved structures")
-		}
-
-	} else {
-		newConf.AtomStructure = atomStructure
-	}
-	atomExists := false
-	for _, st := range corpusInfo.IndexedStructs {
-		if st == newConf.AtomStructure {
-			atomExists = true
-			break
-		}
-	}
-	if !atomExists {
-		return nil, fmt.Errorf("atom structure '%s' does not exist in corpus %s", newConf.AtomStructure, corpusInfo.ID)
-	}
-
-	if len(mergeAttrs) > 0 {
-		newConf.SelfJoin.ArgColumns = make([]string, len(mergeAttrs))
-		for i, argCol := range mergeAttrs {
-			tmp := strings.Split(argCol, ".")
-			if len(tmp) != 2 {
-				return nil, fmt.Errorf("invalid mergeAttr format: %s", argCol)
-			}
-			newConf.SelfJoin.ArgColumns[i] = tmp[0] + "_" + tmp[1]
-			_, ok := newConf.Structures[tmp[0]]
-			if ok {
-				if !collections.SliceContains(newConf.Structures[tmp[0]], tmp[1]) {
-					newConf.Structures[tmp[0]] = append(newConf.Structures[tmp[0]], tmp[1])
-				}
-
-			} else {
-				newConf.Structures[tmp[0]] = []string{tmp[1]}
-			}
-		}
-		newConf.SelfJoin.GeneratorFn = mergeFn
-	}
-	newConf.DB = vteDb.Conf{
-		Type:           "mysql",
-		Host:           masmConf.LiveAttrs.DB.Host,
-		User:           masmConf.LiveAttrs.DB.User,
-		Password:       masmConf.LiveAttrs.DB.Password,
-		PreconfQueries: masmConf.LiveAttrs.DB.PreconfQueries,
-	}
-	if corpusDBInfo.ParallelCorpus != "" {
-		newConf.DB.Name = corpusDBInfo.ParallelCorpus
-
-	} else {
-		newConf.DB.Name = corpusInfo.ID
-	}
-	return &newConf, nil
-}
-
 // Actions wraps liveattrs-related actions
 type Actions struct {
 	// exitEvent channel recieves value once user (or OS) terminates masm process
@@ -232,11 +127,11 @@ type Actions struct {
 	// case users asks for stopping the vte process
 	jobStopChannel <-chan string
 
-	conf *cnf.Conf
+	conf *corpus.Conf
 
 	jobActions *jobs.Actions
 
-	laConfCache *cnf.LiveAttrsBuildConfLoader
+	laConfCache *laconf.LiveAttrsBuildConfProvider
 
 	// laDB is a live-attributes-specific database where masm needs full privileges
 	laDB *sql.DB
@@ -256,6 +151,26 @@ func (a *Actions) OnExit() {
 	close(a.usageData)
 }
 
+func (a *Actions) createConf(corpusID string, req *http.Request) (*vteCnf.VTEConf, error) {
+	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
+	if err != nil {
+		return nil, err
+	}
+	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		return nil, err
+	}
+	return laconf.Create(
+		a.conf,
+		corpusInfo,
+		corpusDBInfo,
+		req.URL.Query().Get("atomStructure"),
+		req.URL.Query().Get("bibIdAttr"),
+		req.URL.Query()["mergeAttr"],
+		req.URL.Query().Get("mergeFn"),
+	) // e.g. "identity", "intecorp"
+}
+
 func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
@@ -269,6 +184,27 @@ func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	api.WriteJSONResponse(w, conf)
+}
+
+func (a *Actions) CreateConf(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	newConf, err := a.createConf(corpusID, req)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		return
+	}
+	err = a.laConfCache.Clear(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		return
+	}
+	err = a.laConfCache.Save(newConf)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionError("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		return
+	}
+	api.WriteJSONResponse(w, newConf)
 }
 
 type liveattrsJsonArgs struct {
@@ -303,25 +239,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		return
 
 	} else if conf == nil {
-		corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
-		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("liveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
-			return
-		}
-		corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
-		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("liveAttrs generator failed: '%s'", err), http.StatusInternalServerError)
-			return
-		}
-		newConf, err := createLAConfig(
-			a.conf,
-			corpusInfo,
-			corpusDBInfo,
-			req.URL.Query().Get("atomStructure"),
-			req.URL.Query().Get("bibIdAttr"),
-			req.URL.Query()["mergeAttr"],
-			req.URL.Query().Get("mergeFn"), // e.g. "identity", "intecorp"
-		)
+		newConf, err := a.createConf(corpusID, req)
 		if err != nil {
 			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
@@ -477,15 +395,15 @@ func (a *Actions) getAttrValues(
 	if err != nil {
 		return nil, err
 	}
-	srchAttrs := collections.NewSet(cnf.GetSubcorpAttrs(laConf)...)
+	srchAttrs := collections.NewSet(laconf.GetSubcorpAttrs(laConf)...)
 	expandAttrs := collections.NewSet[string]()
-	bibLabel := db.ImportKey(corpusInfo.BibLabelAttr)
+	bibLabel := utils.ImportKey(corpusInfo.BibLabelAttr)
 	if bibLabel != "" {
 		srchAttrs.Add(bibLabel)
 	}
 	// if in autocomplete mode then always expand list of the target column
 	if qry.AutocompleteAttr != "" {
-		a := db.ImportKey(qry.AutocompleteAttr)
+		a := utils.ImportKey(qry.AutocompleteAttr)
 		srchAttrs.Add(a)
 		expandAttrs.Add(a)
 		acVals, err := qry.Attrs.GetListingOf(qry.AutocompleteAttr)
@@ -497,7 +415,7 @@ func (a *Actions) getAttrValues(
 	// also make sure that range attributes are expanded to full lists
 	for attr := range qry.Attrs {
 		if qry.Attrs.AttrIsRange(attr) {
-			expandAttrs.Add(db.ImportKey(attr))
+			expandAttrs.Add(utils.ImportKey(attr))
 		}
 	}
 	qBuilder := &qbuilder.Builder{
@@ -526,11 +444,11 @@ func (a *Actions) getAttrValues(
 	//    directly to ans[attr]
 	// {attr_id: {attr_val: num_positions,...},...}
 	tmpAns := make(map[string]map[string]*response.ListedValue)
-	bibID := db.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
+	bibID := utils.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
 	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
 		ans.Poscount += row.Poscount
 		for dbKey, dbVal := range row.Attrs {
-			colKey := db.ExportKey(dbKey)
+			colKey := utils.ExportKey(dbKey)
 			switch tColVal := ans.AttrValues[colKey].(type) {
 			case []*response.ListedValue:
 				var valIdent string
@@ -542,7 +460,7 @@ func (a *Actions) getAttrValues(
 				}
 				attrVal := response.ListedValue{
 					ID:         valIdent,
-					ShortLabel: shortenVal(dbVal, shortLabelMaxLength),
+					ShortLabel: utils.ShortenVal(dbVal, shortLabelMaxLength),
 					Label:      dbVal,
 					Grouping:   1,
 				}
@@ -858,13 +776,13 @@ func (a *Actions) RestartIdxUpdateJob(jinfo *IdxUpdateJobInfo) error {
 
 // NewActions is the default factory for Actions
 func NewActions(
-	conf *cnf.Conf,
+	conf *corpus.Conf,
 	exitEvent <-chan os.Signal,
 	jobStopChannel <-chan string,
 	jobActions *jobs.Actions,
 	cncDB *cncdb.CNCMySQLHandler,
 	laDB *sql.DB,
-	version cnf.VersionInfo,
+	version general.VersionInfo,
 ) *Actions {
 	usageChan := make(chan db.RequestData)
 	vteExitEvents := make(map[string]chan os.Signal)
@@ -881,7 +799,7 @@ func NewActions(
 		conf:           conf,
 		jobActions:     jobActions,
 		jobStopChannel: jobStopChannel,
-		laConfCache: cnf.NewLiveAttrsBuildConfLoader(
+		laConfCache: laconf.NewLiveAttrsBuildConfProvider(
 			conf.LiveAttrs.ConfDirPath,
 			conf.LiveAttrs.DB,
 		),

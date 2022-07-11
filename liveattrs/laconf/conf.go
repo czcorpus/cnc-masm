@@ -16,17 +16,12 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package cnf
+package laconf
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"masm/v3/fsops"
-	"path"
 
 	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
 
 func GetSubcorpAttrs(vteConf *vteconf.VTEConf) []string {
@@ -41,48 +36,4 @@ func GetSubcorpAttrs(vteConf *vteconf.VTEConf) []string {
 
 func LoadConf(path string) (*vteconf.VTEConf, error) {
 	return vteconf.LoadConf(path)
-}
-
-type LiveAttrsBuildConfLoader struct {
-	confDirPath  string
-	globalDBConf *vtedb.Conf
-	data         map[string]*vteconf.VTEConf
-}
-
-func (lcache *LiveAttrsBuildConfLoader) Get(corpname string) (*vteconf.VTEConf, error) {
-	if v, ok := lcache.data[corpname]; ok {
-		return v, nil
-	}
-	confPath := path.Join(lcache.confDirPath, corpname+".json")
-	if fsops.IsFile(confPath) {
-		v, err := LoadConf(confPath)
-		if err != nil {
-			return nil, err
-		}
-		lcache.data[corpname] = v
-		v.DB = *lcache.globalDBConf
-		return v, nil
-	}
-	return nil, nil
-}
-
-func (lcache *LiveAttrsBuildConfLoader) Save(data *vteconf.VTEConf) error {
-	rawData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
-	confPath := path.Join(lcache.confDirPath, data.Corpus+".json")
-	err = ioutil.WriteFile(confPath, rawData, 0777)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func NewLiveAttrsBuildConfLoader(confDirPath string, globalDBConf *vtedb.Conf) *LiveAttrsBuildConfLoader {
-	return &LiveAttrsBuildConfLoader{
-		confDirPath:  confDirPath,
-		globalDBConf: globalDBConf,
-		data:         make(map[string]*vteconf.VTEConf),
-	}
 }

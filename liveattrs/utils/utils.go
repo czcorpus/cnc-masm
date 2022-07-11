@@ -17,11 +17,11 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package liveattrs
+package utils
 
 import "strings"
 
-func shortenVal(v string, maxLength int) string {
+func ShortenVal(v string, maxLength int) string {
 	if len(v) <= maxLength {
 		return v
 	}
@@ -38,4 +38,12 @@ func shortenVal(v string, maxLength int) string {
 		}
 	}
 	return v
+}
+
+func ImportKey(k string) string {
+	return strings.Replace(k, ".", "_", 1)
+}
+
+func ExportKey(k string) string {
+	return strings.Replace(k, "_", ".", 1)
 }

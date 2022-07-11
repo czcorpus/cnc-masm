@@ -35,6 +35,7 @@ import (
 	"log"
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/request/query"
+	"masm/v3/liveattrs/utils"
 	"strings"
 	"time"
 )
@@ -90,7 +91,7 @@ func (sau *StructAttrUsage) save(data RequestData) error {
 		return err
 	}
 	for attr := range data.Payload.Attrs {
-		_, err := context.Query(sql_template, data.CorpusID, ImportKey(attr))
+		_, err := context.Query(sql_template, data.CorpusID, utils.ImportKey(attr))
 		if err != nil {
 			return err
 		}

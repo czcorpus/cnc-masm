@@ -21,7 +21,6 @@ package cncdb
 import (
 	"database/sql"
 	"log"
-	"masm/v3/cnf"
 	"masm/v3/corpus"
 	"net/http"
 
@@ -47,12 +46,12 @@ type updateSizeResp struct {
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf *cnf.Conf
+	conf *corpus.Conf
 	db   DataHandler
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, db DataHandler) *Actions {
+func NewActions(conf *corpus.Conf, db DataHandler) *Actions {
 	return &Actions{
 		conf: conf,
 		db:   db,

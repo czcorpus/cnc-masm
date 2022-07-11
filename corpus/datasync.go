@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"fmt"
 	"log"
-	"masm/v3/cnf"
 	"masm/v3/fsops"
 	"os"
 	"os/exec"
@@ -46,7 +45,7 @@ type syncResponse struct {
 
 // synchronizeCorpusData automatically synchronizes data from CNC to KonText or vice versa
 // based on which directory contains newer files. The function is based on calling rsync.
-func synchronizeCorpusData(paths *cnf.CorporaDataPaths, corpname string) (syncResponse, error) {
+func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncResponse, error) {
 	pathCNC := filepath.Clean(filepath.Join(paths.CNC, corpname))
 	var ageCNC time.Time
 	pathKontext := filepath.Clean(filepath.Join(paths.Kontext, corpname))

@@ -31,13 +31,13 @@ import (
 func GetFileMtime(filePath string) string {
 	f, err := os.Open(filePath)
 	if err != nil {
-		log.Print("ERROR: Failed to get file mtime: ", err)
+		log.Print("WARNING: Failed to get file mtime: ", err)
 		return ""
 	}
 	defer f.Close()
 	finfo, err := f.Stat()
 	if err != nil {
-		log.Print("ERROR: Failed to get file mtime: ", err)
+		log.Print("WARNING: Failed to get file mtime: ", err)
 		return ""
 	}
 	return finfo.ModTime().Format("2006-01-02T15:04:05-0700")
@@ -85,13 +85,13 @@ func IsDir(path string) bool {
 func FileSize(path string) int64 {
 	f, err := os.Open(path)
 	if err != nil {
-		log.Print("ERROR: Failed to get file size: ", err)
+		log.Print("WARNING: Failed to get file size: ", err)
 		return -1
 	}
 	defer f.Close()
 	finfo, err := f.Stat()
 	if err != nil {
-		log.Print("ERROR: Failed to get file size: ", err)
+		log.Print("WARNING: Failed to get file size: ", err)
 		return -1
 	}
 	return finfo.Size()
@@ -138,10 +138,7 @@ func ListFilesInDir(path string, newestFirst bool) (FileList, error) {
 	if err != nil {
 		return ans, err
 	}
-	ans.files = make([]os.FileInfo, len(files))
-	for i, v := range files {
-		ans.files[i] = v
-	}
+	copy(files, ans.files)
 	if newestFirst {
 		sort.Sort(&ans)
 	}
