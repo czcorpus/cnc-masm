@@ -21,7 +21,7 @@ package registry
 import (
 	"fmt"
 	"masm/v3/api"
-	"masm/v3/cnf"
+	"masm/v3/corpus"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -29,7 +29,7 @@ import (
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
-	conf *cnf.Conf
+	conf *corpus.Conf
 }
 
 // DynamicFunctions provides a list of Manatee internal + our configured functions
@@ -106,7 +106,7 @@ func (a *Actions) GetStructMultisepDefaults(w http.ResponseWriter, req *http.Req
 
 // NewActions is the default factory for Actions
 func NewActions(
-	conf *cnf.Conf,
+	conf *corpus.Conf,
 ) *Actions {
 	return &Actions{
 		conf: conf,

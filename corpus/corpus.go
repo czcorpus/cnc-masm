@@ -21,7 +21,6 @@ package corpus
 import (
 	"fmt"
 	"log"
-	"masm/v3/cnf"
 	"masm/v3/fsops"
 	"masm/v3/mango"
 	"path/filepath"
@@ -129,7 +128,7 @@ func findVerticalFile(basePath, corpusID string) FileMappedValue {
 	return ans
 }
 
-func attachWordSketchConfInfo(corpusID string, wsattr string, conf *cnf.CorporaSetup, result *Info) {
+func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup, result *Info) {
 	tmp := GenWSDefFilename(conf.WordSketchDefDirPath, corpusID)
 	result.RegistryConf.WordSketches = WordSketchConf{
 		WSDef: bindValueToPath(tmp, tmp),
@@ -142,7 +141,7 @@ func attachWordSketchConfInfo(corpusID string, wsattr string, conf *cnf.CorporaS
 	result.RegistryConf.WordSketches.WSThes = bindValueToPath(wsThesVal, wsThesFile)
 }
 
-func attachTextTypeDbInfo(corpusID string, conf *cnf.CorporaSetup, result *Info) {
+func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) {
 	dbFileName := GenCorpusGroupName(corpusID) + ".db"
 	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
 	result.TextTypesDB = TTDBRecord{}
@@ -153,7 +152,7 @@ func attachTextTypeDbInfo(corpusID string, conf *cnf.CorporaSetup, result *Info)
 // related to different data files.
 // It should return an error only in case Manatee or filesystem produces some
 // error (i.e. not in case something is just not found).
-func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*Info, error) {
+func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, error) {
 	ans := &Info{ID: corpusID}
 	ans.IndexedData = Data{}
 	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}

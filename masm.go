@@ -32,10 +32,10 @@ import (
 	"time"
 
 	"masm/v3/cncdb"
-	"masm/v3/cnf"
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
 	"masm/v3/db/mysql"
+	"masm/v3/general"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
 	"masm/v3/registry"
@@ -78,7 +78,7 @@ func init() {
 }
 
 func main() {
-	version := cnf.VersionInfo{
+	version := general.VersionInfo{
 		Version:   version,
 		BuildDate: buildDate,
 		GitCommit: gitCommit,
@@ -98,7 +98,7 @@ func main() {
 	} else if action != "start" {
 		log.Fatal("Unknown action ", action)
 	}
-	conf := cnf.LoadConfig(flag.Arg(1))
+	conf := corpus.LoadConfig(flag.Arg(1))
 	setupLog(conf.LogFile)
 	log.Print("INFO: Starting MASM (Manatee Assets, Services and Metadata)")
 
@@ -171,7 +171,8 @@ func main() {
 
 	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
-	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf)
+	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf).Methods(http.MethodGet)
+	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.CreateConf).Methods(http.MethodPut)
 	router.HandleFunc("/liveAttributes/{corpusId}/query", liveattrsActions.Query).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/fillAttrs", liveattrsActions.FillAttrs).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/selectionSubcSize", liveattrsActions.GetAdhocSubcSize).Methods(http.MethodPost)

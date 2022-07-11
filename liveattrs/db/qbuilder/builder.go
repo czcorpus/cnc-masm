@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
-	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/request/query"
+	"masm/v3/liveattrs/utils"
 	"strings"
 )
 
@@ -40,14 +40,14 @@ type Builder struct {
 func (b *Builder) attrToSQL(values []string, prefix string) []string {
 	ans := make([]string, len(values))
 	for i, v := range values {
-		ans[i] = prefix + "." + db.ImportKey(v)
+		ans[i] = prefix + "." + utils.ImportKey(v)
 	}
 	return ans
 }
 
 func (b *Builder) CreateSQL() QueryComponents {
-	bibID := db.ImportKey(b.CorpusInfo.BibIDAttr)
-	bibLabel := db.ImportKey(b.CorpusInfo.BibLabelAttr)
+	bibID := utils.ImportKey(b.CorpusInfo.BibIDAttr)
+	bibLabel := utils.ImportKey(b.CorpusInfo.BibLabelAttr)
 	attrItems := AttrArgs{
 		data:                b.AttrMap,
 		bibID:               bibID,

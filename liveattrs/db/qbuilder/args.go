@@ -20,8 +20,8 @@ package qbuilder
 
 import (
 	"fmt"
-	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/request/query"
+	"masm/v3/liveattrs/utils"
 	"strings"
 )
 
@@ -55,7 +55,7 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 	where := make([]string, 0, 20)
 	sqlValues := make([]string, 0, 20)
 	for dkey, values := range args.data {
-		key := db.ImportKey(dkey)
+		key := utils.ImportKey(dkey)
 		if args.autocompleteAttr == args.bibLabel && key == args.bibID {
 			continue
 		}

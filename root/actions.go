@@ -22,12 +22,12 @@ package root
 import (
 	"encoding/json"
 	"masm/v3/api"
-	"masm/v3/cnf"
+	"masm/v3/general"
 	"net/http"
 )
 
 type Actions struct {
-	Version cnf.VersionInfo
+	Version general.VersionInfo
 }
 
 func (a *Actions) OnExit() {}

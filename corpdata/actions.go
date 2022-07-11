@@ -20,8 +20,9 @@ package corpdata
 
 import (
 	"masm/v3/api"
-	"masm/v3/cnf"
+	"masm/v3/corpus"
 	"masm/v3/fsops"
+	"masm/v3/general"
 	"net/http"
 	"os"
 )
@@ -43,8 +44,8 @@ type storageLocation struct {
 
 // Actions contains all the fsops-related REST actions
 type Actions struct {
-	conf    *cnf.Conf
-	version cnf.VersionInfo
+	conf    *corpus.Conf
+	version general.VersionInfo
 }
 
 func (a *Actions) OnExit() {}
@@ -82,6 +83,6 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, version cnf.VersionInfo) *Actions {
+func NewActions(conf *corpus.Conf, version general.VersionInfo) *Actions {
 	return &Actions{conf: conf, version: version}
 }

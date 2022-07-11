@@ -3,7 +3,7 @@ module masm/v3
 go 1.18
 
 require (
-	github.com/czcorpus/vert-tagextract/v2 v2.3.4
+	github.com/czcorpus/vert-tagextract/v2 v2.3.5
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3

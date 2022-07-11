@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log"
 	"masm/v3/api"
-	"masm/v3/cnf"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,7 +38,7 @@ const (
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf       *cnf.Conf
+	conf       *Conf
 	osSignal   chan os.Signal
 	jobActions *jobs.Actions
 }
@@ -144,7 +143,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 }
 
 // NewActions is the default factory
-func NewActions(conf *cnf.Conf, jobActions *jobs.Actions) *Actions {
+func NewActions(conf *Conf, jobActions *jobs.Actions) *Actions {
 	return &Actions{
 		conf:       conf,
 		jobActions: jobActions,
