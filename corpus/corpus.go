@@ -20,6 +20,7 @@ package corpus
 
 import (
 	"fmt"
+	"log"
 	"masm/v3/cnf"
 	"masm/v3/fsops"
 	"masm/v3/mango"
@@ -236,11 +237,25 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *cnf.CorporaSetup) (*In
 			if err != nil {
 				return nil, InfoError{err}
 			}
-			if regVertical != "" {
-				ans.RegistryConf.Vertical.Path = regVertical
-				ans.RegistryConf.Vertical.FileExists = false
-				ans.RegistryConf.Vertical.LastModified = nil
-				ans.RegistryConf.Vertical.Size = 0
+			if regVertical != "" && ans.RegistryConf.Vertical.Path != regVertical {
+				if ans.RegistryConf.Vertical.FileExists {
+					log.Printf(
+						"WARNING: Registry file likely provides an incorrect VERTICAL %s",
+						regVertical,
+					)
+					log.Printf(
+						"WARNING: MASM will keep using inferred file %s for %s",
+						ans.RegistryConf.Vertical.Path,
+						corpusID,
+					)
+
+				} else {
+					ans.RegistryConf.Vertical.Value = regVertical
+					ans.RegistryConf.Vertical.Path = regVertical
+					ans.RegistryConf.Vertical.FileExists = false
+					ans.RegistryConf.Vertical.LastModified = nil
+					ans.RegistryConf.Vertical.Size = 0
+				}
 			}
 
 		} else {
