@@ -179,7 +179,12 @@ func UpdateIndexes(laDB *sql.DB, corpusInfo *corpus.DBInfo, maxColumns int) updI
 	}
 
 	// create indexes if necessary with `_autoindex` appendix
-	sqlTemplate := "CREATE INDEX IF NOT EXISTS `%s` ON `%s_liveattrs_entry` (`%s`)"
+	var sqlTemplate string
+	if corpusInfo.GroupedName() == corpusInfo.Name {
+		sqlTemplate = "CREATE INDEX IF NOT EXISTS `%s` ON `%s_liveattrs_entry` (`%s`)"
+	} else {
+		sqlTemplate = "CREATE INDEX IF NOT EXISTS `%s` ON `%s_liveattrs_entry` (`%s`, `corpus_id`)"
+	}
 	usedIndexes := make([]any, len(columns))
 	context, err := laDB.Begin()
 	if err != nil {
