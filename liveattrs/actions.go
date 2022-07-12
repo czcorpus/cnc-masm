@@ -515,6 +515,7 @@ func (a *Actions) getAttrValues(
 }
 
 func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
+	t0 := time.Now()
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
 
@@ -529,7 +530,6 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-
 	usageEntry := db.RequestData{
 		CorpusID: corpusID,
 		Payload:  qry,
@@ -544,10 +544,15 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	ans, err = a.getAttrValues(corpInfo, qry)
-	if err != nil {
+	if err == laconf.ErrorNoSuchConfig {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		return
+
+	} else if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
+	usageEntry.ProcTime = time.Since(t0)
 	a.usageData <- usageEntry
 	a.eqCache.Set(corpusID, qry, ans)
 	api.WriteJSONResponse(w, &ans)
