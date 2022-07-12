@@ -1,7 +1,7 @@
 {
     "listenAddress" : "127.0.0.1",
     "listenPort": 8080,
-    "logFile": "/path/to/a/log/file",
+    "logFile": "/a/path/to/a/log/file",
     "serverReadTimeoutSecs": 120,
     "corporaSetup": {
         "registryDirPaths": ["/var/local/corpora/registry"],
@@ -18,5 +18,25 @@
         "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef",
         "manateeDynlibPath": "/a/path/to/ucnkdynfn.so"
     },
-    "kontextSoftResetURL": "http://localhost:8080/kontext-services/soft-reset-all"
+    "kontextSoftResetURL": "http://localhost:8080/kontext-services/soft-reset-all",
+    "cncDb": {
+        "host": "kontext_db_host",
+        "user": "kontext",
+        "passwd": "********",
+        "db": "kontext"
+    },
+    "liveAttrs": {
+        "db": {
+            "type": "mysql",
+            "host": "liveattrs_db_host",
+            "name": "liveattrs",
+            "user": "liveattrs",
+            "password": "********"
+        },
+        "confDirPath": "/a/dir/path/where/liveattrs/config/will/be/stored"
+    },
+    "jobs": {
+        "statusDataPath": "/a/path/where/masm/status/will/be/stored.bin",
+        "maxNumRestarts": 3
+    }
 }
