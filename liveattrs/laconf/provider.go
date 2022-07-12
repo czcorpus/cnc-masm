@@ -20,6 +20,7 @@ package laconf
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -33,6 +34,10 @@ import (
 
 	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
+)
+
+var (
+	ErrorNoSuchConfig = errors.New("no such configuration (corpus not installed)")
 )
 
 // Create creates a new live attribute extraction configuration based
@@ -147,6 +152,11 @@ type LiveAttrsBuildConfProvider struct {
 	data         map[string]*vteconf.VTEConf
 }
 
+// Get returns an existing liveattrs configuration file. In case the file
+// does not exist the method will not create it for you (as it requires additional
+// arguments to determine specific properties).
+// In case there is no other error but the configuration does not exist,
+// the method returns ErrorNoSuchConfig error
 func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf, error) {
 	if v, ok := lcache.data[corpname]; ok {
 		return v, nil
@@ -161,9 +171,10 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 		v.DB = *lcache.globalDBConf
 		return v, nil
 	}
-	return nil, nil
+	return nil, ErrorNoSuchConfig
 }
 
+// Save saves a provided configuration to a file for later use
 func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 	rawData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
@@ -177,6 +188,7 @@ func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 	return nil
 }
 
+// Clear removes a configuration from memory and from filesystem
 func (lcache *LiveAttrsBuildConfProvider) Clear(corpusID string) error {
 	delete(lcache.data, corpusID)
 	confPath := path.Join(lcache.confDirPath, corpusID+".json")
