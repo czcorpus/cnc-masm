@@ -79,7 +79,8 @@ func (rd RequestData) toZeroLog(evt *zerolog.Event) {
 		Strs("alignedCorpora", rd.Payload.Aligned).
 		Bool("isAutocomplete", rd.Payload.AutocompleteAttr != "").
 		Bool("isCached", rd.IsCached).
-		Float64("procTimeSecs", rd.ProcTime.Seconds())
+		Float64("procTimeSecs", rd.ProcTime.Seconds()).
+		Msg("")
 }
 
 type StructAttrUsage struct {
