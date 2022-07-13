@@ -38,6 +38,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -71,6 +72,16 @@ func (rd RequestData) toLogJSON() []byte {
 	return ans
 }
 
+func (rd RequestData) toZeroLog(evt *zerolog.Event) {
+	evt.
+		Bool("isQuery", true).
+		Str("corpus", rd.CorpusID).
+		Strs("alignedCorpora", rd.Payload.Aligned).
+		Bool("isAutocomplete", rd.Payload.AutocompleteAttr != "").
+		Bool("isCached", rd.IsCached).
+		Float64("procTimeSecs", rd.ProcTime.Seconds())
+}
+
 type StructAttrUsage struct {
 	db      *sql.DB
 	channel <-chan RequestData
@@ -78,7 +89,7 @@ type StructAttrUsage struct {
 
 func (sau *StructAttrUsage) RunHandler() {
 	for data := range sau.channel {
-		log.Log().Msgf("QUERY: %s", data.toLogJSON())
+		data.toZeroLog(log.Info())
 		if !data.IsCached {
 			err := sau.save(data)
 			if err != nil {
