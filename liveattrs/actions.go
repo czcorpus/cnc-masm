@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"masm/v3/api"
 	"masm/v3/cncdb"
 	"masm/v3/corpus"
@@ -48,6 +47,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
@@ -330,7 +331,7 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 				Args:           status.Args,
 			}
 			if upd.Error == vteProc.ErrorTooManyParsingErrors {
-				log.Print("ERROR: live attributes extraction failed - ", upd.Error)
+				log.Error().Err(upd.Error).Msg("live attributes extraction failed")
 				return
 			}
 		}
@@ -771,7 +772,7 @@ func (a *Actions) RestartLiveAttrsJob(jinfo *LiveAttrsJobInfo) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Restarted liveAttributes job %s", jinfo.ID)
+	log.Info().Msgf("Restarted liveAttributes job %s", jinfo.ID)
 	return nil
 }
 

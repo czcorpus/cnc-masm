@@ -19,7 +19,6 @@
 package jobs
 
 import (
-	"log"
 	"masm/v3/api"
 	"masm/v3/fsops"
 	"net/http"
@@ -28,6 +27,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/gorilla/mux"
 )
@@ -71,7 +72,7 @@ type Actions struct {
 func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 	_, ok := a.detachedJobs[j.GetID()]
 	if ok {
-		log.Printf("Registering again detached job %s", j.GetID())
+		log.Info().Msgf("Registering again detached job %s", j.GetID())
 		delete(a.detachedJobs, j.GetID())
 	}
 	a.syncJobs[j.GetID()] = j
@@ -148,15 +149,15 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 
 func (a *Actions) OnExit() {
 	if a.conf.StatusDataPath != "" {
-		log.Printf("INFO: saving state to %s", a.conf.StatusDataPath)
+		log.Info().Msgf("saving state to %s", a.conf.StatusDataPath)
 		jobList := a.createJobList()
 		err := jobList.Serialize(a.conf.StatusDataPath)
 		if err != nil {
-			log.Print("ERROR: ", err)
+			log.Error().Err(err)
 		}
 
 	} else {
-		log.Print("WARNING: no status file specified, discarding job list")
+		log.Warn().Msg("no status file specified, discarding job list")
 	}
 }
 
@@ -206,15 +207,15 @@ func NewActions(
 		jobStop:      jobStop,
 	}
 	if fsops.IsFile(conf.StatusDataPath) {
-		log.Printf("INFO: found status data in %s - loading...", conf.StatusDataPath)
+		log.Info().Msgf("found status data in %s - loading...", conf.StatusDataPath)
 		jobs, err := LoadJobList(conf.StatusDataPath)
 		if err != nil {
-			log.Print("ERROR: failed to load status data - ", err)
+			log.Error().Err(err).Msg("failed to load status data")
 		}
 		for _, job := range jobs {
 			if job != nil {
 				ans.detachedJobs[job.GetID()] = job
-				log.Printf("INFO: added detached job %s", job.GetID())
+				log.Info().Msgf("added detached job %s", job.GetID())
 			}
 		}
 	}

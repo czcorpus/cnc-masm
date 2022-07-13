@@ -20,11 +20,12 @@ package corpus
 
 import (
 	"fmt"
-	"log"
 	"masm/v3/api"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -58,15 +59,15 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	if wsattr == "" {
 		wsattr = "lemma"
 	}
-	log.Printf("INFO: request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
+	log.Info().Msgf("request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
 	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
 	switch err.(type) {
 	case NotFound:
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
-		log.Printf("ERROR: %s", err)
+		log.Error().Err(err)
 	case InfoError:
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-		log.Printf("ERROR: %s", err)
+		log.Error().Err(err)
 	case nil:
 		api.WriteJSONResponse(w, ans)
 	}
@@ -90,7 +91,7 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 		jobRec.SetFinished()
 		updateJobChan <- &jobRec
 	}(*jinfo)
-	log.Printf("Restarted corpus job %s", jinfo.ID)
+	log.Info().Msgf("Restarted corpus job %s", jinfo.ID)
 	return nil
 }
 

@@ -20,9 +20,10 @@ package cncdb
 
 import (
 	"database/sql"
-	"log"
 	"masm/v3/corpus"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 
 	"masm/v3/api"
 
@@ -75,7 +76,7 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		err2 := a.db.RollbackTx(transact)
 		if err2 != nil {
-			log.Printf("ERROR: failed to rollback transaction: %s", err2)
+			log.Error().Err(err2).Msg("failed to rollback transaction")
 		}
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
@@ -86,7 +87,7 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		err2 := a.db.RollbackTx(transact)
 		if err2 != nil {
-			log.Printf("ERROR: failed to rollback transaction: %s", err2)
+			log.Error().Err(err2).Msg("failed to rollback transaction")
 		}
 	}
 

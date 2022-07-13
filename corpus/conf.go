@@ -21,8 +21,9 @@ package corpus
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"masm/v3/jobs"
+
+	"github.com/rs/zerolog/log"
 
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
@@ -94,16 +95,16 @@ type Conf struct {
 
 func LoadConfig(path string) *Conf {
 	if path == "" {
-		log.Fatal("FATAL: Cannot load config - path not specified")
+		log.Fatal().Msg("Cannot load config - path not specified")
 	}
 	rawData, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal("FATAL: Cannot load config - ", err)
+		log.Fatal().Err(err).Msg("Cannot load config")
 	}
 	var conf Conf
 	err = json.Unmarshal(rawData, &conf)
 	if err != nil {
-		log.Fatal("FATAL: Cannot load config - ", err)
+		log.Fatal().Err(err).Msg("Cannot load config")
 	}
 	return &conf
 }

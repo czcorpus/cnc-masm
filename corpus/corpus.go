@@ -20,11 +20,12 @@ package corpus
 
 import (
 	"fmt"
-	"log"
 	"masm/v3/fsops"
 	"masm/v3/mango"
 	"path/filepath"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 // FileMappedValue is an abstraction of a configured file-related
@@ -238,12 +239,12 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			}
 			if regVertical != "" && ans.RegistryConf.Vertical.Path != regVertical {
 				if ans.RegistryConf.Vertical.FileExists {
-					log.Printf(
-						"WARNING: Registry file likely provides an incorrect VERTICAL %s",
+					log.Warn().Msgf(
+						"Registry file likely provides an incorrect VERTICAL %s",
 						regVertical,
 					)
-					log.Printf(
-						"WARNING: MASM will keep using inferred file %s for %s",
+					log.Warn().Msgf(
+						"MASM will keep using inferred file %s for %s",
 						ans.RegistryConf.Vertical.Path,
 						corpusID,
 					)

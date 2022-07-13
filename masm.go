@@ -23,13 +23,15 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"masm/v3/cncdb"
 	"masm/v3/corpdata"
@@ -58,9 +60,17 @@ func setupLog(path string) {
 	if path != "" {
 		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatalf("Failed to initialize log. File: %s", path)
+			log.Fatal().Msgf("Failed to initialize log. File: %s", path)
 		}
-		log.SetOutput(logf) // runtime should close the file when program exits
+		log.Logger = log.Output(logf)
+
+	} else {
+		log.Logger = log.Output(
+			zerolog.ConsoleWriter{
+				Out:        os.Stderr,
+				TimeFormat: time.RFC3339,
+			},
+		)
 	}
 }
 
@@ -96,11 +106,11 @@ func main() {
 		return
 
 	} else if action != "start" {
-		log.Fatal("Unknown action ", action)
+		log.Fatal().Msgf("Unknown action ", action)
 	}
 	conf := corpus.LoadConfig(flag.Arg(1))
 	setupLog(conf.LogFile)
-	log.Print("INFO: Starting MASM (Manatee Assets, Services and Metadata)")
+	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
 
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -109,15 +119,15 @@ func main() {
 
 	cncDB, err := cncdb.NewCNCMySQLHandler(conf.CNCDB.Host, conf.CNCDB.User, conf.CNCDB.Passwd, conf.CNCDB.DBName)
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatal().Err(err)
 	}
-	log.Printf("INFO: CNC SQL database at '%s'", conf.CNCDB.Host)
+	log.Info().Msgf("CNC SQL database at '%s'", conf.CNCDB.Host)
 
 	laDB, err := mysql.OpenDB(conf.LiveAttrs.DB)
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatal().Err(err)
 	}
-	log.Printf("INFO: LiveAttrs SQL database at '%s'", conf.LiveAttrs.DB.Host)
+	log.Info().Msgf("LiveAttrs SQL database at '%s'", conf.LiveAttrs.DB.Host)
 
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
@@ -143,23 +153,23 @@ func main() {
 		case *liveattrs.LiveAttrsJobInfo:
 			err := liveattrsActions.RestartLiveAttrsJob(tdj)
 			if err != nil {
-				log.Printf("Failed to restart job %s. The job will be removed.", err)
+				log.Error().Err(err).Msgf("Failed to restart job %s. The job will be removed.", tdj.ID)
 			}
 			jobActions.ClearDetachedJob(tdj.ID)
 		case *liveattrs.IdxUpdateJobInfo:
 			err := liveattrsActions.RestartIdxUpdateJob(tdj)
 			if err != nil {
-				log.Printf("Failed to restart job %s. The job will be removed.", err)
+				log.Error().Err(err).Msgf("Failed to restart job %s. The job will be removed.", tdj.ID)
 			}
 			jobActions.ClearDetachedJob(tdj.ID)
 		case *corpus.JobInfo:
 			err := corpusActions.RestartJob(tdj)
 			if err != nil {
-				log.Printf("Failed to restart job %s. The job will be removed.", err)
+				log.Error().Err(err).Msgf("Failed to restart job %s. The job will be removed.", tdj.ID)
 			}
 			jobActions.ClearDetachedJob(tdj.ID)
 		default:
-			log.Println("ERROR: unknown detached job type")
+			log.Error().Msg("unknown detached job type")
 		}
 	}
 
@@ -210,7 +220,7 @@ func main() {
 	cncdbActions := cncdb.NewActions(conf, cncDB)
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
 
-	log.Printf("INFO: starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
+	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
 		Handler:      router,
 		Addr:         fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort),
@@ -221,7 +231,7 @@ func main() {
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {
-			log.Print(err)
+			log.Error().Err(err)
 		}
 		syscallChan <- syscall.SIGTERM
 	}()
@@ -232,7 +242,7 @@ func main() {
 		defer cancel()
 		err := srv.Shutdown(ctx)
 		if err != nil {
-			log.Printf("Shutdown request error: %v", err)
+			log.Info().Err(err).Msg("Shutdown request error")
 		}
 	}
 }

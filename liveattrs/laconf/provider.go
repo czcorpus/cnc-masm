@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"masm/v3/corpus"
 	"masm/v3/fsops"
 	"masm/v3/general/collections"
@@ -31,6 +30,8 @@ import (
 	"os"
 	"path"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
@@ -90,7 +91,7 @@ func Create(
 				newConf.AtomStructure = k
 				break
 			}
-			log.Print("INFO: no atomStructure, inferred value: ", newConf.AtomStructure)
+			log.Info().Msgf("no atomStructure, inferred value: %s", newConf.AtomStructure)
 
 		} else {
 			return nil, fmt.Errorf("no atomStructure specified and the value cannot be inferred due to multiple involved structures")
