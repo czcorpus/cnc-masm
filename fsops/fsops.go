@@ -20,9 +20,10 @@ package fsops
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"sort"
+
+	"github.com/rs/zerolog/log"
 )
 
 // GetFileMtime returns file modification time as a ISO datetime.
@@ -31,13 +32,13 @@ import (
 func GetFileMtime(filePath string) string {
 	f, err := os.Open(filePath)
 	if err != nil {
-		log.Print("WARNING: Failed to get file mtime: ", err)
+		log.Warn().Err(err).Msg("Failed to get file mtime")
 		return ""
 	}
 	defer f.Close()
 	finfo, err := f.Stat()
 	if err != nil {
-		log.Print("WARNING: Failed to get file mtime: ", err)
+		log.Warn().Err(err).Msg("Failed to get file mtime")
 		return ""
 	}
 	return finfo.ModTime().Format("2006-01-02T15:04:05-0700")
@@ -85,13 +86,13 @@ func IsDir(path string) bool {
 func FileSize(path string) int64 {
 	f, err := os.Open(path)
 	if err != nil {
-		log.Print("WARNING: Failed to get file size: ", err)
+		log.Warn().Err(err).Msg("Failed to get file size")
 		return -1
 	}
 	defer f.Close()
 	finfo, err := f.Stat()
 	if err != nil {
-		log.Print("WARNING: Failed to get file size: ", err)
+		log.Warn().Err(err).Msg("Failed to get file size")
 		return -1
 	}
 	return finfo.Size()

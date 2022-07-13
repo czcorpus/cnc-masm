@@ -20,9 +20,10 @@ package api
 
 import (
 	"html/template"
-	"log"
 	"net/http"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 )
 
 type AlarmPage struct {
@@ -77,7 +78,7 @@ func compileAlarmPage() {
 		var err error
 		tpl, err = template.New("alarm").Parse(alarmPage)
 		if err != nil {
-			log.Fatal("Failed to parse the template")
+			log.Fatal().Msg("Failed to parse the template")
 		}
 	})
 }

@@ -21,13 +21,14 @@ package corpus
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"masm/v3/fsops"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type dirInfo struct {
@@ -86,12 +87,12 @@ func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncRespon
 		dstPath = pathKontext
 
 	} else if numCNC < numKontext {
-		log.Print("WARNING: data sync anomaly - same file age but different num of files in src and dest")
+		log.Warn().Msg("data sync anomaly - same file age but different num of files in src and dest")
 		srcPath = pathKontext
 		dstPath = pathCNC
 
 	} else if numKontext < numCNC {
-		log.Print("WARNING: data sync anomaly - same file age but different num of files in src and dest")
+		log.Warn().Msg("data sync anomaly - same file age but different num of files in src and dest")
 		srcPath = pathCNC
 		dstPath = pathKontext
 

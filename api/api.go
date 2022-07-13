@@ -22,9 +22,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
-	"log"
 	"net/http"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 // ActionError represents a basic user action error (e.g. a wrong parameter,
@@ -89,7 +90,7 @@ func testEtagValues(headerValue, testValue string) bool {
 			}
 
 		} else {
-			log.Printf("WARNING: Invalid ETag value: %s", item)
+			log.Warn().Msgf("Invalid ETag value: %s", item)
 		}
 	}
 	return false

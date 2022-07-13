@@ -20,10 +20,11 @@ package jobs
 
 import (
 	"encoding/gob"
-	"log"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Conf struct {
@@ -114,7 +115,7 @@ func clearOldJobs(data map[string]GeneralJobInfo) {
 		}
 	}
 	if numRemoved > 0 {
-		log.Printf("INFO: removed %d old job(s)", numRemoved)
+		log.Info().Msgf("removed %d old job(s)", numRemoved)
 	}
 }
 

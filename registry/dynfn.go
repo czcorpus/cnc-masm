@@ -20,8 +20,9 @@ package registry
 
 import (
 	"encoding/json"
-	"log"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 // note: the function description data are taken from https://www.sketchengine.eu/dynamic-functions/
@@ -52,7 +53,7 @@ func (df *DynFn) Funtype() string {
 		case "enc":
 			ans[i] = "s"
 		default:
-			log.Printf("WARNING: Invalid Arg type: %s", arg)
+			log.Warn().Msgf("Invalid Arg type: %s", arg)
 			ans[i] = "?"
 		}
 	}

@@ -32,12 +32,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/utils"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type RequestData struct {
@@ -65,7 +66,7 @@ func (rd RequestData) toLogJSON() []byte {
 		ProcTimeSecs:   rd.ProcTime.Seconds(),
 	})
 	if err != nil {
-		log.Print("ERROR: failed to marshal query log: ", err)
+		log.Error().Err(err).Msg("failed to marshal query log")
 	}
 	return ans
 }
@@ -77,11 +78,11 @@ type StructAttrUsage struct {
 
 func (sau *StructAttrUsage) RunHandler() {
 	for data := range sau.channel {
-		log.Printf("QUERY: %s", data.toLogJSON())
+		log.Log().Msgf("QUERY: %s", data.toLogJSON())
 		if !data.IsCached {
 			err := sau.save(data)
 			if err != nil {
-				log.Printf("Unable to save struct. attrs usage data: %s", err)
+				log.Error().Err(err).Msg("Unable to save struct. attrs usage data")
 			}
 		}
 	}
