@@ -259,8 +259,10 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	runtimeConf := *conf
 	if len(jsonArgs.VerticalFiles) > 0 {
-		conf.VerticalFiles = jsonArgs.VerticalFiles
+		runtimeConf.VerticalFile = ""
+		runtimeConf.VerticalFiles = jsonArgs.VerticalFiles
 	}
 	// TODO search collisions only in liveattrs type jobs
 
@@ -288,7 +290,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		CorpusID: corpusID,
 		Start:    jobs.CurrentDatetime(),
 		Args: jobInfoArgs{
-			VteConf: *conf,
+			VteConf: runtimeConf,
 			Append:  append == "1",
 		},
 	}
