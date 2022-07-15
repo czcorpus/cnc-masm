@@ -41,7 +41,7 @@ const (
 func (a *Actions) createJobList(unfinishedOnly bool) JobInfoList {
 	ans := make(JobInfoList, 0, len(a.syncJobs))
 	for _, v := range a.syncJobs {
-		if !unfinishedOnly || v.IsFinished() {
+		if !unfinishedOnly || !v.IsFinished() {
 			ans = append(ans, v)
 		}
 	}
@@ -101,8 +101,8 @@ func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Query().Get("compact") == "1" {
 		ans := make(JobInfoListCompact, 0, len(a.syncJobs))
 		for _, v := range a.syncJobs {
-			item := v.CompactVersion()
-			if !unOnly || item.Finished {
+			if !unOnly || !v.IsFinished() {
+				item := v.CompactVersion()
 				ans = append(ans, &item)
 			}
 		}
