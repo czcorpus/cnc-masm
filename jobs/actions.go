@@ -25,7 +25,6 @@ import (
 	"os"
 	"reflect"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -39,10 +38,12 @@ const (
 	tableActionClearOldJobs
 )
 
-func (a *Actions) createJobList() JobInfoList {
+func (a *Actions) createJobList(unfinishedOnly bool) JobInfoList {
 	ans := make(JobInfoList, 0, len(a.syncJobs))
 	for _, v := range a.syncJobs {
-		ans = append(ans, v)
+		if !unfinishedOnly || v.IsFinished() {
+			ans = append(ans, v)
+		}
 	}
 	return ans
 }
@@ -93,31 +94,23 @@ func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 	return syncUpdates
 }
 
-// SyncJobsList returns a list of corpus data synchronization jobs
+// JobList returns a list of corpus data synchronization jobs
 // (i.e. syncing between /cnk/run/manatee/data and /cnk/local/ssd/run/manatee/data)
-func (a *Actions) SyncJobsList(w http.ResponseWriter, req *http.Request) {
-	args := req.URL.Query()
-	compStr, ok := args["compact"]
-	if !ok {
-		compStr = []string{"0"}
-	}
-	compInt, err := strconv.Atoi(compStr[0])
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("compact argument must be either 0 or 1"), http.StatusBadRequest)
-		return
-	}
-
-	if compInt == 1 {
+func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
+	unOnly := req.URL.Query().Get("unfinishedOnly") == "1"
+	if req.URL.Query().Get("compact") == "1" {
 		ans := make(JobInfoListCompact, 0, len(a.syncJobs))
 		for _, v := range a.syncJobs {
 			item := v.CompactVersion()
-			ans = append(ans, &item)
+			if !unOnly || item.Finished {
+				ans = append(ans, &item)
+			}
 		}
 		sort.Sort(sort.Reverse(ans))
 		api.WriteJSONResponse(w, ans)
 
 	} else {
-		ans := a.createJobList()
+		ans := a.createJobList(unOnly)
 		sort.Sort(sort.Reverse(ans))
 		api.WriteJSONResponse(w, ans)
 	}
@@ -150,7 +143,7 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) OnExit() {
 	if a.conf.StatusDataPath != "" {
 		log.Info().Msgf("saving state to %s", a.conf.StatusDataPath)
-		jobList := a.createJobList()
+		jobList := a.createJobList(true)
 		err := jobList.Serialize(a.conf.StatusDataPath)
 		if err != nil {
 			log.Error().Err(err)
