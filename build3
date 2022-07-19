@@ -110,14 +110,15 @@ def get_version_info():
 def get_current_datetime():
     return '{0:%Y-%m-%dT%H:%M:%S}'.format(datetime.datetime.now())
 
-def init_sources(manatee_src):
+def init_sources(version: Version, manatee_src):
     if not os.path.isfile(os.path.join(manatee_src, 'config.hh')):
         env = dict(os.environ)
         env['PYTHON'] = '/usr/bin/python3'
         subprocess.Popen('make clean', shell=True, cwd=manatee_src, env=env, executable='/bin/bash').wait()
         subprocess.Popen(['./configure', '--with-pcre'], shell=True, env=env, cwd=manatee_src, executable='/bin/bash').wait()
-        subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'hat-trie'), executable='/bin/bash').wait()
-        subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'fsa3'), executable='/bin/bash').wait()
+        if version.ge(Version('2.208')):
+            subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'hat-trie'), executable='/bin/bash').wait()
+            subprocess.Popen(['make'], shell=True, cwd=os.path.join(manatee_src, 'fsa3'), executable='/bin/bash').wait()
 
 def build_project(version: Version, manatee_src, manatee_lib, test=False):
     ver = get_version_info()
@@ -217,7 +218,7 @@ if __name__ == '__main__':
     except:
         pass
 
-    init_sources(manatee_src)
+    init_sources(Version(manatee_ver), manatee_src)
     build_project(Version(manatee_ver), manatee_src, manatee_lib, test=bool(args.test))
 
     if should_generate_run_script:
