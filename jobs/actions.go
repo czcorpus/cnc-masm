@@ -25,6 +25,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -38,16 +39,6 @@ const (
 	tableActionClearOldJobs
 )
 
-func (a *Actions) createJobList(unfinishedOnly bool) JobInfoList {
-	ans := make(JobInfoList, 0, len(a.syncJobs))
-	for _, v := range a.syncJobs {
-		if !unfinishedOnly || !v.IsFinished() {
-			ans = append(ans, v)
-		}
-	}
-	return ans
-}
-
 // TableUpdate is a job table queue element specifying
 // required operation on the table
 type TableUpdate struct {
@@ -58,14 +49,26 @@ type TableUpdate struct {
 
 // Actions contains async job-related actions
 type Actions struct {
-	conf         *Conf
-	syncJobs     map[string]GeneralJobInfo
-	detachedJobs map[string]GeneralJobInfo
-	jobStop      chan<- string
+	conf             *Conf
+	jobList          map[string]GeneralJobInfo
+	jobListLock      sync.Mutex
+	detachedJobs     map[string]GeneralJobInfo
+	detachedJobsLock sync.Mutex
+	jobStop          chan<- string
 
-	// tableUpdate is the only way syncJobs are actually
+	// tableUpdate is the only way jobList is actually
 	// updated
 	tableUpdate chan TableUpdate
+}
+
+func (a *Actions) createJobList(unfinishedOnly bool) JobInfoList {
+	ans := make(JobInfoList, 0, len(a.jobList))
+	for _, v := range a.jobList {
+		if !unfinishedOnly || !v.IsFinished() {
+			ans = append(ans, v)
+		}
+	}
+	return ans
 }
 
 // AddJobInfo add a new job to the job table and provides
@@ -74,9 +77,13 @@ func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 	_, ok := a.detachedJobs[j.GetID()]
 	if ok {
 		log.Info().Msgf("Registering again detached job %s", j.GetID())
+		a.detachedJobsLock.Lock()
 		delete(a.detachedJobs, j.GetID())
+		a.detachedJobsLock.Unlock()
 	}
-	a.syncJobs[j.GetID()] = j
+	a.jobListLock.Lock()
+	a.jobList[j.GetID()] = j
+	a.jobListLock.Unlock()
 	syncUpdates := make(chan GeneralJobInfo, 10)
 	go func() {
 		for item := range syncUpdates {
@@ -99,8 +106,8 @@ func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 	unOnly := req.URL.Query().Get("unfinishedOnly") == "1"
 	if req.URL.Query().Get("compact") == "1" {
-		ans := make(JobInfoListCompact, 0, len(a.syncJobs))
-		for _, v := range a.syncJobs {
+		ans := make(JobInfoListCompact, 0, len(a.jobList))
+		for _, v := range a.jobList {
 			if !unOnly || !v.IsFinished() {
 				item := v.CompactVersion()
 				ans = append(ans, &item)
@@ -119,7 +126,7 @@ func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 // JobInfo gives an information about a specific data sync job
 func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	job := FindJob(a.syncJobs, vars["jobId"])
+	job := FindJob(a.jobList, vars["jobId"])
 	if job != nil {
 		api.WriteJSONResponse(w, job)
 
@@ -130,7 +137,7 @@ func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
 
 func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	job := FindJob(a.syncJobs, vars["jobId"])
+	job := FindJob(a.jobList, vars["jobId"])
 	if job != nil {
 		a.jobStop <- job.GetID()
 		api.WriteJSONResponse(w, job)
@@ -165,6 +172,8 @@ func (a *Actions) GetDetachedJobs() []GeneralJobInfo {
 }
 
 func (a *Actions) ClearDetachedJob(jobID string) bool {
+	a.detachedJobsLock.Lock()
+	defer a.detachedJobsLock.Unlock()
 	_, ok := a.detachedJobs[jobID]
 	delete(a.detachedJobs, jobID)
 	return ok
@@ -172,7 +181,7 @@ func (a *Actions) ClearDetachedJob(jobID string) bool {
 
 func (a *Actions) LastUnfinishedJobOfType(corpusID string, jobType string) (GeneralJobInfo, bool) {
 	var tmp GeneralJobInfo
-	for _, v := range a.syncJobs {
+	for _, v := range a.jobList {
 		if v.GetCorpus() == corpusID && v.GetType() == jobType && !v.IsFinished() &&
 			(v == nil || reflect.ValueOf(v).IsNil() || v.GetStartDT().Before(tmp.GetStartDT())) {
 			tmp = v
@@ -182,7 +191,7 @@ func (a *Actions) LastUnfinishedJobOfType(corpusID string, jobType string) (Gene
 }
 
 func (a *Actions) GetJob(jobID string) (GeneralJobInfo, bool) {
-	v, ok := a.syncJobs[jobID]
+	v, ok := a.jobList[jobID]
 	return v, ok
 }
 
@@ -194,7 +203,7 @@ func NewActions(
 ) *Actions {
 	ans := &Actions{
 		conf:         conf,
-		syncJobs:     make(map[string]GeneralJobInfo),
+		jobList:      make(map[string]GeneralJobInfo),
 		detachedJobs: make(map[string]GeneralJobInfo),
 		tableUpdate:  make(chan TableUpdate),
 		jobStop:      jobStop,
@@ -232,11 +241,17 @@ func NewActions(
 		for upd := range ans.tableUpdate {
 			switch upd.action {
 			case tableActionUpdateJob:
-				ans.syncJobs[upd.itemID] = upd.data
+				ans.jobListLock.Lock()
+				ans.jobList[upd.itemID] = upd.data
+				ans.jobListLock.Unlock()
 			case tableActionFinishJob:
-				ans.syncJobs[upd.itemID].SetFinished()
+				ans.jobListLock.Lock()
+				ans.jobList[upd.itemID].SetFinished()
+				ans.jobListLock.Unlock()
 			case tableActionClearOldJobs:
-				clearOldJobs(ans.syncJobs)
+				ans.jobListLock.Lock()
+				clearOldJobs(ans.jobList)
+				ans.jobListLock.Unlock()
 			}
 
 		}
