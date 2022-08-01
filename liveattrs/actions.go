@@ -161,6 +161,15 @@ func (a *Actions) createConf(corpusID string, req *http.Request) (*vteCnf.VTECon
 	if err != nil {
 		return nil, err
 	}
+	maxNumErrReq := req.URL.Query().Get("maxNumErrors")
+	maxNumErr := 100000
+	if maxNumErrReq != "" {
+		maxNumErr, err = strconv.Atoi(maxNumErrReq)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return laconf.Create(
 		a.conf,
 		corpusInfo,
@@ -168,8 +177,9 @@ func (a *Actions) createConf(corpusID string, req *http.Request) (*vteCnf.VTECon
 		req.URL.Query().Get("atomStructure"),
 		req.URL.Query().Get("bibIdAttr"),
 		req.URL.Query()["mergeAttr"],
-		req.URL.Query().Get("mergeFn"),
-	) // e.g. "identity", "intecorp"
+		req.URL.Query().Get("mergeFn"), // e.g. "identity", "intecorp"
+		maxNumErr,
+	)
 }
 
 func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {

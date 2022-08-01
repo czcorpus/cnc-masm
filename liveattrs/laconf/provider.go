@@ -52,13 +52,14 @@ func Create(
 	bibIdAttr string,
 	mergeAttrs []string,
 	mergeFn string,
+	maxNumErrors int,
 ) (*vteconf.VTEConf, error) {
 	newConf := vteconf.VTEConf{
 		Corpus:              corpusInfo.ID,
 		ParallelCorpus:      corpusDBInfo.ParallelCorpus,
 		AtomParentStructure: "",
 		StackStructEval:     false,
-		MaxNumErrors:        100000, // TODO should not be hardcoded here
+		MaxNumErrors:        maxNumErrors,
 		Ngrams:              vteconf.NgramConf{},
 		Encoding:            "UTF-8",
 		IndexedCols:         []string{},
