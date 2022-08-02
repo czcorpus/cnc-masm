@@ -106,7 +106,7 @@ func main() {
 		return
 
 	} else if action != "start" {
-		log.Fatal().Msgf("Unknown action ", action)
+		log.Fatal().Msgf("Unknown action %s", action)
 	}
 	conf := corpus.LoadConfig(flag.Arg(1))
 	setupLog(conf.LogFile)
