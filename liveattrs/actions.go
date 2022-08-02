@@ -229,6 +229,7 @@ type liveattrsJsonArgs struct {
 //   registry file
 // * bibIdAttr - if defined then masm will create bibliography entries with IDs matching values from
 //   from referred bibIdAttr values
+// * maxNumErrors - limit number of parsing errors for processed vertical file(s)
 func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
@@ -347,6 +348,8 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 				return
 			}
 		}
+
+		a.eqCache.Del(status.CorpusID)
 
 		if status.Args.VteConf.DB.Type == "sqlite" {
 			err := sqlite.InstallSqliteDatabase(
