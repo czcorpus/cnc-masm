@@ -413,9 +413,8 @@ func (a *Actions) getAttrValues(
 	}
 	srchAttrs := collections.NewSet(laconf.GetSubcorpAttrs(laConf)...)
 	expandAttrs := collections.NewSet[string]()
-	bibLabel := utils.ImportKey(corpusInfo.BibLabelAttr)
-	if bibLabel != "" {
-		srchAttrs.Add(bibLabel)
+	if corpusInfo.BibLabelAttr != "" {
+		srchAttrs.Add(corpusInfo.BibLabelAttr)
 	}
 	// if in autocomplete mode then always expand list of the target column
 	if qry.AutocompleteAttr != "" {
@@ -451,6 +450,7 @@ func (a *Actions) getAttrValues(
 		Poscount:   0,
 		AttrValues: make(map[string]any),
 	}
+
 	for _, sattr := range qBuilder.SearchAttrs {
 		ans.AttrValues[sattr] = make([]*response.ListedValue, 0, 100)
 	}
@@ -514,7 +514,7 @@ func (a *Actions) getAttrValues(
 	// now each line contains: (shortened_label, identifier, label, num_grouped_items, num_positions)
 	// where num_grouped_items is initialized to 1
 	if corpusInfo.BibGroupDuplicates > 0 {
-		groupBibItems(&ans, bibLabel)
+		groupBibItems(&ans, corpusInfo.BibLabelAttr)
 	}
 	maxAttrListSize := qry.MaxAttrListSize
 	if maxAttrListSize == 0 {
