@@ -72,7 +72,6 @@ func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncRespon
 			ageKontext = files2.First().ModTime()
 		}
 	}
-
 	if ageCNC.IsZero() && ageKontext.IsZero() {
 		return syncResponse{}, fmt.Errorf("Neither KonText (%s) nor CNC (%s) directory exists", pathKontext, pathCNC)
 	}
