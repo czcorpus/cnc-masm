@@ -19,6 +19,7 @@
 package fsops
 
 import (
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -139,7 +140,8 @@ func ListFilesInDir(path string, newestFirst bool) (FileList, error) {
 	if err != nil {
 		return ans, err
 	}
-	copy(files, ans.files)
+	ans.files = make([]fs.FileInfo, len(files))
+	copy(ans.files, files)
 	if newestFirst {
 		sort.Sort(&ans)
 	}
