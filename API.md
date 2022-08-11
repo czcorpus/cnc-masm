@@ -133,6 +133,7 @@ Return list of recent jobs (even finished ones).
 URL arguments:
 
 * `compact` - if `1` then the individual items are a bit pruned for better readability
+* `unfinishedOnly` - if `1` then only running jobs will be listed
 
 `GET /jobs/[job ID]`
 
