@@ -191,6 +191,7 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/findBibTitles", liveattrsActions.FindBibTitles).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/stats", liveattrsActions.Stats)
 	router.HandleFunc("/liveAttributes/{corpusId}/updateIndexes", liveattrsActions.UpdateIndexes).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/mixSubcorpus", liveattrsActions.MixSubcorpus).Methods(http.MethodPost)
 
 	router.HandleFunc("/jobs", jobActions.JobList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
