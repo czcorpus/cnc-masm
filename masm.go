@@ -197,6 +197,7 @@ func main() {
 	router.HandleFunc("/jobs", jobActions.JobList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.Delete).Methods(http.MethodDelete)
+	router.HandleFunc("/jobs/{jobId}/clearIfFinished", jobActions.ClearIfFinished).Methods(http.MethodGet)
 
 	router.HandleFunc("/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
 	router.HandleFunc("/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)

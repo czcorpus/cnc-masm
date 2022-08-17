@@ -135,6 +135,19 @@ func FindJob(syncJobs map[string]GeneralJobInfo, jobID string) GeneralJobInfo {
 	return ans
 }
 
+// ClearJob removes finished job by providing full id.
+func ClearFinishedJob(syncJobs map[string]GeneralJobInfo, jobID string) (GeneralJobInfo, bool) {
+	job, ok := syncJobs[jobID]
+	if ok {
+		if job.IsFinished() {
+			delete(syncJobs, jobID)
+			return job, true
+		}
+		return job, false
+	}
+	return nil, false
+}
+
 // JobInfoCompact is a simplified and unified version of
 // any specific job information
 type JobInfoCompact struct {
