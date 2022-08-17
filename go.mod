@@ -10,7 +10,6 @@ require (
 	github.com/rs/zerolog v1.27.0
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/exp v0.0.0-20220608143224-64259d1afd70
-	gonum.org/v1/gonum v0.11.0
 )
 
 require (

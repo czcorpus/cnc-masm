@@ -27,7 +27,6 @@ import (
 	"strings"
 
 	"github.com/rs/zerolog/log"
-	"gonum.org/v1/gonum/mat"
 )
 
 type CorpusComposition struct {
@@ -46,7 +45,7 @@ type MetadataModel struct {
 	idMap     map[int]int
 	numTexts  int
 	b         []float64
-	a         mat.Mutable
+	a         [][]float64
 }
 
 func (mm *MetadataModel) getAllConditions(node *CategoryTreeNode) [][2]string {
@@ -127,15 +126,16 @@ func (mm *MetadataModel) initABNonalign(usedIDs *collections.Set[int]) {
 				if mm.b[i] > 0 {
 					mult = 2.0
 				}
-				mm.a.Set(i, v, mm.b[i]*mult)
+				mm.a[i][v] = mm.b[i] * mult
 			}
 		}
 	}
 }
 
-func (mm *MetadataModel) PrintA(m mat.Matrix) {
-	fa := mat.Formatted(m, mat.Prefix(""), mat.Squeeze())
-	fmt.Println(fa)
+func (mm *MetadataModel) PrintA(m [][]float64) {
+	for _, v := range m {
+		fmt.Println(v)
+	}
 }
 
 func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set[int]) error {
@@ -178,7 +178,7 @@ func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set
 				return err
 			}
 			mcf := float64(minCount)
-			mm.a.Set(node.NodeID-1, mm.idMap[minID], mcf)
+			mm.a[node.NodeID-1][mm.idMap[minID]] = mcf
 			usedIDs.Add(minID)
 			mm.b[node.NodeID-1] = float64(node.Size)
 		}
@@ -201,15 +201,7 @@ func (mm *MetadataModel) isZeroVector(m []float64) bool {
 }
 
 func (mm *MetadataModel) getCategorySize(results []float64, catID int) (float64, error) {
-	if rva, ok := mm.a.(mat.RowViewer); ok {
-		catIDRow := rva.RowView(catID)
-		ans := mat.Dot(
-			mat.NewVecDense(len(results), results),
-			catIDRow,
-		)
-		return ans, nil
-	}
-	return -1, fmt.Errorf("cannot calculate category size - matrix is not a RowViewer")
+	return dotProduct(results, mm.a[catID])
 }
 
 func (mm *MetadataModel) getAssembledSize(results []float64) float64 {
@@ -280,11 +272,10 @@ func NewMetadataModel(
 	ans.numTexts = len(ts)
 	ans.b = make([]float64, ans.cTree.NumCategories()-1)
 	usedIDs := collections.NewSet[int]()
-	ans.a = mat.NewDense(
-		ans.cTree.NumCategories()-1,
-		ans.numTexts,
-		make([]float64, (ans.cTree.NumCategories()-1)*ans.numTexts),
-	)
+	ans.a = make([][]float64, ans.cTree.NumCategories()-1)
+	for i := 0; i < len(ans.a); i++ {
+		ans.a[i] = make([]float64, ans.numTexts)
+	}
 	ans.initAB(cTree.RootNode, usedIDs)
 	ans.PrintA(ans.a)
 	fmt.Println("B = ", ans.b)
