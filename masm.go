@@ -192,6 +192,7 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/stats", liveattrsActions.Stats)
 	router.HandleFunc("/liveAttributes/{corpusId}/updateIndexes", liveattrsActions.UpdateIndexes).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/mixSubcorpus", liveattrsActions.MixSubcorpus).Methods(http.MethodPost)
+	router.HandleFunc("/liveAttributes/{corpusId}/inferredAtomStructure", liveattrsActions.InferredAtomStructure).Methods(http.MethodGet)
 
 	router.HandleFunc("/jobs", jobActions.JobList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
