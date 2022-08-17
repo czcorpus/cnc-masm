@@ -41,7 +41,7 @@ type CategorySize struct {
 
 type CorpusComposition struct {
 	Error         string         `json:"error,omitempty"`
-	DocIDs        []int          `json:"docIds"`
+	DocIDs        []string       `json:"docIds"`
 	SizeAssembled int            `json:"sizeAssembled"`
 	CategorySizes []CategorySize `json:"categorySizes"`
 }
@@ -52,7 +52,7 @@ type MetadataModel struct {
 	cTree     *CategoryTree
 	idAttr    string
 	textSizes []int
-	idMap     map[int]int
+	idMap     map[string]int
 	numTexts  int
 	b         []float64
 	a         [][]float64
@@ -84,7 +84,7 @@ func (mm *MetadataModel) getAllConditions(node *CategoryTreeNode) [][2]string {
 // matching them with the 'A' matrix (i.e. in a filtered
 // result a record has a different index then in
 // all the records list).
-func (mm *MetadataModel) getTextSizes() ([]int, map[int]int, error) {
+func (mm *MetadataModel) getTextSizes() ([]int, map[string]int, error) {
 	allCond := mm.getAllConditions(mm.cTree.RootNode)
 	allCondSQL := make([]string, len(allCond))
 	allCondArgsSQL := make([]any, len(allCond))
@@ -94,7 +94,8 @@ func (mm *MetadataModel) getTextSizes() ([]int, map[int]int, error) {
 	}
 	var sqle strings.Builder
 	sqle.WriteString(fmt.Sprintf(
-		"SELECT MIN(m1.id) AS db_id, SUM(poscount) FROM %s AS m1 ",
+		"SELECT m1.%s AS db_id, SUM(poscount) FROM %s AS m1 ",
+		utils.ImportKey(mm.idAttr),
 		mm.tableName,
 	))
 	args := []any{}
@@ -106,26 +107,27 @@ func (mm *MetadataModel) getTextSizes() ([]int, map[int]int, error) {
 	args = append(args, mm.cTree.CorpusID)
 	args = append(args, allCondArgsSQL...)
 	sizes := []int{}
-	idMap := make(map[int]int)
+	idMap := make(map[string]int)
 	rows, err := mm.db.Query(sqle.String(), args...)
 	if err != nil {
-		return []int{}, map[int]int{}, err
+		return []int{}, map[string]int{}, err
 	}
 	i := 0
 	for rows.Next() {
-		var minID, minCount int
-		err := rows.Scan(&minID, &minCount)
+		var minCount int
+		var docID string
+		err := rows.Scan(&docID, &minCount)
 		if err != nil {
-			return []int{}, map[int]int{}, err
+			return []int{}, map[string]int{}, err
 		}
 		sizes = append(sizes, minCount)
-		idMap[minID] = i
+		idMap[docID] = i
 		i++
 	}
 	return sizes, idMap, nil
 }
 
-func (mm *MetadataModel) initABNonalign(usedIDs *collections.Set[int]) {
+func (mm *MetadataModel) initABNonalign(usedIDs *collections.Set[string]) {
 	// Now we process items with no aligned counterparts.
 	// In this case we must define a condition which will be
 	// fulfilled iff X[i] == 0
@@ -148,7 +150,7 @@ func (mm *MetadataModel) PrintA(m [][]float64) {
 	}
 }
 
-func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set[int]) error {
+func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set[string]) error {
 	if len(node.MetadataCondition) > 0 {
 		sqlItems := []string{}
 		for _, subl := range node.MetadataCondition {
@@ -162,7 +164,8 @@ func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set
 		sqlArgs := []any{}
 		var sqle strings.Builder
 		sqle.WriteString(fmt.Sprintf(
-			"SELECT MIN(m1.id) AS db_id, SUM(m1.poscount) FROM %s AS m1 ",
+			"SELECT m1.%s AS db_id, SUM(m1.poscount) FROM %s AS m1 ",
+			utils.ImportKey(mm.idAttr),
 			mm.tableName,
 		))
 		mm.cTree.appendAlignedCorpSQL(sqle, &sqlArgs)
@@ -182,14 +185,15 @@ func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set
 			return err
 		}
 		for rows.Next() {
-			var minID, minCount int
-			err := rows.Scan(&minID, &minCount)
+			var minCount int
+			var docID string
+			err := rows.Scan(&docID, &minCount)
 			if err != nil {
 				return err
 			}
 			mcf := float64(minCount)
-			mm.a[node.NodeID-1][mm.idMap[minID]] = mcf
-			usedIDs.Add(minID)
+			mm.a[node.NodeID-1][mm.idMap[docID]] = mcf
+			usedIDs.Add(docID)
 			mm.b[node.NodeID-1] = float64(node.Size)
 		}
 	}
@@ -256,12 +260,11 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 		log.Err(err)
 	}
 	lines := bytes.Split(out, []byte("\n"))
-	variables := make([]float64, mm.numTexts)
+	var variables []float64
 	err = json.Unmarshal(lines[0], &variables)
 	if err != nil {
 		log.Err(err)
 	}
-
 	var simplexErr error
 	selections := mapSlice(
 		variables,
@@ -275,7 +278,7 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 		}
 		categorySizes[c] = catSize
 	}
-	docIDs := make([]int, 0, len(selections))
+	docIDs := make([]string, 0, len(selections))
 	for docID, idx := range mm.idMap {
 		if selections[idx] == 1 {
 			docIDs = append(docIDs, docID)
@@ -288,8 +291,9 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	allCond := mm.getAllConditions(mm.cTree.RootNode)
 	total := mm.getAssembledSize(selections)
 	return &CorpusComposition{
-		Error:  errDesc,
-		DocIDs: docIDs,
+		Error:         errDesc,
+		DocIDs:        docIDs,
+		SizeAssembled: int(total),
 		CategorySizes: mapSlice(
 			categorySizes,
 			func(v float64, i int) CategorySize {
@@ -327,7 +331,7 @@ func NewMetadataModel(
 	ans.textSizes = ts
 	ans.numTexts = len(ts)
 	ans.b = make([]float64, ans.cTree.NumCategories()-1)
-	usedIDs := collections.NewSet[int]()
+	usedIDs := collections.NewSet[string]()
 	ans.a = make([][]float64, ans.cTree.NumCategories()-1)
 	for i := 0; i < len(ans.a); i++ {
 		ans.a[i] = make([]float64, ans.numTexts)
