@@ -28,7 +28,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"gonum.org/v1/gonum/mat"
-	"gonum.org/v1/gonum/optimize/convex/lp"
 )
 
 type CorpusComposition struct {
@@ -192,18 +191,6 @@ func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set
 	return nil
 }
 
-func (mm *MetadataModel) initXLimit() {
-	for i := 0; i < mm.numTexts; i++ {
-		mm.a.Set(i+mm.cTree.NumCategories()-1, i, 1.0)
-	}
-	for i := 0; i < mm.numTexts+mm.cTree.NumCategories()-1; i++ {
-		mm.a.Set(i, mm.numTexts+i, 1)
-	}
-	for i := mm.cTree.NumCategories() - 1; i < len(mm.b); i++ {
-		mm.b[i] = 1.0
-	}
-}
-
 func (mm *MetadataModel) isZeroVector(m []float64) bool {
 	for i := 0; i < len(m); i++ {
 		if m[i] > 0 {
@@ -237,12 +224,13 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	if mm.isZeroVector(mm.b) {
 		return &CorpusComposition{}
 	}
-	c := make([]float64, 2*mm.numTexts+mm.cTree.NumCategories()-1)
+	c := make([]float64, mm.numTexts)
 	for i := 0; i < mm.numTexts; i++ {
-		c[i] = -1.0
+		c[i] = 1.0
 	}
+	// TODO encode A, b, c and call external pulp script
+	variables := make([]float64, mm.numTexts) // TODO
 	var simplexErr error
-	_, variables, simplexErr := lp.Simplex(c, mm.a, mm.b, 0, nil)
 	selections := mapSlice(
 		variables,
 		func(v float64) float64 { return math.RoundToEven(v) },
@@ -266,10 +254,8 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 		errDesc = simplexErr.Error()
 	}
 	return &CorpusComposition{
-		Error:         errDesc,
-		DocIDs:        docIDs,
-		SizeAssembled: int(mm.getAssembledSize(selections)),
-		CategorySizes: mapSlice(categorySizes, func(v float64) int { return int(v) }),
+		Error:  errDesc,
+		DocIDs: docIDs,
 	}
 }
 
@@ -292,18 +278,19 @@ func NewMetadataModel(
 	ans.idMap = idMap
 	ans.textSizes = ts
 	ans.numTexts = len(ts)
-	ans.b = make([]float64, ans.cTree.NumCategories()-1+ans.numTexts)
+	ans.b = make([]float64, ans.cTree.NumCategories()-1)
 	usedIDs := collections.NewSet[int]()
 	ans.a = mat.NewDense(
-		ans.cTree.NumCategories()-1+ans.numTexts,
-		ans.cTree.NumCategories()-1+2*ans.numTexts,
-		make([]float64, (ans.numTexts+ans.cTree.NumCategories()-1)*(2*ans.numTexts+ans.cTree.NumCategories()-1)),
+		ans.cTree.NumCategories()-1,
+		ans.numTexts,
+		make([]float64, (ans.cTree.NumCategories()-1)*ans.numTexts),
 	)
 	ans.initAB(cTree.RootNode, usedIDs)
+	ans.PrintA(ans.a)
+	fmt.Println("B = ", ans.b)
 	// for items without aligned counterparts we create
 	// conditions fulfillable only for x[i] = 0
 	ans.initABNonalign(usedIDs)
-	ans.initXLimit()
 
 	return ans, nil
 }
