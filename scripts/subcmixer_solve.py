@@ -25,5 +25,5 @@ for i in range(num_conditions):
     condition = pulp.lpSum([A[i][j]*x[j] for j in range(num_texts)]) <= b[i]
     lp_prob += condition, label
 
-stat = lp_prob.solve()
+stat = lp_prob.solve(pulp.PULP_CBC_CMD(msg=0))
 print(json.dumps([v.varValue for v in lp_prob.variables()]))
