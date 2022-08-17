@@ -19,11 +19,15 @@
 package subcmixer
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
 	"masm/v3/general/collections"
 	"masm/v3/liveattrs/utils"
 	"math"
+	"os/exec"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -226,8 +230,40 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	for i := 0; i < mm.numTexts; i++ {
 		c[i] = 1.0
 	}
-	// TODO encode A, b, c and call external pulp script
-	variables := make([]float64, mm.numTexts) // TODO
+
+	// here we use external python solver
+	json_data, err := json.Marshal(map[string]any{
+		"A": mm.a,
+		"b": mm.b,
+	})
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+
+	cmd := exec.Command("scripts/subcmixer_solve.py")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		log.Err(err)
+	}
+	go func() {
+		defer stdin.Close()
+		io.WriteString(stdin, string(json_data))
+	}()
+
+	// output from python script
+	out, err := cmd.Output()
+	log.Info().Msg(string(out))
+	if err != nil {
+		log.Err(err)
+	}
+	lines := bytes.Split(out, []byte("\n"))
+
+	variables := make([]float64, mm.numTexts)
+	err = json.Unmarshal(lines[len(lines)-1], &variables)
+	if err != nil {
+		log.Err(err)
+	}
+
 	var simplexErr error
 	selections := mapSlice(
 		variables,
