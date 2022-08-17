@@ -26,4 +26,4 @@ for i in range(num_conditions):
     lp_prob += condition, label
 
 stat = lp_prob.solve(pulp.PULP_CBC_CMD(msg=0))
-print(json.dumps([v.varValue for v in lp_prob.variables()]))
+print(json.dumps([v.varValue for v in lp_prob.variables()]), end='')
