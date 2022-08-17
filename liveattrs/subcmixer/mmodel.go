@@ -246,14 +246,12 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 
 	// output from python script
 	out, err := cmd.Output()
-	log.Info().Msg(string(out))
 	if err != nil {
 		log.Err(err)
 	}
 	lines := bytes.Split(out, []byte("\n"))
-
 	variables := make([]float64, mm.numTexts)
-	err = json.Unmarshal(lines[len(lines)-1], &variables)
+	err = json.Unmarshal(lines[0], &variables)
 	if err != nil {
 		log.Err(err)
 	}
