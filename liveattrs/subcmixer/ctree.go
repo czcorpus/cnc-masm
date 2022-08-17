@@ -145,8 +145,8 @@ func (ct *CategoryTree) getMaxGroupSizes(nodes []*CategoryTreeNode, parentSize f
 		for i := 0; i < numg; i++ {
 			requiredSizes[i] = float64(dataSize) * nodes[i].Ratio
 		}
-		sizes := mapSlice(nodes, func(v *CategoryTreeNode) float64 { return float64(v.Size) })
-		ratios := mapSlice(nodes, func(v *CategoryTreeNode) float64 { return v.Ratio })
+		sizes := mapSlice(nodes, func(v *CategoryTreeNode, i int) float64 { return float64(v.Size) })
+		ratios := mapSlice(nodes, func(v *CategoryTreeNode, i int) float64 { return v.Ratio })
 		reserves, err := subtract(
 			sizes,
 			requiredSizes,

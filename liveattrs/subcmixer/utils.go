@@ -86,10 +86,10 @@ func min[T int | float64](items ...T) T {
 	return ans
 }
 
-func mapSlice[T any, U any](items []T, mapFn func(T) U) []U {
+func mapSlice[T any, U any](items []T, mapFn func(T, int) U) []U {
 	ans := make([]U, len(items))
 	for i, v := range items {
-		ans[i] = mapFn(v)
+		ans[i] = mapFn(v, i)
 	}
 	return ans
 }

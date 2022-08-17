@@ -61,6 +61,7 @@ type ErrorResponse struct {
 func WriteJSONResponse(w http.ResponseWriter, value interface{}) {
 	jsonAns, err := json.Marshal(value)
 	if err != nil {
+		log.Err(err).Msg("failed to encode a result to JSON")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -29,11 +29,17 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type CategorySize struct {
+	Total      int     `json:"total"`
+	Ratio      float64 `json:"ratio"`
+	Expression string  `json:"expression"`
+}
+
 type CorpusComposition struct {
-	Error         string `json:"error,omitempty"`
-	DocIDs        []int  `json:"docIds"`
-	SizeAssembled int    `json:"sizeAssembled"`
-	CategorySizes []int  `json:"categorySizes"`
+	Error         string         `json:"error,omitempty"`
+	DocIDs        []int          `json:"docIds"`
+	SizeAssembled int            `json:"sizeAssembled"`
+	CategorySizes []CategorySize `json:"categorySizes"`
 }
 
 type MetadataModel struct {
@@ -225,7 +231,7 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	var simplexErr error
 	selections := mapSlice(
 		variables,
-		func(v float64) float64 { return math.RoundToEven(v) },
+		func(v float64, i int) float64 { return math.RoundToEven(v) },
 	)
 	categorySizes := make([]float64, mm.cTree.NumCategories()-1)
 	for c := 0; c < mm.cTree.NumCategories()-1; c++ {
@@ -245,9 +251,25 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	if simplexErr != nil {
 		errDesc = simplexErr.Error()
 	}
+	allCond := mm.getAllConditions(mm.cTree.RootNode)
+	total := mm.getAssembledSize(selections)
 	return &CorpusComposition{
 		Error:  errDesc,
 		DocIDs: docIDs,
+		CategorySizes: mapSlice(
+			categorySizes,
+			func(v float64, i int) CategorySize {
+				var ratio float64
+				if total > 0 {
+					ratio = v / total
+				}
+				return CategorySize{
+					Total:      int(v),
+					Ratio:      ratio,
+					Expression: fmt.Sprintf("%s = \"%s\"", allCond[i][0], allCond[i][1]),
+				}
+			},
+		),
 	}
 }
 
