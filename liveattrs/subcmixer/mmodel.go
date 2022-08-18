@@ -302,9 +302,13 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 					ratio = v / total
 				}
 				return CategorySize{
-					Total:      int(v),
-					Ratio:      ratio,
-					Expression: fmt.Sprintf("%s = \"%s\"", allCond[i][0], allCond[i][1]),
+					Total: int(v),
+					Ratio: ratio,
+					Expression: fmt.Sprintf(
+						"%s == '%s'",
+						utils.ExportKey(allCond[i][0]),
+						utils.ExportKey(allCond[i][1]),
+					),
 				}
 			},
 		),
@@ -337,8 +341,6 @@ func NewMetadataModel(
 		ans.a[i] = make([]float64, ans.numTexts)
 	}
 	ans.initAB(cTree.RootNode, usedIDs)
-	ans.PrintA(ans.a)
-	fmt.Println("B = ", ans.b)
 	// for items without aligned counterparts we create
 	// conditions fulfillable only for x[i] = 0
 	ans.initABNonalign(usedIDs)
