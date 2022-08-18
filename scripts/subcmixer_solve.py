@@ -18,7 +18,7 @@ x_min = 0
 x_max = 1
 
 x = pulp.LpVariable.dicts('x', list(range(num_texts)), x_min, x_max)
-lp_prob = pulp.LpProblem('Minmax Problem', pulp.LpMaximize)
+lp_prob = pulp.LpProblem('Minmax_Problem', pulp.LpMaximize)
 lp_prob += pulp.lpSum(x), 'Minimize_the_maximum'
 for i in range(num_conditions):
     label = f'Max_constraint_{i}'
@@ -26,4 +26,4 @@ for i in range(num_conditions):
     lp_prob += condition, label
 
 stat = lp_prob.solve(pulp.PULP_CBC_CMD(msg=0))
-print(json.dumps([v.varValue for v in lp_prob.variables()]))
+print(json.dumps([v.varValue for v in lp_prob.variables()]), end='')

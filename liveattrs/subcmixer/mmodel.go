@@ -19,7 +19,6 @@
 package subcmixer
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -259,12 +258,13 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	if err != nil {
 		log.Err(err)
 	}
-	lines := bytes.Split(out, []byte("\n"))
-	var variables []float64
-	err = json.Unmarshal(lines[0], &variables)
+	variables := make([]float64, mm.numTexts)
+	err = json.Unmarshal(out, &variables)
 	if err != nil {
 		log.Err(err)
 	}
+	log.Debug().Msgf("variables: %v", variables)
+
 	var simplexErr error
 	selections := mapSlice(
 		variables,
