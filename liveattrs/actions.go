@@ -795,6 +795,26 @@ func (a *Actions) RestartIdxUpdateJob(jinfo *IdxUpdateJobInfo) error {
 	return nil
 }
 
+func (a *Actions) InferredAtomStructure(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	conf, err := a.laConfCache.Get(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+
+	ans := map[string]any{"structure": nil}
+	if len(conf.Structures) == 1 {
+		for k := range conf.Structures {
+			ans["structure"] = k
+			break
+		}
+	}
+	api.WriteJSONResponse(w, &ans)
+}
+
 // NewActions is the default factory for Actions
 func NewActions(
 	conf *corpus.Conf,

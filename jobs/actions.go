@@ -147,6 +147,17 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (a *Actions) ClearIfFinished(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	job, removed := ClearFinishedJob(a.jobList, vars["jobId"])
+	if job != nil {
+		api.WriteJSONResponse(w, map[string]any{"removed": removed, "jobInfo": job})
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("job does not exist or did not finish yet"), http.StatusNotFound)
+	}
+}
+
 func (a *Actions) OnExit() {
 	if a.conf.StatusDataPath != "" {
 		log.Info().Msgf("saving state to %s", a.conf.StatusDataPath)
