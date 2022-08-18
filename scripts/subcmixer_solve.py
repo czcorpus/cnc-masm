@@ -8,7 +8,11 @@ class SolveData(TypedDict):
     A: List[List[float]]
     b: List[float]
 
-data: SolveData = json.loads(next(sys.stdin))
+buff = ''
+for line in sys.stdin:
+    buff += line
+
+data: SolveData = json.loads(buff)
 A = data['A']
 b = data['b']
 num_texts = len(A[0])
@@ -26,4 +30,9 @@ for i in range(num_conditions):
     lp_prob += condition, label
 
 stat = lp_prob.solve(pulp.PULP_CBC_CMD(msg=0))
-print(json.dumps([v.varValue for v in lp_prob.variables()]), end='')
+
+variables = [0] * len(x)
+for idx, lpvar in x.items():
+    variables[idx] = lpvar.varValue
+print(json.dumps(variables), end='')
+

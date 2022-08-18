@@ -27,6 +27,9 @@ import (
 	"masm/v3/liveattrs/utils"
 	"math"
 	"os/exec"
+	"path"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -193,8 +196,8 @@ func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set
 			mcf := float64(minCount)
 			mm.a[node.NodeID-1][mm.idMap[docID]] = mcf
 			usedIDs.Add(docID)
-			mm.b[node.NodeID-1] = float64(node.Size)
 		}
+		mm.b[node.NodeID-1] = float64(node.Size)
 	}
 	if len(node.Children) > 0 {
 		for _, child := range node.Children {
@@ -243,7 +246,9 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 		log.Fatal().Err(err)
 	}
 
-	cmd := exec.Command("scripts/subcmixer_solve.py")
+	_, currPath, _, _ := runtime.Caller(0)
+	currPath = filepath.Dir(currPath)
+	cmd := exec.Command(path.Join(currPath, "..", "..", "scripts/subcmixer_solve.py"))
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		log.Err(err)
@@ -256,12 +261,12 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	// output from python script
 	out, err := cmd.Output()
 	if err != nil {
-		log.Err(err)
+		log.Err(err).Msg("")
 	}
-	variables := make([]float64, mm.numTexts)
+	variables := []float64{}
 	err = json.Unmarshal(out, &variables)
 	if err != nil {
-		log.Err(err)
+		log.Err(err).Msg("")
 	}
 	log.Debug().Msgf("variables: %v", variables)
 
@@ -344,6 +349,5 @@ func NewMetadataModel(
 	// for items without aligned counterparts we create
 	// conditions fulfillable only for x[i] = 0
 	ans.initABNonalign(usedIDs)
-
 	return ans, nil
 }

@@ -104,7 +104,10 @@ func mapSliceToAny[T any](items []T) []any {
 
 func dotProduct[T int | float64](vec1 []T, vec2 []T) (T, error) {
 	if len(vec1) != len(vec2) {
-		return -1, fmt.Errorf("vectors must have the same size")
+		return -1, fmt.Errorf(
+			"vectors must have the same size (vec1: %d, vec2: %d)",
+			len(vec1), len(vec2),
+		)
 	}
 	var ans T
 	for i := 0; i < len(vec1); i++ {
