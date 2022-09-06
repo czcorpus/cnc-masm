@@ -19,6 +19,6 @@
 package response
 
 type GetSubcSize struct {
-	Total    int `json:"total"`
-	Messages [][2]string
+	Total    int         `json:"total"`
+	Messages [][2]string `json:"messages"`
 }
