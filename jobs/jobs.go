@@ -63,6 +63,9 @@ type GeneralJobInfo interface {
 
 	// CompactVersion produces simplified, unified job info for quick job reviews
 	CompactVersion() JobInfoCompact
+
+	// FullInfo produces JSON-friendly object containing all the information about the job
+	FullInfo() any
 }
 
 // JobInfoList is just a list of any jobs

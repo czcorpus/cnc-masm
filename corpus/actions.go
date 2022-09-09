@@ -85,7 +85,7 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 	go func(jobRec JobInfo) {
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, jobRec.CorpusID)
 		if err != nil {
-			jobRec.Error = jobs.NewJSONError(err)
+			jobRec.Error = err
 		}
 		jobRec.Result = &resp
 		jobRec.SetFinished()
@@ -133,7 +133,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	go func(jobRec JobInfo) {
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
 		if err != nil {
-			jobRec.Error = jobs.NewJSONError(err)
+			jobRec.Error = err
 		}
 		jobRec.Result = &resp
 		jobRec.SetFinished()

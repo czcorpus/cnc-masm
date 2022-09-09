@@ -337,7 +337,7 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 				CorpusID:       status.CorpusID,
 				Start:          status.Start,
 				Update:         jobs.CurrentDatetime(),
-				Error:          jobs.NewJSONError(upd.Error),
+				Error:          upd.Error,
 				ProcessedAtoms: upd.ProcessedAtoms,
 				ProcessedLines: upd.ProcessedLines,
 				NumRestarts:    status.NumRestarts,
@@ -363,7 +363,7 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 					Type:        jobType,
 					CorpusID:    status.CorpusID,
 					Start:       status.Start,
-					Error:       jobs.NewJSONError(err),
+					Error:       err,
 					NumRestarts: status.NumRestarts,
 					Args:        status.Args,
 				}
@@ -376,7 +376,7 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 						Type:        jobType,
 						CorpusID:    status.CorpusID,
 						Start:       status.Start,
-						Error:       jobs.NewJSONError(err),
+						Error:       err,
 						NumRestarts: status.NumRestarts,
 						Args:        status.Args,
 					}
@@ -730,11 +730,11 @@ func (a *Actions) updateIndexesFromJobStatus(status *IdxUpdateJobInfo) {
 		finalStatus := *status
 		corpusDBInfo, err := a.cncDB.LoadInfo(status.CorpusID)
 		if err != nil {
-			finalStatus.Error = jobs.NewJSONError(err)
+			finalStatus.Error = err
 		}
 		ans := db.UpdateIndexes(a.laDB, corpusDBInfo, status.Args.MaxColumns)
 		if ans.Error != nil {
-			finalStatus.Error = jobs.NewJSONError(ans.Error)
+			finalStatus.Error = ans.Error
 		}
 		finalStatus.Update = jobs.CurrentDatetime()
 		finalStatus.Finished = true
