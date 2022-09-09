@@ -24,15 +24,15 @@ import (
 
 // JobInfo collects information about corpus data synchronization job
 type JobInfo struct {
-	ID          string         `json:"id"`
-	Type        string         `json:"type"`
-	CorpusID    string         `json:"corpusId"`
-	Start       jobs.JSONTime  `json:"start"`
-	Update      jobs.JSONTime  `json:"update"`
-	Finished    bool           `json:"finished"`
-	Error       jobs.JSONError `json:"error"`
-	Result      *syncResponse  `json:"result"`
-	NumRestarts int            `json:"numRestarts"`
+	ID          string        `json:"id"`
+	Type        string        `json:"type"`
+	CorpusID    string        `json:"corpusId"`
+	Start       jobs.JSONTime `json:"start"`
+	Update      jobs.JSONTime `json:"update"`
+	Finished    bool          `json:"finished"`
+	Error       error         `json:"error,omitempty"`
+	Result      *syncResponse `json:"result"`
+	NumRestarts int           `json:"numRestarts"`
 }
 
 func (j *JobInfo) GetID() string {
@@ -74,8 +74,34 @@ func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
 		Finished: j.Finished,
 		OK:       true,
 	}
-	if !j.Error.IsEmpty() || (j.Result != nil && !j.Result.OK) {
+	if j.Error != nil || (j.Result != nil && !j.Result.OK) {
 		item.OK = false
 	}
 	return item
+}
+
+func (j *JobInfo) FullInfo() any {
+	return struct {
+		ID          string        `json:"id"`
+		Type        string        `json:"type"`
+		CorpusID    string        `json:"corpusId"`
+		Start       jobs.JSONTime `json:"start"`
+		Update      jobs.JSONTime `json:"update"`
+		Finished    bool          `json:"finished"`
+		Error       error         `json:"error,omitempty"`
+		OK          bool          `json:"ok"`
+		Result      *syncResponse `json:"result"`
+		NumRestarts int           `json:"numRestarts"`
+	}{
+		ID:          j.ID,
+		Type:        j.Type,
+		CorpusID:    j.CorpusID,
+		Start:       j.Start,
+		Update:      j.Update,
+		Finished:    j.Finished,
+		Error:       j.Error,
+		OK:          j.Error == nil,
+		Result:      j.Result,
+		NumRestarts: j.NumRestarts,
+	}
 }

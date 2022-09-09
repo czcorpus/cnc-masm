@@ -39,7 +39,7 @@ type IdxUpdateJobInfo struct {
 	Start       jobs.JSONTime  `json:"start"`
 	Update      jobs.JSONTime  `json:"update"`
 	Finished    bool           `json:"finished"`
-	Error       jobs.JSONError `json:"error",omitempty`
+	Error       error          `json:"error,omitempty"`
 	NumRestarts int            `json:"numRestarts"`
 	Args        idxJobInfoArgs `json:"args"`
 	Result      idxJobResult   `json:"result"`
@@ -74,6 +74,34 @@ func (j *IdxUpdateJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
+func (j *IdxUpdateJobInfo) FullInfo() any {
+	return struct {
+		ID          string         `json:"id"`
+		Type        string         `json:"type"`
+		CorpusID    string         `json:"corpusId"`
+		Start       jobs.JSONTime  `json:"start"`
+		Update      jobs.JSONTime  `json:"update"`
+		Finished    bool           `json:"finished"`
+		Error       error          `json:"error,omitempty"`
+		OK          bool           `json:"ok"`
+		NumRestarts int            `json:"numRestarts"`
+		Args        idxJobInfoArgs `json:"args"`
+		Result      idxJobResult   `json:"result"`
+	}{
+		ID:          j.ID,
+		Type:        j.Type,
+		CorpusID:    j.CorpusID,
+		Start:       j.Start,
+		Update:      j.Update,
+		Finished:    j.Finished,
+		Error:       j.Error,
+		OK:          j.Error == nil,
+		NumRestarts: j.NumRestarts,
+		Args:        j.Args,
+		Result:      j.Result,
+	}
+}
+
 func (j *IdxUpdateJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
@@ -84,8 +112,6 @@ func (j *IdxUpdateJobInfo) CompactVersion() jobs.JobInfoCompact {
 		Finished: j.Finished,
 		OK:       true,
 	}
-	if !j.Error.IsEmpty() {
-		item.OK = false
-	}
+	item.OK = j.Error == nil
 	return item
 }

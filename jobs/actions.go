@@ -117,8 +117,12 @@ func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONResponse(w, ans)
 
 	} else {
-		ans := a.createJobList(unOnly)
-		sort.Sort(sort.Reverse(ans))
+		tmp := a.createJobList(unOnly)
+		sort.Sort(sort.Reverse(tmp))
+		ans := make([]any, len(tmp))
+		for i, item := range tmp {
+			ans[i] = item.FullInfo()
+		}
 		api.WriteJSONResponse(w, ans)
 	}
 }

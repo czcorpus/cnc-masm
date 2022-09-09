@@ -31,17 +31,17 @@ type jobInfoArgs struct {
 
 // LiveAttrsJobInfo collects information about corpus data synchronization job
 type LiveAttrsJobInfo struct {
-	ID             string         `json:"id"`
-	Type           string         `json:"type"`
-	CorpusID       string         `json:"corpusId"`
-	Start          jobs.JSONTime  `json:"start"`
-	Update         jobs.JSONTime  `json:"update"`
-	Finished       bool           `json:"finished"`
-	Error          jobs.JSONError `json:"error"`
-	ProcessedAtoms int            `json:"processedAtoms"`
-	ProcessedLines int            `json:"processedLines"`
-	NumRestarts    int            `json:"numRestarts"`
-	Args           jobInfoArgs    `json:"args"`
+	ID             string        `json:"id"`
+	Type           string        `json:"type"`
+	CorpusID       string        `json:"corpusId"`
+	Start          jobs.JSONTime `json:"start"`
+	Update         jobs.JSONTime `json:"update"`
+	Finished       bool          `json:"finished"`
+	Error          error         `json:"error,omitempty"`
+	ProcessedAtoms int           `json:"processedAtoms"`
+	ProcessedLines int           `json:"processedLines"`
+	NumRestarts    int           `json:"numRestarts"`
+	Args           jobInfoArgs   `json:"args"`
 }
 
 func (j *LiveAttrsJobInfo) GetID() string {
@@ -73,6 +73,36 @@ func (j *LiveAttrsJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
+func (j *LiveAttrsJobInfo) FullInfo() any {
+	return struct {
+		ID             string        `json:"id"`
+		Type           string        `json:"type"`
+		CorpusID       string        `json:"corpusId"`
+		Start          jobs.JSONTime `json:"start"`
+		Update         jobs.JSONTime `json:"update"`
+		Finished       bool          `json:"finished"`
+		Error          error         `json:"error,omitempty"`
+		OK             bool          `json:"ok"`
+		ProcessedAtoms int           `json:"processedAtoms"`
+		ProcessedLines int           `json:"processedLines"`
+		NumRestarts    int           `json:"numRestarts"`
+		Args           jobInfoArgs   `json:"args"`
+	}{
+		ID:             j.ID,
+		Type:           j.Type,
+		CorpusID:       j.CorpusID,
+		Start:          j.Start,
+		Update:         j.Update,
+		Finished:       j.Finished,
+		Error:          j.Error,
+		OK:             j.Error == nil,
+		ProcessedAtoms: j.ProcessedAtoms,
+		ProcessedLines: j.ProcessedLines,
+		NumRestarts:    j.NumRestarts,
+		Args:           j.Args,
+	}
+}
+
 func (j *LiveAttrsJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
@@ -83,8 +113,6 @@ func (j *LiveAttrsJobInfo) CompactVersion() jobs.JobInfoCompact {
 		Finished: j.Finished,
 		OK:       true,
 	}
-	if !j.Error.IsEmpty() {
-		item.OK = false
-	}
+	item.OK = j.Error == nil
 	return item
 }
