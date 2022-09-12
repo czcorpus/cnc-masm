@@ -80,9 +80,9 @@ For a structural attribute and its values, find values of different structural a
 
 BODY arguments (JSON):
 
-* `search string`
-* `values Array<string>`
-* `fill Array<string>`
+* `search:string`
+* `values:Array<string>`
+* `fill:Array<string>`
 
 `POST /liveAttributes/[corpus ID]/selectionSubcSize`
 
@@ -104,13 +104,13 @@ The function is similar to the `POST query` but for one of provided attributes, 
 
 BODY arguments (JSON):
 
-* `itemId string` - an unique identifier of the item (see bibIdAttr for more info)
+* `itemId:string` - an unique identifier of the item (see bibIdAttr for more info)
 
 `POST /liveAttributes/[corpus ID]/findBibTitles`
 
 BODY arguments (JSON):
 
-* `itemIds Array<string>`
+* `itemIds:Array<string>`
 
 `GET /liveAttributes/[corpus ID]/stats`
 
@@ -122,6 +122,27 @@ URL arguments:
 
 * `maxColumns` - max. number of columns considered for creating indexes
 
+`POST /liveAttributes/[corpus ID]/mixSubcorpus`
+
+Create a subcorpus matching provided text types and required ratios (0..1). Due to combinatorial
+nature of the problem, the ratios may be slightly off and for more complex text type specification
+the ratio error will probably increase.
+
+BODY arguments (JSON):
+
+    * `corpora:Array<string>` (main corpus plus possible aligned corpora)
+    * `textTypes:Array<{attrName:string; attrValue:string; ratio:number}>`
+
+Returned value (JSON):
+
+```
+{
+    error:string;
+    docIds:Array<string>;
+    sizeAssembled:int;
+    categorySizes:Array<int>;
+}
+```
 
 
 ## jobs
