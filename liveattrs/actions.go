@@ -296,13 +296,15 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	}
 
 	append := req.URL.Query().Get("append")
+	noCorpusUpdate := req.URL.Query().Get("noCorpusUpdate")
 	status := &LiveAttrsJobInfo{
 		ID:       jobID.String(),
 		CorpusID: corpusID,
 		Start:    jobs.CurrentDatetime(),
 		Args: jobInfoArgs{
-			VteConf: runtimeConf,
-			Append:  append == "1",
+			VteConf:        runtimeConf,
+			Append:         append == "1",
+			NoCorpusUpdate: noCorpusUpdate == "1",
 		},
 	}
 	err = a.createDataFromJobStatus(status)
@@ -311,6 +313,21 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status)
+}
+
+func (a *Actions) setSoftResetToKontext() error {
+	if a.conf.KontextSoftResetURL == "" {
+		log.Warn().Msgf("The kontextSoftResetURL configuration not set - ignoring the action")
+		return nil
+	}
+	resp, err := http.Post(a.conf.KontextSoftResetURL, "application/json", nil)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("kontext soft reset failed - unexpected status code %d", resp.StatusCode)
+	}
+	return nil
 }
 
 // createDataFromJobStatus starts data extraction and generation
@@ -346,41 +363,48 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 			if upd.Error == vteProc.ErrorTooManyParsingErrors {
 				log.Error().Err(upd.Error).Msg("live attributes extraction failed")
 				return
+
+			} else if upd.Error != nil {
+				log.Error().Err(upd.Error).Msg("(just registered)")
 			}
 		}
 
 		a.eqCache.Del(status.CorpusID)
 
-		if status.Args.VteConf.DB.Type == "sqlite" {
+		switch status.Args.VteConf.DB.Type {
+		case "mysql":
+			if !status.Args.NoCorpusUpdate {
+				transact, err := a.cncDB.StartTx()
+				if err != nil {
+					updateJobChan <- status.CloneWithError(err)
+					return
+				}
+				err = a.cncDB.SetLiveAttrs(transact, status.CorpusID, true)
+				if err != nil {
+					updateJobChan <- status.CloneWithError(err)
+					transact.Rollback()
+				}
+				err = a.setSoftResetToKontext()
+				if err != nil {
+					updateJobChan <- status.CloneWithError(err)
+				}
+				err = transact.Commit()
+				if err != nil {
+					updateJobChan <- status.CloneWithError(err)
+				}
+			}
+		case "sqlite":
 			err := sqlite.InstallSqliteDatabase(
 				status.Args.VteConf.Corpus,
 				status.Args.VteConf.DB.Name,
 				a.conf.CorporaSetup.TextTypesDbDirPath,
 			)
 			if err != nil {
-				updateJobChan <- &LiveAttrsJobInfo{
-					ID:          status.ID,
-					Type:        jobType,
-					CorpusID:    status.CorpusID,
-					Start:       status.Start,
-					Error:       err,
-					NumRestarts: status.NumRestarts,
-					Args:        status.Args,
-				}
-
-			} else {
-				resp, err := http.Post(a.conf.KontextSoftResetURL, "application/json", nil)
-				if err != nil || resp.StatusCode < 400 {
-					updateJobChan <- &LiveAttrsJobInfo{
-						ID:          status.ID,
-						Type:        jobType,
-						CorpusID:    status.CorpusID,
-						Start:       status.Start,
-						Error:       err,
-						NumRestarts: status.NumRestarts,
-						Args:        status.Args,
-					}
-				}
+				updateJobChan <- status.CloneWithError(err)
+			}
+			err = a.setSoftResetToKontext()
+			if err != nil {
+				updateJobChan <- status.CloneWithError(err)
 			}
 		}
 	}()
@@ -389,7 +413,57 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 
 // Delete removes all the live attributes data for a corpus
 func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
-	// TODO
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	tx0, err := a.laDB.Begin()
+	err = db.DeleteTable(
+		tx0,
+		corpusDBInfo.GroupedName(),
+		corpusID,
+	)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		tx0.Rollback()
+		return
+	}
+	tx1, err := a.cncDB.StartTx()
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	err = a.cncDB.SetLiveAttrs(tx1, corpusID, false)
+	if err != nil {
+		tx1.Rollback()
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	// Now we commit tx0 and tx1 deliberately before soft reset below as a failed operation of
+	// cache reset does no permanent damage.
+	// Also please note that the two independent transactions tx0, tx1 here cannot provide
+	// behavior of a single transaction which means the operation may end up in a
+	// non-consistent state (if tx0 commits and tx1 fails).
+	err = tx0.Commit()
+	if err != nil {
+		tx1.Rollback()
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	err = tx1.Commit() // in case this fails we're screwed as tx0 is already commited
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	err = a.setSoftResetToKontext()
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, map[string]any{"ok": true})
 }
 
 func (a *Actions) runStopJobListener() {

@@ -69,10 +69,11 @@ func (cs *CorporaSetup) SubdirIsInAltAccessMapping(subdir string) bool {
 }
 
 type databaseSetup struct {
-	Host   string `json:"host"`
-	User   string `json:"user"`
-	Passwd string `json:"passwd"`
-	DBName string `json:"db"`
+	Host                     string `json:"host"`
+	User                     string `json:"user"`
+	Passwd                   string `json:"passwd"`
+	DBName                   string `json:"db"`
+	OverrideCorporaTableName string `json:"overrideCorporaTableName"`
 }
 
 type LiveAttrsConf struct {

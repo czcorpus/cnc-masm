@@ -105,3 +105,21 @@ func (j *JobInfo) FullInfo() any {
 		NumRestarts: j.NumRestarts,
 	}
 }
+
+func (j *JobInfo) GetError() error {
+	return j.Error
+}
+
+func (j *JobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
+	return &JobInfo{
+		ID:          j.ID,
+		Type:        j.Type,
+		CorpusID:    j.CorpusID,
+		Start:       j.Start,
+		Update:      j.Update,
+		Finished:    j.Finished,
+		Error:       err,
+		Result:      j.Result,
+		NumRestarts: j.NumRestarts,
+	}
+}

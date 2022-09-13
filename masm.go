@@ -117,7 +117,19 @@ func main() {
 	signal.Notify(syscallChan, syscall.SIGTERM)
 	exitEvent := make(chan os.Signal)
 
-	cncDB, err := cncdb.NewCNCMySQLHandler(conf.CNCDB.Host, conf.CNCDB.User, conf.CNCDB.Passwd, conf.CNCDB.DBName)
+	cTableName := "corpora"
+	if conf.CNCDB.OverrideCorporaTableName != "" {
+		log.Warn().Msgf(
+			"Overriding default corpora table name to '%s'", conf.CNCDB.OverrideCorporaTableName)
+		cTableName = conf.CNCDB.OverrideCorporaTableName
+	}
+	cncDB, err := cncdb.NewCNCMySQLHandler(
+		conf.CNCDB.Host,
+		conf.CNCDB.User,
+		conf.CNCDB.Passwd,
+		conf.CNCDB.DBName,
+		cTableName,
+	)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
