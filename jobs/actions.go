@@ -198,7 +198,7 @@ func (a *Actions) LastUnfinishedJobOfType(corpusID string, jobType string) (Gene
 	var tmp GeneralJobInfo
 	for _, v := range a.jobList {
 		if v.GetCorpus() == corpusID && v.GetType() == jobType && !v.IsFinished() &&
-			(v == nil || reflect.ValueOf(v).IsNil() || v.GetStartDT().Before(tmp.GetStartDT())) {
+			(tmp == nil || reflect.ValueOf(tmp).IsNil() || v.GetStartDT().Before(tmp.GetStartDT())) {
 			tmp = v
 		}
 	}
@@ -257,7 +257,15 @@ func NewActions(
 			switch upd.action {
 			case tableActionUpdateJob:
 				ans.jobListLock.Lock()
-				ans.jobList[upd.itemID] = upd.data
+				currErr := ans.jobList[upd.itemID].GetError()
+				// make sure we keep the current error even if new status
+				// comes without one
+				if currErr != nil && upd.data.GetError() == nil {
+					ans.jobList[upd.itemID] = upd.data.CloneWithError(currErr)
+
+				} else {
+					ans.jobList[upd.itemID] = upd.data
+				}
 				ans.jobListLock.Unlock()
 			case tableActionFinishJob:
 				ans.jobListLock.Lock()

@@ -25,6 +25,22 @@ import (
 	"strings"
 )
 
+func DeleteTable(tx *sql.Tx, groupedName string, corpusName string) error {
+	_, err := tx.Exec(
+		fmt.Sprintf("DELETE FROM %s_liveattrs_entry WHERE corpus_id = ?", groupedName),
+		corpusName,
+	)
+	if err != nil {
+		return err
+	}
+	if groupedName == corpusName {
+		_, err = tx.Exec(
+			fmt.Sprintf("DROP TABLE %s_liveattrs_entry", groupedName),
+		)
+	}
+	return err
+}
+
 func GetSubcSize(db *sql.DB, groupedName string, corpora []string, attrMap map[string][]string) (int, error) {
 	joinSQL := make([]string, 0, 10)
 	whereSQL := []string{

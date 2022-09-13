@@ -115,3 +115,21 @@ func (j *IdxUpdateJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item.OK = j.Error == nil
 	return item
 }
+
+func (j *IdxUpdateJobInfo) GetError() error {
+	return j.Error
+}
+
+func (j *IdxUpdateJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
+	return &IdxUpdateJobInfo{
+		ID:          j.ID,
+		Type:        j.Type,
+		CorpusID:    j.CorpusID,
+		Start:       j.Start,
+		Update:      j.Update,
+		Finished:    j.Finished,
+		Error:       err,
+		Result:      j.Result,
+		NumRestarts: j.NumRestarts,
+	}
+}

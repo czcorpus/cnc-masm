@@ -61,6 +61,12 @@ type GeneralJobInfo interface {
 	// service is shut down while some jobs are running.
 	GetNumRestarts() int
 
+	// GetError returns status error (if any) or nil
+	GetError() error
+
+	// CloneWithError creates a clone of the status with error set to the provided value
+	CloneWithError(err error) GeneralJobInfo
+
 	// CompactVersion produces simplified, unified job info for quick job reviews
 	CompactVersion() JobInfoCompact
 

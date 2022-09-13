@@ -25,8 +25,9 @@ import (
 )
 
 type jobInfoArgs struct {
-	Append  bool           `json:"append"`
-	VteConf vteCnf.VTEConf `json:"vteConf"`
+	Append         bool           `json:"append"`
+	VteConf        vteCnf.VTEConf `json:"vteConf"`
+	NoCorpusUpdate bool           `json:"noCorpusUpdate"`
 }
 
 // LiveAttrsJobInfo collects information about corpus data synchronization job
@@ -115,4 +116,22 @@ func (j *LiveAttrsJobInfo) CompactVersion() jobs.JobInfoCompact {
 	}
 	item.OK = j.Error == nil
 	return item
+}
+
+func (j *LiveAttrsJobInfo) GetError() error {
+	return j.Error
+}
+
+// CloneWithError creates a new instance of LiveAttrsJobInfo with
+// the Error property set to the value of 'err'.
+func (j *LiveAttrsJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
+	return &LiveAttrsJobInfo{
+		ID:          j.ID,
+		Type:        jobType,
+		CorpusID:    j.CorpusID,
+		Start:       j.Start,
+		Error:       err,
+		NumRestarts: j.NumRestarts,
+		Args:        j.Args,
+	}
 }
