@@ -20,6 +20,7 @@ package corpus
 
 import (
 	"masm/v3/jobs"
+	"time"
 )
 
 // JobInfo collects information about corpus data synchronization job
@@ -116,7 +117,7 @@ func (j *JobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
 		Type:        j.Type,
 		CorpusID:    j.CorpusID,
 		Start:       j.Start,
-		Update:      j.Update,
+		Update:      jobs.JSONTime(time.Now()),
 		Finished:    j.Finished,
 		Error:       err,
 		Result:      j.Result,

@@ -20,6 +20,7 @@ package liveattrs
 
 import (
 	"masm/v3/jobs"
+	"time"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 )
@@ -130,6 +131,7 @@ func (j *LiveAttrsJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
 		Type:        jobType,
 		CorpusID:    j.CorpusID,
 		Start:       j.Start,
+		Update:      jobs.JSONTime(time.Now()),
 		Error:       err,
 		NumRestarts: j.NumRestarts,
 		Args:        j.Args,

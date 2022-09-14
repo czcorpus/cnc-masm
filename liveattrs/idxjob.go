@@ -20,6 +20,7 @@ package liveattrs
 
 import (
 	"masm/v3/jobs"
+	"time"
 )
 
 type idxJobInfoArgs struct {
@@ -126,7 +127,7 @@ func (j *IdxUpdateJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
 		Type:        j.Type,
 		CorpusID:    j.CorpusID,
 		Start:       j.Start,
-		Update:      j.Update,
+		Update:      jobs.JSONTime(time.Now()),
 		Finished:    j.Finished,
 		Error:       err,
 		Result:      j.Result,
