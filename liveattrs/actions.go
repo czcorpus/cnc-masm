@@ -381,7 +381,7 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 				}
 				var bibIDStruct, bibIDAttr string
 				if status.Args.VteConf.BibView.IDAttr != "" {
-					bibIDAttrElms := strings.Split(status.Args.VteConf.BibView.IDAttr, ".")
+					bibIDAttrElms := strings.SplitN(status.Args.VteConf.BibView.IDAttr, "_", 2)
 					bibIDStruct = bibIDAttrElms[0]
 					bibIDAttr = bibIDAttrElms[1]
 				}
