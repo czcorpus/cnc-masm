@@ -40,22 +40,28 @@ func (c *CNCMySQLHandler) UpdateSize(transact *sql.Tx, corpus string, size int64
 	return err
 }
 
-func (c *CNCMySQLHandler) SetLiveAttrs(transact *sql.Tx, corpus string, value bool) error {
-	var err error
-	if value {
-		_, err = transact.Exec(
-			fmt.Sprintf(
-				"UPDATE %s SET text_types_db = 'enabled' WHERE name = ?", c.corporaTableName),
-			corpus,
-		)
+func (c *CNCMySQLHandler) SetLiveAttrs(
+	transact *sql.Tx,
+	corpus, bibIDStruct, bibIDAttr string,
+) error {
+	_, err := transact.Exec(
+		fmt.Sprintf(
+			`UPDATE %s SET text_types_db = 'enabled', bib_id_struct = ?, bib_id_attr = ?
+				WHERE name = ?`, c.corporaTableName),
+		corpus,
+		bibIDStruct,
+		bibIDAttr,
+	)
+	return err
+}
 
-	} else {
-		_, err = transact.Exec(
-			fmt.Sprintf(
-				"UPDATE %s SET text_types_db = NULL WHERE name = ?", c.corporaTableName),
-			corpus,
-		)
-	}
+func (c *CNCMySQLHandler) UnsetLiveAttrs(transact *sql.Tx, corpus string) error {
+	_, err := transact.Exec(
+		fmt.Sprintf(
+			`UPDATE %s SET text_types_db = NULL, bib_id_struct = NULL, bib_id_attr = NULL
+			 WHERE name = ?`, c.corporaTableName),
+		corpus,
+	)
 	return err
 }
 
