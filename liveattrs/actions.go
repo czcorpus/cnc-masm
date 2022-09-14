@@ -379,7 +379,9 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 					updateJobChan <- status.CloneWithError(err)
 					return
 				}
-				err = a.cncDB.SetLiveAttrs(transact, status.CorpusID, true)
+				bibIDAttrElms := strings.Split(status.Args.VteConf.BibView.IDAttr, ".")
+				err = a.cncDB.SetLiveAttrs(
+					transact, status.CorpusID, bibIDAttrElms[0], bibIDAttrElms[1])
 				if err != nil {
 					updateJobChan <- status.CloneWithError(err)
 					transact.Rollback()
@@ -436,7 +438,7 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	err = a.cncDB.SetLiveAttrs(tx1, corpusID, false)
+	err = a.cncDB.UnsetLiveAttrs(tx1, corpusID)
 	if err != nil {
 		tx1.Rollback()
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
