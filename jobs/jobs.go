@@ -64,7 +64,8 @@ type GeneralJobInfo interface {
 	// GetError returns status error (if any) or nil
 	GetError() error
 
-	// CloneWithError creates a clone of the status with error set to the provided value
+	// CloneWithError creates a clone of the status with error set to the provided value.
+	// The 'Updated' property is also set to the current time.
 	CloneWithError(err error) GeneralJobInfo
 
 	// CompactVersion produces simplified, unified job info for quick job reviews
