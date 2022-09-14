@@ -53,9 +53,9 @@ func (c *CNCMySQLHandler) SetLiveAttrs(
 			fmt.Sprintf(
 				`UPDATE %s SET text_types_db = 'enabled', bib_id_struct = ?, bib_id_attr = ?
 					WHERE name = ?`, c.corporaTableName),
-			corpus,
 			bibIDStruct,
 			bibIDAttr,
+			corpus,
 		)
 
 	} else {
