@@ -379,9 +379,14 @@ func (a *Actions) createDataFromJobStatus(status *LiveAttrsJobInfo) error {
 					updateJobChan <- status.CloneWithError(err)
 					return
 				}
-				bibIDAttrElms := strings.Split(status.Args.VteConf.BibView.IDAttr, ".")
+				var bibIDStruct, bibIDAttr string
+				if status.Args.VteConf.BibView.IDAttr != "" {
+					bibIDAttrElms := strings.Split(status.Args.VteConf.BibView.IDAttr, ".")
+					bibIDStruct = bibIDAttrElms[0]
+					bibIDAttr = bibIDAttrElms[1]
+				}
 				err = a.cncDB.SetLiveAttrs(
-					transact, status.CorpusID, bibIDAttrElms[0], bibIDAttrElms[1])
+					transact, status.CorpusID, bibIDStruct, bibIDAttr)
 				if err != nil {
 					updateJobChan <- status.CloneWithError(err)
 					transact.Rollback()

@@ -44,14 +44,29 @@ func (c *CNCMySQLHandler) SetLiveAttrs(
 	transact *sql.Tx,
 	corpus, bibIDStruct, bibIDAttr string,
 ) error {
-	_, err := transact.Exec(
-		fmt.Sprintf(
-			`UPDATE %s SET text_types_db = 'enabled', bib_id_struct = ?, bib_id_attr = ?
-				WHERE name = ?`, c.corporaTableName),
-		corpus,
-		bibIDStruct,
-		bibIDAttr,
-	)
+	if bibIDAttr != "" && bibIDStruct == "" || bibIDAttr == "" && bibIDStruct != "" {
+		return fmt.Errorf("SetLiveAttrs requires either both bibIDStruct, bibIDAttr empty or defined")
+	}
+	var err error
+	if bibIDAttr != "" {
+		_, err = transact.Exec(
+			fmt.Sprintf(
+				`UPDATE %s SET text_types_db = 'enabled', bib_id_struct = ?, bib_id_attr = ?
+					WHERE name = ?`, c.corporaTableName),
+			corpus,
+			bibIDStruct,
+			bibIDAttr,
+		)
+
+	} else {
+		_, err = transact.Exec(
+			fmt.Sprintf(
+				`UPDATE %s SET text_types_db = 'enabled', bib_id_struct = NULL, bib_id_attr = NULL
+					WHERE name = ?`, c.corporaTableName),
+			corpus,
+		)
+
+	}
 	return err
 }
 
