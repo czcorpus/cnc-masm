@@ -148,15 +148,23 @@ func Create(
 	return &newConf, nil
 }
 
+// LiveAttrsBuildConfProvider is a loader and a cache for
+// vert-tagextract configuration files.
+// Please note that even if the stored config files contain
+// credentials for liveattrs database, the
+// LiveAttrsBuildConfProvider always rewrites the stored value
+// with its own one (which is defined in cnc-masm configuration).
+// So at least in theory - the stored vte config files should not
+// deprecate.
 type LiveAttrsBuildConfProvider struct {
 	confDirPath  string
 	globalDBConf *vtedb.Conf
 	data         map[string]*vteconf.VTEConf
 }
 
-// Get returns an existing liveattrs configuration file. In case the file
-// does not exist the method will not create it for you (as it requires additional
-// arguments to determine specific properties).
+// Get returns an existing liveattrs configuration file. In case the
+// file does not exist the method will not create it for you (as it
+// requires additional arguments to determine specific properties).
 // In case there is no other error but the configuration does not exist,
 // the method returns ErrorNoSuchConfig error
 func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf, error) {
@@ -187,6 +195,8 @@ func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 	if err != nil {
 		return err
 	}
+	lcache.data[data.Corpus] = data
+	data.DB = *lcache.globalDBConf
 	return nil
 }
 
