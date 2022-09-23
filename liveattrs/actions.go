@@ -637,15 +637,18 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	if ans != nil {
 		api.WriteJSONResponse(w, &ans)
 		usageEntry.IsCached = true
+		usageEntry.ProcTime = time.Since(t0)
 		a.usageData <- usageEntry
 		return
 	}
 	ans, err = a.getAttrValues(corpInfo, qry)
 	if err == laconf.ErrorNoSuchConfig {
+		log.Error().Err(err).Msgf("configuration not found for %s", corpusID)
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
+		log.Error().Err(err).Msg("")
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
