@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-type idxJobInfoArgs struct {
+type IdxJobInfoArgs struct {
 	MaxColumns int `json:"maxColumns"`
 }
 
@@ -42,7 +42,7 @@ type IdxUpdateJobInfo struct {
 	Finished    bool           `json:"finished"`
 	Error       error          `json:"error,omitempty"`
 	NumRestarts int            `json:"numRestarts"`
-	Args        idxJobInfoArgs `json:"args"`
+	Args        IdxJobInfoArgs `json:"args"`
 	Result      idxJobResult   `json:"result"`
 }
 
@@ -86,7 +86,7 @@ func (j *IdxUpdateJobInfo) FullInfo() any {
 		Error       error          `json:"error,omitempty"`
 		OK          bool           `json:"ok"`
 		NumRestarts int            `json:"numRestarts"`
-		Args        idxJobInfoArgs `json:"args"`
+		Args        IdxJobInfoArgs `json:"args"`
 		Result      idxJobResult   `json:"result"`
 	}{
 		ID:          j.ID,

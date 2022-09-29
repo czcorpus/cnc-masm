@@ -35,6 +35,7 @@ func OpenDB(conf *db.Conf) (*sql.DB, error) {
 	mconf.DBName = conf.Name
 	mconf.ParseTime = true
 	mconf.Loc = time.Local
+	mconf.Params = map[string]string{"autocommit": "false"}
 	db, err := sql.Open("mysql", mconf.FormatDSN())
 	if err != nil {
 		return nil, err
