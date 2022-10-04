@@ -40,6 +40,7 @@ import (
 	"masm/v3/general"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
+	laActions "masm/v3/liveattrs/actions"
 	"masm/v3/registry"
 	"masm/v3/root"
 
@@ -153,7 +154,7 @@ func main() {
 
 	jobActions := jobs.NewActions(conf.Jobs, exitEvent, jobStopChannel)
 	corpusActions := corpus.NewActions(conf, jobActions)
-	liveattrsActions := liveattrs.NewActions(
+	liveattrsActions := laActions.NewActions(
 		conf, exitEvent, jobStopChannel, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
 
@@ -205,6 +206,7 @@ func main() {
 	router.HandleFunc("/liveAttributes/{corpusId}/updateIndexes", liveattrsActions.UpdateIndexes).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/mixSubcorpus", liveattrsActions.MixSubcorpus).Methods(http.MethodPost)
 	router.HandleFunc("/liveAttributes/{corpusId}/inferredAtomStructure", liveattrsActions.InferredAtomStructure).Methods(http.MethodGet)
+	router.HandleFunc("/liveAttributes/{corpusId}/generateNgrams", liveattrsActions.GenerateNgrams)
 
 	router.HandleFunc("/jobs", jobActions.JobList).Methods(http.MethodGet)
 	router.HandleFunc("/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)

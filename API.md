@@ -36,7 +36,10 @@ URL Arguments:
 * `mergeFn` (required if `mergeAttr` is used) - in some cases, there is no attribute value across multiple aligned items which can be used without modification, it is obligatory to specify a transformation function for such values. This is mostly an issue in case of InterCorp where we have a good "join" candidate but the values looks like this: `cs:foo` vs. `en:foo`. Specifying `mergeFn=intercorp` will automatically strip the language code prefix and leave us with a usable "join" attribute. There is also `mergeFn=identity` for case where the attribute can be used without a change.
 * `append` (optional) - normally, calling `POST data` will drop a respective database table. To be able to generate data for InterCorp and other aligned corpora where all the corpora are in a single table, `append=1` must be specified for 2nd and further processed corpora.
 * `noCorpusUpdate` (optional) - by default, generating new live attributes also performs two addtional actions to make sure KonText knows about new/updated liveattrs. The actions are: 1. update of text_types_db column in the `corpora` table of CNC's database, 2. triggering cache reset on the KonText side. To disable this step, just set `noCorpusUpdate=1`.
-
+* `skipNgrams` - if `1` then n-grams won't be generated even if they are (pre)configured
+(either via previous `PUT /liveAttributes/{corpusId}/conf` or by passing JSON args with n-gram
+configuration). In case the setting cannot have an effect (= n-grams are not configured),
+the setting is silently ignored.
 
 BODY arguments (JSON):
 

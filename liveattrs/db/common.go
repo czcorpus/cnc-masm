@@ -24,6 +24,10 @@ import (
 	"strings"
 )
 
+// ErrorEmptyResult is a general representation
+// of "nothing found" for any liveattrs db operation.
+// It is up to a concrete implementation whether this
+// applies for multi-row return values too.
 var ErrorEmptyResult = errors.New("no result")
 
 type StructAttr struct {

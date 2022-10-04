@@ -25,7 +25,11 @@ import (
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 )
 
-type jobInfoArgs struct {
+const (
+	JobType = "liveattrs"
+)
+
+type JobInfoArgs struct {
 	Append         bool           `json:"append"`
 	VteConf        vteCnf.VTEConf `json:"vteConf"`
 	NoCorpusUpdate bool           `json:"noCorpusUpdate"`
@@ -43,7 +47,7 @@ type LiveAttrsJobInfo struct {
 	ProcessedAtoms int           `json:"processedAtoms"`
 	ProcessedLines int           `json:"processedLines"`
 	NumRestarts    int           `json:"numRestarts"`
-	Args           jobInfoArgs   `json:"args"`
+	Args           JobInfoArgs   `json:"args"`
 }
 
 func (j *LiveAttrsJobInfo) GetID() string {
@@ -88,7 +92,7 @@ func (j *LiveAttrsJobInfo) FullInfo() any {
 		ProcessedAtoms int           `json:"processedAtoms"`
 		ProcessedLines int           `json:"processedLines"`
 		NumRestarts    int           `json:"numRestarts"`
-		Args           jobInfoArgs   `json:"args"`
+		Args           JobInfoArgs   `json:"args"`
 	}{
 		ID:             j.ID,
 		Type:           j.Type,
@@ -128,7 +132,7 @@ func (j *LiveAttrsJobInfo) GetError() error {
 func (j *LiveAttrsJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
 	return &LiveAttrsJobInfo{
 		ID:          j.ID,
-		Type:        jobType,
+		Type:        JobType,
 		CorpusID:    j.CorpusID,
 		Start:       j.Start,
 		Update:      jobs.JSONTime(time.Now()),
