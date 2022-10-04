@@ -130,7 +130,6 @@ func (a *Actions) applyNgramConf(targetConf *vteCnf.VTEConf, jsonArgs *liveattrs
 			targetConf.Ngrams.UniqKeyColumns[i] = item.Idx
 		}
 	}
-	fmt.Println("targetConf.Ngrams: ", targetConf.Ngrams)
 }
 
 type ngramColumn struct {
