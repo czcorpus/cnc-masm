@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"masm/v3/common"
 	"masm/v3/general/collections"
 	"masm/v3/liveattrs/utils"
 	"math"
@@ -217,7 +218,7 @@ func (mm *MetadataModel) isZeroVector(m []float64) bool {
 }
 
 func (mm *MetadataModel) getCategorySize(results []float64, catID int) (float64, error) {
-	return dotProduct(results, mm.a[catID])
+	return common.DotProduct(results, mm.a[catID])
 }
 
 func (mm *MetadataModel) getAssembledSize(results []float64) float64 {
@@ -271,7 +272,7 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 	log.Debug().Msgf("variables: %v", variables)
 
 	var simplexErr error
-	selections := mapSlice(
+	selections := common.MapSlice(
 		variables,
 		func(v float64, i int) float64 { return math.RoundToEven(v) },
 	)
@@ -299,7 +300,7 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 		Error:         errDesc,
 		DocIDs:        docIDs,
 		SizeAssembled: int(total),
-		CategorySizes: mapSlice(
+		CategorySizes: common.MapSlice(
 			categorySizes,
 			func(v float64, i int) CategorySize {
 				var ratio float64

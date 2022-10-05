@@ -21,6 +21,7 @@ package subcmixer
 import (
 	"database/sql"
 	"fmt"
+	"masm/v3/common"
 	"math"
 	"strings"
 )
@@ -42,7 +43,7 @@ type AbstractAtomicExpression interface {
 
 type TaskArgs struct {
 	NodeID     int                `json:"node_id"`
-	ParentID   Maybe[int]         `json:"parent_id"`
+	ParentID   common.Maybe[int]  `json:"parent_id"`
 	Ratio      float64            `json:"ratio"`
 	Expression AbstractExpression `json:"expression"`
 }
@@ -98,7 +99,8 @@ func (ct *CategoryTree) build() {
 		if cat.ParentID.Empty() || cat.Expression.IsEmpty() {
 			continue
 		}
-		parentNode := ct.getNodeByID(ct.RootNode, cat.ParentID.val)
+		pidValue, _ := cat.ParentID.Value()
+		parentNode := ct.getNodeByID(ct.RootNode, pidValue)
 		pmc := parentNode.MetadataCondition
 		var res []AbstractExpression
 		if len(pmc) > 0 && !pmc[0].IsEmpty() {
@@ -137,24 +139,27 @@ func (ct *CategoryTree) getNodeByID(node *CategoryTreeNode, wantedID int) *Categ
 func (ct *CategoryTree) getMaxGroupSizes(nodes []*CategoryTreeNode, parentSize float64) ([]float64, error) {
 
 	numg := len(nodes)
-	childrenSize := sumOfMapped(nodes, func(v *CategoryTreeNode) float64 { return float64(v.Size) })
-	dataSize := min(childrenSize, parentSize)
+	childrenSize := common.SumOfMapped(
+		nodes, func(v *CategoryTreeNode) float64 { return float64(v.Size) })
+	dataSize := common.Min(childrenSize, parentSize)
 	requiredSizes := make([]float64, numg)
 	var maxSizes []float64
 	for {
 		for i := 0; i < numg; i++ {
 			requiredSizes[i] = float64(dataSize) * nodes[i].Ratio
 		}
-		sizes := mapSlice(nodes, func(v *CategoryTreeNode, i int) float64 { return float64(v.Size) })
-		ratios := mapSlice(nodes, func(v *CategoryTreeNode, i int) float64 { return v.Ratio })
-		reserves, err := subtract(
+		sizes := common.MapSlice(
+			nodes, func(v *CategoryTreeNode, i int) float64 { return float64(v.Size) })
+		ratios := common.MapSlice(
+			nodes, func(v *CategoryTreeNode, i int) float64 { return v.Ratio })
+		reserves, err := common.Subtract(
 			sizes,
 			requiredSizes,
 		)
 		if err != nil {
 			return []float64{}, err
 		}
-		ilr := indexOf(reserves, min(reserves...))
+		ilr := common.IndexOf(reserves, common.Min(reserves...))
 		lowestReserve := reserves[ilr]
 		if lowestReserve > -0.001 {
 			maxSizes = requiredSizes
@@ -182,7 +187,7 @@ func (ct *CategoryTree) computeSizes(node *CategoryTreeNode) error {
 		return err
 	}
 	// update group size
-	node.Size = int(sumOfMapped(maxSizes, func(v float64) float64 { return v }))
+	node.Size = int(common.SumOfMapped(maxSizes, func(v float64) float64 { return v }))
 	// update child node sizes
 	for i, child := range node.Children {
 		d := child.Size - int(math.RoundToEven(maxSizes[i]))
@@ -299,7 +304,7 @@ func (ct *CategoryTree) initializeBounds() error {
 	if err == sql.ErrNoRows || maxAvailable == 0 {
 		return fmt.Errorf("failed to initialize bounds: %s", err)
 	}
-	ct.RootNode.Size = min(ct.CorpusMaxSize, maxAvailable)
+	ct.RootNode.Size = common.Min(ct.CorpusMaxSize, maxAvailable)
 	ct.computeSizes(ct.RootNode)
 	return nil
 }

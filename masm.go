@@ -112,7 +112,7 @@ func main() {
 	conf := corpus.LoadConfig(flag.Arg(1))
 	setupLog(conf.LogFile)
 	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
-
+	corpus.ApplyDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -186,42 +186,77 @@ func main() {
 		}
 	}
 
-	router.HandleFunc("/", rootActions.RootAction).Methods(http.MethodGet)
-	router.HandleFunc("/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
-	router.HandleFunc("/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
-	router.HandleFunc("/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
-	router.HandleFunc("/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/", rootActions.RootAction).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 
-	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
-	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf).Methods(http.MethodGet)
-	router.HandleFunc("/liveAttributes/{corpusId}/conf", liveattrsActions.CreateConf).Methods(http.MethodPut)
-	router.HandleFunc("/liveAttributes/{corpusId}/query", liveattrsActions.Query).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/fillAttrs", liveattrsActions.FillAttrs).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/selectionSubcSize", liveattrsActions.GetAdhocSubcSize).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/attrValAutocomplete", liveattrsActions.AttrValAutocomplete).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/getBibliography", liveattrsActions.GetBibliography).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/findBibTitles", liveattrsActions.FindBibTitles).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/stats", liveattrsActions.Stats)
-	router.HandleFunc("/liveAttributes/{corpusId}/updateIndexes", liveattrsActions.UpdateIndexes).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/mixSubcorpus", liveattrsActions.MixSubcorpus).Methods(http.MethodPost)
-	router.HandleFunc("/liveAttributes/{corpusId}/inferredAtomStructure", liveattrsActions.InferredAtomStructure).Methods(http.MethodGet)
-	router.HandleFunc("/liveAttributes/{corpusId}/generateNgrams", liveattrsActions.GenerateNgrams)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/conf", liveattrsActions.CreateConf).Methods(http.MethodPut)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/query", liveattrsActions.Query).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/fillAttrs", liveattrsActions.FillAttrs).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/selectionSubcSize", liveattrsActions.GetAdhocSubcSize).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/attrValAutocomplete", liveattrsActions.AttrValAutocomplete).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/getBibliography", liveattrsActions.GetBibliography).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/findBibTitles", liveattrsActions.FindBibTitles).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/stats", liveattrsActions.Stats)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/updateIndexes", liveattrsActions.UpdateIndexes).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/mixSubcorpus", liveattrsActions.MixSubcorpus).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/inferredAtomStructure", liveattrsActions.InferredAtomStructure).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/ngrams", liveattrsActions.GenerateNgrams).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/liveAttributes/{corpusId}/querySuggestions", liveattrsActions.QuerySuggestions).Methods(http.MethodPost)
 
-	router.HandleFunc("/jobs", jobActions.JobList).Methods(http.MethodGet)
-	router.HandleFunc("/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
-	router.HandleFunc("/jobs/{jobId}", jobActions.Delete).Methods(http.MethodDelete)
-	router.HandleFunc("/jobs/{jobId}/clearIfFinished", jobActions.ClearIfFinished).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/jobs", jobActions.JobList).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/jobs/{jobId}", jobActions.Delete).Methods(http.MethodDelete)
+	router.HandleFunc(
+		"/jobs/{jobId}/clearIfFinished", jobActions.ClearIfFinished).Methods(http.MethodGet)
 
-	router.HandleFunc("/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/wposlist/{posId}", registryActions.GetPosSetInfo).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/attribute/multivalue", registryActions.GetAttrMultivalueDefaults).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/attribute/multisep", registryActions.GetAttrMultisepDefaults).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/attribute/dynlib", registryActions.GetAttrDynlibDefaults).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/attribute/transquery", registryActions.GetAttrTransqueryDefaults).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/structure/multivalue", registryActions.GetStructMultivalueDefaults).Methods(http.MethodGet)
-	router.HandleFunc("/registry/defaults/structure/multisep", registryActions.GetStructMultisepDefaults).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/wposlist/{posId}", registryActions.GetPosSetInfo).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/attribute/multivalue", registryActions.GetAttrMultivalueDefaults).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/attribute/multisep", registryActions.GetAttrMultisepDefaults).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/attribute/dynlib", registryActions.GetAttrDynlibDefaults).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/attribute/transquery", registryActions.GetAttrTransqueryDefaults).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/structure/multivalue", registryActions.GetStructMultivalueDefaults).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/registry/defaults/structure/multisep", registryActions.GetStructMultisepDefaults).Methods(http.MethodGet)
 
 	go func(exitHandlers []ExitHandler) {
 		select {
@@ -241,7 +276,7 @@ func main() {
 	srv := &http.Server{
 		Handler:      router,
 		Addr:         fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort),
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: time.Duration(conf.ServerWriteTimeoutSecs) * time.Second,
 		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
 	}
 
