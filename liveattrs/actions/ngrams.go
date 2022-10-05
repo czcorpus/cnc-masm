@@ -23,6 +23,7 @@ import (
 	"masm/v3/api"
 	"masm/v3/liveattrs/db/freqdb"
 	"masm/v3/liveattrs/laconf"
+	"masm/v3/liveattrs/qs"
 	"net/http"
 	"strconv"
 
@@ -117,4 +118,21 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	api.WriteJSONResponse(w, ans)
+}
+
+func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+
+	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	err = qs.ExportValuesToCouchDB(a.laDB, &a.conf.NgramDB, corpusDBInfo.GroupedName())
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSONResponse(w, map[string]any{"ok": true})
 }

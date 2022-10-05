@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"masm/v3/api"
+	"masm/v3/common"
 	"masm/v3/general/collections"
 	"masm/v3/liveattrs/subcmixer"
 	"net/http"
@@ -60,7 +61,7 @@ func importTaskArgs(args subcmixerArgs) ([]subcmixer.TaskArgs, error) {
 		{
 			{
 				NodeID:     0,
-				ParentID:   subcmixer.NewEmptyMaybe[int](),
+				ParentID:   common.NewEmptyMaybe[int](),
 				Ratio:      1,
 				Expression: &subcmixer.CategoryExpression{},
 			},
@@ -83,7 +84,7 @@ func importTaskArgs(args subcmixerArgs) ([]subcmixer.TaskArgs, error) {
 					tmp,
 					subcmixer.TaskArgs{
 						NodeID:     counter,
-						ParentID:   subcmixer.NewMaybe(pg.NodeID),
+						ParentID:   common.NewMaybe(pg.NodeID),
 						Ratio:      item.Ratio / 100.0,
 						Expression: sm,
 					},

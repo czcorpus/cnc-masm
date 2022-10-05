@@ -28,6 +28,10 @@ import (
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
 
+const (
+	dfltServerWriteTimeoutSecs = 10
+)
+
 // CorporaDataPaths describes three
 // different ways how paths to corpora
 // data are specified:
@@ -81,17 +85,24 @@ type LiveAttrsConf struct {
 	ConfDirPath string      `json:"confDirPath"`
 }
 
+type NgramDB struct {
+	URL            string `json:"url"`
+	ReadAccessUser string `json:"readAccessUser"`
+}
+
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress         string         `json:"listenAddress"`
-	ListenPort            int            `json:"listenPort"`
-	ServerReadTimeoutSecs int            `json:"serverReadTimeoutSecs"`
-	CorporaSetup          *CorporaSetup  `json:"corporaSetup"`
-	LogFile               string         `json:"logFile"`
-	CNCDB                 *databaseSetup `json:"cncDb"`
-	LiveAttrs             *LiveAttrsConf `json:"liveAttrs"`
-	Jobs                  *jobs.Conf     `json:"jobs"`
-	KontextSoftResetURL   string         `json:"kontextSoftResetURL"`
+	ListenAddress          string         `json:"listenAddress"`
+	ListenPort             int            `json:"listenPort"`
+	ServerReadTimeoutSecs  int            `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int            `json:"serverWriteTimeoutSecs"`
+	CorporaSetup           *CorporaSetup  `json:"corporaSetup"`
+	LogFile                string         `json:"logFile"`
+	CNCDB                  *databaseSetup `json:"cncDb"`
+	LiveAttrs              *LiveAttrsConf `json:"liveAttrs"`
+	Jobs                   *jobs.Conf     `json:"jobs"`
+	KontextSoftResetURL    string         `json:"kontextSoftResetURL"`
+	NgramDB                NgramDB        `json:"ngramDb"`
 }
 
 func LoadConfig(path string) *Conf {
@@ -108,4 +119,14 @@ func LoadConfig(path string) *Conf {
 		log.Fatal().Err(err).Msg("Cannot load config")
 	}
 	return &conf
+}
+
+func ApplyDefaults(conf *Conf) {
+	if conf.ServerWriteTimeoutSecs == 0 {
+		conf.ServerWriteTimeoutSecs = dfltServerWriteTimeoutSecs
+		log.Warn().Msgf(
+			"serverWriteTimeoutSecs not specified, using default: %d",
+			dfltServerWriteTimeoutSecs,
+		)
+	}
 }

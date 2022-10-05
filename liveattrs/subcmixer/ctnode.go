@@ -20,6 +20,7 @@ package subcmixer
 
 import (
 	"fmt"
+	"masm/v3/common"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -27,7 +28,7 @@ import (
 
 type CategoryTreeNode struct {
 	NodeID            int
-	ParentID          Maybe[int]
+	ParentID          common.Maybe[int]
 	Ratio             float64
 	MetadataCondition []AbstractExpression
 	Size              int
