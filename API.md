@@ -45,6 +45,12 @@ BODY arguments (JSON):
 
 * `verticalFiles Array<string>` - ad-hoc paths to vertical files to be processed. This supresses any other vertical file specification (registry, masm vertical file search). But the value is not written to a respective data extraction config.
 This is used e.g. for CNC's `online*` corpora where in some cases, each day a set of (sub)vertical files is different.
+* `ngrams`
+  * `ngrams.vertColumns` - defines a list of columns to extract from vertical file
+    * `ngrams.vertColumns[i].idx` - column index (starting from zero)
+    * `ngrams.vertColumns[i].transformFn` - a function name (from a predefined list of items) to transform value (e.g. `toLower`, `firstChar`)
+  * `ngrams.ngramSize` (1 = unigram, 2 = bigram, ...)
+  * `ngrams.calcARF` - boolean value; please note that calculating ARF requires two-pass processing of a respective vertical file
 
 `DELETE /liveAttributes/[corpus ID]/data`
 
@@ -148,6 +154,27 @@ Returned value (JSON):
     categorySizes:Array<int>;
 }
 ```
+
+`POST /liveAttributes/[corpus ID]/ngrams`
+
+Generate intermediate n-gram database for query suggestion engine.
+
+Please note that to be able to run this function, core live attributes data must be extracted
+(see `POST /liveAttributes/[corpus ID]/data`) with n-gram configuration (either with already pre-generated
+configuration or with adhoc configuration in JSON body).
+
+URL arguments:
+
+    * `posColIdx` an index of vertical file column where Part of Speech can be obtained (it can
+  be either a direct `pos` attribute or e.g. a tag from which the PoS can be extracted - e.g. `tag`)
+    * `posTagset` a tagset identifier (e.g. `cs_cnc2020`, `cs_cnc2000_spk`)
+
+
+`POST /liveAttributes/[corpus ID]/querySuggestions`
+
+From n-gram intermediate data (see `POST /liveAttributes/[corpus ID]/ngrams`), export query suggestion
+data to a CouchDB database (masm will create the database, views and sets access to a globally
+server-defined user).
 
 
 ## jobs
