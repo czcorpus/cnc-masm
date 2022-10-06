@@ -1,8 +1,8 @@
-# cnc-masm
+# CNC-MASM
 
 *M*anatee *A*ssets, *S*ervices and *M*etadata is a set of REST services for 
-managing miscellaneous corpora data, mainly related to running a [KonText](https://github.com/czcorpus/kontext)
-instance. But it can be also run as a standalone service for generating
+enhancing [KonText](https://github.com/czcorpus/kontext) installations. 
+But it can be also run as a standalone service for generating
 n-grams and searching corpora structural metadata.
 
 Functions:
@@ -22,3 +22,18 @@ For more information, see the [API.md](./API.md).
 ## API
 
 see [API.md](./API.md)
+
+
+## How to build the project
+
+To build MASM, your system must contain:
+  * Python3 (to run the installer script)
+  * [Manatee-open](https://nlp.fi.muni.cz/trac/noske) (at least the core shared libraries)
+  * [Go language](https://go.dev/) (to compile MASM)
+
+To start the building process, just run:
+```
+./build3 [manatee version]
+```
+The concrete supported versions of Manatee-open are: `2.167.8`,  `2.167.10`,  `2.208`.
+Once build, a standalone binary `masm3` should be created in the working directory.
