@@ -105,18 +105,18 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		corpusID = filepath.Join(subdir, corpusID)
 	}
 	if !a.conf.CorporaSetup.AllowsSyncForCorpus(corpusID) {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, jobTypeSyncCNK); ok {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
 		return
 	}
 

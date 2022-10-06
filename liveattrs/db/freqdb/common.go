@@ -32,7 +32,11 @@ var (
 	stopWordsRegex = regexp.MustCompile(`^[\d\.,\:;\!\?%\$\[\]=\*\-\+\(\)\{\}/\|"\'_<>"&#@~\^§]+$`)
 )
 
-type genNgramsResult struct {
+type genNgramsStatus struct {
+	TablesReady      bool  `json:"tablesReady"`
+	NumProcLines     int   `json:"numProcLines"`
+	SpeedItemsPerSec int   `json:"speedItemsPerSec"`
+	Error            error `json:"error"`
 }
 
 type ngRecord struct {

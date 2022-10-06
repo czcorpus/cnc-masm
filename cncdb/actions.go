@@ -64,7 +64,7 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	corpusID := vars["corpusId"]
 	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
 	if !corpusInfo.IndexedData.Path.FileExists {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus %s not found", corpusID), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Corpus %s not found", corpusID), http.StatusNotFound)
 		return
 	}
 	if err != nil {

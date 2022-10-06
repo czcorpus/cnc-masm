@@ -83,11 +83,19 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	// otherwise, the action produces an error
 	posColumnIdx, err := strconv.Atoi(req.URL.Query().Get("posColIdx"))
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(
+			w,
+			api.NewActionError("invalid value for posColIdx", err),
+			http.StatusBadRequest)
 		return
 	}
 
 	posTagset := req.URL.Query().Get("posTagset")
+	if posTagset == "" {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFromMsg("missing URL argument posTagset"), http.StatusBadRequest)
+		return
+	}
 
 	laConf, err := a.laConfCache.Get(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
@@ -108,16 +116,17 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 
 	generator := freqdb.NewNgramFreqGenerator(
 		a.laDB,
+		a.jobActions,
 		corpusDBInfo.GroupedName(),
 		corpusDBInfo.Name,
 		posFn,
 	)
-	ans, err := generator.Generate()
+	jobInfo, err := generator.GenerateAsync(corpusID)
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, ans)
+	api.WriteJSONResponse(w, jobInfo)
 }
 
 func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {

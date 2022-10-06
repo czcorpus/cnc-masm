@@ -135,7 +135,7 @@ func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONResponse(w, job)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -147,7 +147,7 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONResponse(w, job)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -158,7 +158,7 @@ func (a *Actions) ClearIfFinished(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONResponse(w, map[string]any{"removed": removed, "jobInfo": job})
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job does not exist or did not finish yet"), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("job does not exist or did not finish yet"), http.StatusNotFound)
 	}
 }
 

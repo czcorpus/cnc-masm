@@ -97,11 +97,11 @@ func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	corpusID := vars["corpusId"]
 	conf, err := a.laConfCache.Get(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("error fetching configuration: %s", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("error fetching configuration: %s", err), http.StatusBadRequest)
 		return
 	}
 	if conf == nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Configuration not found"), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Configuration not found"), http.StatusNotFound)
 		return
 	}
 	api.WriteJSONResponse(w, conf)
@@ -112,17 +112,17 @@ func (a *Actions) CreateConf(w http.ResponseWriter, req *http.Request) {
 	corpusID := vars["corpusId"]
 	newConf, _, err := a.createConf(corpusID, req, true)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Clear(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Save(newConf)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSONResponse(w, newConf)

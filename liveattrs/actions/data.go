@@ -62,26 +62,26 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		var err error
 		newConf, jsonArgs, err = a.createConf(corpusID, req, false)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
 
 		err = a.laConfCache.Save(newConf)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
 
 		conf, err = a.laConfCache.Get(corpusID)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
 
 	} else {
 		jsonArgs, err = a.getJsonArgs(req)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionError("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -98,14 +98,14 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	// TODO search collisions only in liveattrs type jobs
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start liveattrs job for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Failed to start liveattrs job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, liveattrs.JobType); ok {
 		api.WriteJSONErrorResponse(
 			w,
-			api.NewActionError(
+			api.NewActionErrorFromMsg(
 				"LiveAttrs generator failed - the previous job '%s' have not finished yet",
 				prevRunning.GetID(),
 			),

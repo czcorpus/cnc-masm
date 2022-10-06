@@ -144,6 +144,8 @@ func main() {
 
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
+	router.MethodNotAllowedHandler = NotAllowedHandler{}
+	router.NotFoundHandler = NotFoundHandler{}
 
 	rootActions := root.Actions{Version: version}
 
