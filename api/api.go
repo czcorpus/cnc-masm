@@ -42,12 +42,16 @@ func (me ActionError) MarshalJSON() ([]byte, error) {
 // NewActionErrorFrom is the default factory for creating an ActionError instance
 // out of an existing error
 func NewActionErrorFrom(origErr error) ActionError {
-	return ActionError{origErr}
+	return ActionError{fmt.Errorf("action error: %w", origErr)}
 }
 
-// NewActionError creates an Action error from provided message using
-// a newly defined general error as an original error
-func NewActionError(msg string, args ...interface{}) ActionError {
+func NewActionError(message string, origErr error) ActionError {
+	return ActionError{fmt.Errorf("%s: %w", message, origErr)}
+}
+
+// NewActionErrorFromMsg creates an Action error from provided message using
+// a newly defined general error as the original error
+func NewActionErrorFromMsg(msg string, args ...interface{}) ActionError {
 	return ActionError{fmt.Errorf(msg, args...)}
 }
 
@@ -55,6 +59,7 @@ func NewActionError(msg string, args ...interface{}) ActionError {
 type ErrorResponse struct {
 	Error   *ActionError `json:"error"`
 	Details []string     `json:"details"`
+	Code    int          `json:"code"`
 }
 
 // WriteJSONResponse writes 'value' to an HTTP response encoded as JSON
@@ -123,7 +128,11 @@ func WriteCacheableJSONResponse(w http.ResponseWriter, req *http.Request, value 
 
 // WriteJSONErrorResponse writes 'aerr' to an HTTP error response  as JSON
 func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int, details ...string) {
-	ans := &ErrorResponse{Error: &aerr, Details: details}
+	ans := &ErrorResponse{
+		Code:    status,
+		Error:   &aerr,
+		Details: details,
+	}
 	jsonAns, err := json.Marshal(ans)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

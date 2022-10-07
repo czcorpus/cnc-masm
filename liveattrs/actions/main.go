@@ -322,7 +322,7 @@ func (a *Actions) FillAttrs(w http.ResponseWriter, req *http.Request) {
 	}
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.FillAttrs(a.laDB, corpusDBInfo, qry)
@@ -350,7 +350,7 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 	corpora := append([]string{corpusID}, qry.Aligned...)
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
 		return
 	}
 	size, err := db.GetSubcSize(a.laDB, corpusDBInfo.GroupedName(), corpora, qry.Attrs)
@@ -486,7 +486,7 @@ func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 	maxColumnsArg := req.URL.Query().Get("maxColumns")
 	if maxColumnsArg == "" {
 		api.WriteJSONErrorResponse(
-			w, api.NewActionError("missing maxColumns argument"), http.StatusBadRequest)
+			w, api.NewActionErrorFromMsg("missing maxColumns argument"), http.StatusBadRequest)
 		return
 	}
 	maxColumns, err := strconv.Atoi(maxColumnsArg)
@@ -496,7 +496,7 @@ func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 	}
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start 'update indexes' job for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Failed to start 'update indexes' job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 	newStatus := liveattrs.IdxUpdateJobInfo{

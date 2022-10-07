@@ -21,11 +21,13 @@ package freqdb
 import (
 	"database/sql"
 	"fmt"
+	"masm/v3/jobs"
 	"math"
 	"time"
 
 	"github.com/czcorpus/vert-tagextract/v2/ptcount/modders"
 	"github.com/go-sql-driver/mysql"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -38,6 +40,7 @@ type NgramFreqGenerator struct {
 	groupedName string
 	corpusName  string
 	posFn       *modders.StringTransformerChain
+	jobActions  *jobs.Actions
 }
 
 func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
@@ -158,7 +161,7 @@ func (nfg *NgramFreqGenerator) findTotalNumLines() (int, error) {
 	row := nfg.db.QueryRow(fmt.Sprintf(
 		"SELECT COUNT(*) "+
 			"FROM %s_colcounts "+
-			"WHERE col4 <> 'X@-------------' ", nfg.groupedName))
+			"WHERE col4 <> 'X@-------------' ", nfg.groupedName)) // TODO generalize the tag filter
 	if row.Err() != nil {
 		return -1, row.Err()
 	}
@@ -170,7 +173,11 @@ func (nfg *NgramFreqGenerator) findTotalNumLines() (int, error) {
 	return ans, nil
 }
 
-func (nfg *NgramFreqGenerator) run(tx *sql.Tx) error {
+// run generates n-grams (structured into 'word', 'lemma', 'sublemma') into intermediate database
+// An existing database transaction must be provided along with current calculation status (which is
+// progressively updated) and a status channel where the status is sent each time some significant
+// update is encountered (typically - a chunk of items is finished or an error occurs)
+func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, statusChan chan<- genNgramsStatus) error {
 
 	total, err := nfg.findTotalNumLines()
 	if err != nil {
@@ -215,43 +222,101 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx) error {
 		// proc the last element
 		lastRec := new(ngRecord)
 		nfg.procLine(tx, lastRec, currLemma, words, sublemmas)
+		currStatus.SpeedItemsPerSec = int(math.RoundToEven(chunkSize / time.Since(t0).Seconds()))
+		currStatus.NumProcLines = offset + chunkSize
+		statusChan <- *currStatus
 		log.Debug().Msgf(
 			"Processed chunk %d - %d, processing speed: %d items / sec.",
-			offset, offset+chunkSize, int(math.RoundToEven(chunkSize/time.Since(t0).Seconds())))
+			offset, offset+chunkSize, currStatus.SpeedItemsPerSec)
 		offset += chunkSize
 	}
 	log.Info().Msgf("num stop words: %d", numStop)
 	return nil
 }
 
-func (nfg *NgramFreqGenerator) Generate() (*genNgramsResult, error) {
+// generate (synchronously) generates n-grams from raw liveattrs data
+// provided statusChan is closed by the method once
+// the operation finishes
+func (nfg *NgramFreqGenerator) generate(statusChan chan<- genNgramsStatus) error {
+	defer close(statusChan)
+	var status genNgramsStatus
 	tx, err := nfg.db.Begin()
 	if err != nil {
 		tx.Rollback()
-		return nil, err
+		status.Error = err
+		statusChan <- status
+		return err
 	}
 	err = nfg.createTables(tx)
+	status.TablesReady = true
+	statusChan <- status
 	if err != nil {
 		tx.Rollback()
-		return nil, err
+		status.Error = err
+		statusChan <- status
+		return err
 	}
-	err = nfg.run(tx)
+	err = nfg.run(tx, &status, statusChan)
 	if err != nil {
 		tx.Rollback()
-		return nil, err
+		status.Error = err
+		statusChan <- status
+		return err
 	}
 	err = tx.Commit()
-	return &genNgramsResult{}, err
+	if err != nil {
+		tx.Rollback()
+		status.Error = err
+		statusChan <- status
+		return err
+	}
+	return nil
+}
+
+func (nfg *NgramFreqGenerator) GenerateAsync(corpusID string) (NgramJobInfo, error) {
+	jobID, err := uuid.NewUUID()
+	if err != nil {
+		return NgramJobInfo{}, err
+	}
+	status := NgramJobInfo{
+		ID:       jobID.String(),
+		Type:     "ngram-generating",
+		CorpusID: corpusID,
+		Start:    jobs.CurrentDatetime(),
+		Update:   jobs.CurrentDatetime(),
+		Finished: false,
+		Args:     NgramJobInfoArgs{},
+	}
+	statusChan := make(chan genNgramsStatus)
+	updateJobChan := nfg.jobActions.AddJobInfo(&status)
+	go func(runStatus NgramJobInfo) {
+		for statUpd := range statusChan {
+			runStatus.Result = statUpd
+			runStatus.Error = statUpd.Error
+			runStatus.Update = jobs.CurrentDatetime()
+			updateJobChan <- &runStatus
+		}
+		runStatus.Update = jobs.CurrentDatetime()
+		runStatus.Finished = true
+		updateJobChan <- &runStatus
+		close(updateJobChan)
+	}(status)
+	go func() {
+		nfg.generate(statusChan)
+	}()
+	return status, nil
 }
 
 func NewNgramFreqGenerator(
 	db *sql.DB,
+	jobActions *jobs.Actions,
 	groupedName string,
 	corpusName string,
 	posFn *modders.StringTransformerChain,
 ) *NgramFreqGenerator {
 	return &NgramFreqGenerator{
 		db:          db,
+		jobActions:  jobActions,
 		groupedName: groupedName,
 		corpusName:  corpusName,
 		posFn:       posFn,
