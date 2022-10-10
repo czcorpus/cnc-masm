@@ -5,8 +5,8 @@ we mean a JSON object with respective attributes.
 
 ## corpora
 
-`GET /corpora/[corpus ID]`
-`GET /corpora/[sub dir.]/[corpus ID]`
+:orange_circle:  `GET /corpora/[corpus ID]`
+(`GET /corpora/[sub dir.]/[corpus ID]`)
 
 Get information about corpus files.
 
