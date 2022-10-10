@@ -215,10 +215,12 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			if err != nil {
 				return nil, InfoError{err}
 			}
-			for _, attr1 := range strings.Split(subcorpAttrsString, "|") {
-				for _, attr2 := range strings.Split(attr1, ",") {
-					split := strings.Split(attr2, ".")
-					ans.RegistryConf.SubcorpAttrs[split[0]] = append(ans.RegistryConf.SubcorpAttrs[split[0]], split[1])
+			if subcorpAttrsString != "" {
+				for _, attr1 := range strings.Split(subcorpAttrsString, "|") {
+					for _, attr2 := range strings.Split(attr1, ",") {
+						split := strings.Split(attr2, ".")
+						ans.RegistryConf.SubcorpAttrs[split[0]] = append(ans.RegistryConf.SubcorpAttrs[split[0]], split[1])
+					}
 				}
 			}
 
@@ -226,10 +228,12 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			if err != nil {
 				return nil, InfoError{err}
 			}
-			structs := strings.Split(unparsedStructs, ",")
-			ans.IndexedStructs = make([]string, len(structs))
-			for i, st := range structs {
-				ans.IndexedStructs[i] = st
+			if unparsedStructs != "" {
+				structs := strings.Split(unparsedStructs, ",")
+				ans.IndexedStructs = make([]string, len(structs))
+				for i, st := range structs {
+					ans.IndexedStructs[i] = st
+				}
 			}
 
 			// try registry's VERTICAL
