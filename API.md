@@ -13,7 +13,7 @@ Get information about corpus files.
 TODO
 
 
-`POST /corpora/[corpus ID]/_syncData`
+:orange_circle: `POST /corpora/[corpus ID]/_syncData`
 `POST /corpora/[sub dir.]/[corpus ID]/_syncData`
 
 Synchronize data (`/cnc/run/manatee/data` vs `/cnk/local/ssd/run/manatee/data`)
@@ -23,7 +23,7 @@ for a corpus. Please note that this applies only for corpora configured in
 
 ## liveAttributes
 
-`POST /liveAttributes/[corpus ID]/data`
+:orange_circle: `POST /liveAttributes/[corpus ID]/data`
 
 Extract "live attributes" data based on provided arguments and corpus registry files. The function is asynchronous and returns an information about a respective job.
 
@@ -52,16 +52,16 @@ This is used e.g. for CNC's `online*` corpora where in some cases, each day a se
   * `ngrams.ngramSize` (1 = unigram, 2 = bigram, ...)
   * `ngrams.calcARF` - boolean value; please note that calculating ARF requires two-pass processing of a respective vertical file
 
-`DELETE /liveAttributes/[corpus ID]/data`
+:orange_circle: `DELETE /liveAttributes/[corpus ID]/data`
 
 This call deletes all the data and table for the corpus.
 
 
-`GET /liveAttributes/[corpus ID]/conf`
+:orange_circle: `GET /liveAttributes/[corpus ID]/conf`
 
 Returns an existing live attributes extraction config. In case nothing is defined (yet) it returns code 404.
 
-`PUT /liveAttributes/[corpus ID]/conf`
+:orange_circle: `PUT /liveAttributes/[corpus ID]/conf`
 
 Create a new configuration (just like in case of `POST data` but without data processing).
 
@@ -72,7 +72,7 @@ URL arguments:
 * `mergeAttr` (see `POST data`)
 * `mergeFn` (see `POST data`)
 
-`POST /liveAttributes/[corpus ID]/query`
+:orange_circle: `POST /liveAttributes/[corpus ID]/query`
 
 Search available values of a group of attributes based on provided values of a
 different group of attributes.
@@ -85,7 +85,7 @@ BODY arguments (JSON):
 * `maxAttrListSize number`
 
 
-`POST /liveAttributes/[corpus ID]/fillAttrs`
+:orange_circle: `POST /liveAttributes/[corpus ID]/fillAttrs`
 
 For a structural attribute and its values, find values of different structural attributes specified in fill list (see BODY args).
 
@@ -95,7 +95,7 @@ BODY arguments (JSON):
 * `values:Array<string>`
 * `fill:Array<string>`
 
-`POST /liveAttributes/[corpus ID]/selectionSubcSize`
+:orange_circle: `POST /liveAttributes/[corpus ID]/selectionSubcSize`
 
 Return a size (in tokens) of a subcorpus defined by selected attributes.
 
@@ -103,7 +103,7 @@ BODY arguments (JSON):
 
 - see `POST query`
 
-`POST /liveAttributes/[corpus ID]/attrValAutocomplete`
+:orange_circle: `POST /liveAttributes/[corpus ID]/attrValAutocomplete`
 
 BODY arguments (JSON):
 
@@ -111,29 +111,29 @@ The function is similar to the `POST query` but for one of provided attributes, 
 
 - see `POST query`
 
-`POST /liveAttributes/[corpus ID]/getBibliography`
+:orange_circle: `POST /liveAttributes/[corpus ID]/getBibliography`
 
 BODY arguments (JSON):
 
 * `itemId:string` - an unique identifier of the item (see bibIdAttr for more info)
 
-`POST /liveAttributes/[corpus ID]/findBibTitles`
+:orange_circle: `POST /liveAttributes/[corpus ID]/findBibTitles`
 
 BODY arguments (JSON):
 
 * `itemIds:Array<string>`
 
-`GET /liveAttributes/[corpus ID]/stats`
+:orange_circle: `GET /liveAttributes/[corpus ID]/stats`
 
 For a corpus, return a map of structural attributes and numbers of queries for each one.
 
-`POST /liveAttributes/[corpus ID]/updateIndexes`
+:orange_circle: `POST /liveAttributes/[corpus ID]/updateIndexes`
 
 URL arguments:
 
 * `maxColumns` - max. number of columns considered for creating indexes
 
-`POST /liveAttributes/[corpus ID]/mixSubcorpus`
+:orange_circle: `POST /liveAttributes/[corpus ID]/mixSubcorpus`
 
 Create a subcorpus matching provided text types and required ratios (0..1). Due to combinatorial
 nature of the problem, the ratios may be slightly off and for more complex text type specification
@@ -155,7 +155,7 @@ Returned value (JSON):
 }
 ```
 
-`POST /liveAttributes/[corpus ID]/ngrams`
+:orange_circle: `POST /liveAttributes/[corpus ID]/ngrams`
 
 Generate intermediate n-gram database for query suggestion engine.
 
@@ -170,7 +170,7 @@ URL arguments:
     * `posTagset` a tagset identifier (e.g. `cs_cnc2020`, `cs_cnc2000_spk`)
 
 
-`POST /liveAttributes/[corpus ID]/querySuggestions`
+:orange_circle: `POST /liveAttributes/[corpus ID]/querySuggestions`
 
 From n-gram intermediate data (see `POST /liveAttributes/[corpus ID]/ngrams`), export query suggestion
 data to a CouchDB database (masm will create the database, views and sets access to a globally
@@ -179,7 +179,7 @@ server-defined user).
 
 ## jobs
 
-`GET /jobs`
+:orange_circle: `GET /jobs`
 
 Return list of recent jobs (even finished ones).
 
@@ -188,11 +188,11 @@ URL arguments:
 * `compact` - if `1` then the individual items are a bit pruned for better readability
 * `unfinishedOnly` - if `1` then only running jobs will be listed
 
-`GET /jobs/[job ID]`
+:orange_circle: `GET /jobs/[job ID]`
 
 Return an information about a provided job.
 
-`DELETE /jobs/[job ID]`
+:orange_circle: `DELETE /jobs/[job ID]`
 
 Delete a job. In case it is running, MASM will kill the actual processing.
 
