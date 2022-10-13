@@ -267,16 +267,16 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now()
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-
+	baseErrTpl := fmt.Sprintf("failed to query liveattrs in corpus %s", corpusID)
 	var qry query.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	usageEntry := db.RequestData{
@@ -296,12 +296,12 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	ans, err = a.getAttrValues(corpInfo, qry)
 	if err == laconf.ErrorNoSuchConfig {
 		log.Error().Err(err).Msgf("configuration not found for %s", corpusID)
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
 		log.Error().Err(err).Msg("")
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	usageEntry.ProcTime = time.Since(t0)
@@ -313,25 +313,26 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) FillAttrs(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to fill attributes for corpus %s", corpusID)
 
 	var qry fillattrs.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.FillAttrs(a.laDB, corpusDBInfo, qry)
 	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -340,22 +341,23 @@ func (a *Actions) FillAttrs(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to get ad-hoc subcorpus of corpus %s", corpusID)
 
 	var qry equery.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	corpora := append([]string{corpusID}, qry.Aligned...)
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to fill attrs: '%s'", err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	size, err := db.GetSubcSize(a.laDB, corpusDBInfo.GroupedName(), corpora, qry.Attrs)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, response.GetSubcSize{Total: size})
@@ -364,30 +366,31 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) GetBibliography(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to get bibliography from corpus %s", corpusID)
 
 	var qry biblio.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	laConf, err := a.laConfCache.Get(corpInfo.Name)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.GetBibliography(a.laDB, corpInfo, laConf, qry)
 	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -396,30 +399,31 @@ func (a *Actions) GetBibliography(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) FindBibTitles(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to find bibliography titles in corpus %s", corpusID)
 
 	var qry biblio.PayloadList
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	laConf, err := a.laConfCache.Get(corpInfo.Name)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.FindBibTitles(a.laDB, corpInfo, laConf, qry)
 	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -428,21 +432,22 @@ func (a *Actions) FindBibTitles(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) AttrValAutocomplete(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to find autocomplete suggestions in corpus %s", corpusID)
 
 	var qry query.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := a.getAttrValues(corpInfo, qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -453,7 +458,8 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 	corpusID := vars["corpusId"]
 	ans, err := db.LoadUsage(a.laDB, corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionError(fmt.Sprintf("failed to get stats for corpus %s", corpusID), err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)

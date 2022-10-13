@@ -124,12 +124,19 @@ func main() {
 			"Overriding default corpora table name to '%s'", conf.CNCDB.OverrideCorporaTableName)
 		cTableName = conf.CNCDB.OverrideCorporaTableName
 	}
+	pcTableName := "parallel_corpus"
+	if conf.CNCDB.OverridePCTableName != "" {
+		log.Warn().Msgf(
+			"Overriding default parallel corpora table name to '%s'", conf.CNCDB.OverridePCTableName)
+		pcTableName = conf.CNCDB.OverridePCTableName
+	}
 	cncDB, err := cncdb.NewCNCMySQLHandler(
 		conf.CNCDB.Host,
 		conf.CNCDB.User,
 		conf.CNCDB.Passwd,
 		conf.CNCDB.DBName,
 		cTableName,
+		pcTableName,
 	)
 	if err != nil {
 		log.Fatal().Err(err)

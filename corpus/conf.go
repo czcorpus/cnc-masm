@@ -78,6 +78,7 @@ type databaseSetup struct {
 	Passwd                   string `json:"passwd"`
 	DBName                   string `json:"db"`
 	OverrideCorporaTableName string `json:"overrideCorporaTableName"`
+	OverridePCTableName      string `json:"overridePcTableName"`
 }
 
 type LiveAttrsConf struct {

@@ -1,20 +1,21 @@
 // Copyright 2019 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2019 Institute of the Czech National Corpus,
-//                Faculty of Arts, Charles University
-//   This file is part of CNC-MASM.
 //
-//  CNC-MASM is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
+//	              Faculty of Arts, Charles University
+//	 This file is part of CNC-MASM.
 //
-//  CNC-MASM is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+//	CNC-MASM is free software: you can redistribute it and/or modify
+//	it under the terms of the GNU General Public License as published by
+//	the Free Software Foundation, either version 3 of the License, or
+//	(at your option) any later version.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
+//	CNC-MASM is distributed in the hope that it will be useful,
+//	but WITHOUT ANY WARRANTY; without even the implied warranty of
+//	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//	GNU General Public License for more details.
+//
+//	You should have received a copy of the GNU General Public License
+//	along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 package cncdb
 
 import (
@@ -29,6 +30,7 @@ import (
 type CNCMySQLHandler struct {
 	conn             *sql.DB
 	corporaTableName string
+	pcTableName      string
 }
 
 func (c *CNCMySQLHandler) UpdateSize(transact *sql.Tx, corpus string, size int64) error {
@@ -108,8 +110,8 @@ func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 		fmt.Sprintf(`SELECT c.name, c.active, c.bib_label_struct, c.bib_label_attr,
 			c.bib_id_struct, c.bib_id_attr, c.bib_group_duplicates, c.locale, p.name
 			FROM %s AS c
-			LEFT JOIN parallel_corpus AS p ON p.id = c.parallel_corpus_id
-			WHERE c.name = ?`, c.corporaTableName),
+			LEFT JOIN %s AS p ON p.id = c.parallel_corpus_id
+			WHERE c.name = ?`, c.corporaTableName, c.pcTableName),
 		corpusID)
 	var ans corpus.DBInfo
 	var pcName sql.NullString
@@ -160,7 +162,13 @@ func (c *CNCMySQLHandler) Conn() *sql.DB {
 	return c.conn
 }
 
-func NewCNCMySQLHandler(host, user, pass, dbName, corporaTableName string) (*CNCMySQLHandler, error) {
+func NewCNCMySQLHandler(
+	host,
+	user,
+	pass,
+	dbName,
+	corporaTableName,
+	pcTableName string) (*CNCMySQLHandler, error) {
 	conf := mysql.NewConfig()
 	conf.Net = "tcp"
 	conf.Addr = host
@@ -173,5 +181,7 @@ func NewCNCMySQLHandler(host, user, pass, dbName, corporaTableName string) (*CNC
 	if err != nil {
 		return nil, err
 	}
-	return &CNCMySQLHandler{conn: db, corporaTableName: corporaTableName}, nil
+	return &CNCMySQLHandler{
+		conn: db, corporaTableName: corporaTableName, pcTableName: pcTableName,
+	}, nil
 }
