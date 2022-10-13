@@ -296,7 +296,8 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	ans, err = a.getAttrValues(corpInfo, qry)
 	if err == laconf.ErrorNoSuchConfig {
 		log.Error().Err(err).Msgf("configuration not found for %s", corpusID)
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionError(
+			fmt.Sprintf("failed to query liveattrs in corpus %s", corpusID), err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
