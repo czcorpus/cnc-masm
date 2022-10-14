@@ -140,7 +140,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		updateJobChan <- &jobRec
 	}(*jobRec)
 
-	api.WriteJSONResponse(w, jobRec)
+	api.WriteJSONResponse(w, jobRec.FullInfo())
 }
 
 // NewActions is the default factory

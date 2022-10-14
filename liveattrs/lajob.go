@@ -35,6 +35,12 @@ type JobInfoArgs struct {
 	NoCorpusUpdate bool           `json:"noCorpusUpdate"`
 }
 
+func (jargs JobInfoArgs) WithoutPasswords() JobInfoArgs {
+	ans := jargs
+	ans.VteConf.DB.Password = jobs.PasswordReplacement
+	return ans
+}
+
 // LiveAttrsJobInfo collects information about corpus data synchronization job
 type LiveAttrsJobInfo struct {
 	ID             string        `json:"id"`
@@ -87,7 +93,7 @@ func (j *LiveAttrsJobInfo) FullInfo() any {
 		Start          jobs.JSONTime `json:"start"`
 		Update         jobs.JSONTime `json:"update"`
 		Finished       bool          `json:"finished"`
-		Error          error         `json:"error,omitempty"`
+		Error          string        `json:"error,omitempty"`
 		OK             bool          `json:"ok"`
 		ProcessedAtoms int           `json:"processedAtoms"`
 		ProcessedLines int           `json:"processedLines"`
@@ -100,12 +106,12 @@ func (j *LiveAttrsJobInfo) FullInfo() any {
 		Start:          j.Start,
 		Update:         j.Update,
 		Finished:       j.Finished,
-		Error:          j.Error,
+		Error:          jobs.ErrorToString(j.Error),
 		OK:             j.Error == nil,
 		ProcessedAtoms: j.ProcessedAtoms,
 		ProcessedLines: j.ProcessedLines,
 		NumRestarts:    j.NumRestarts,
-		Args:           j.Args,
+		Args:           j.Args.WithoutPasswords(),
 	}
 }
 

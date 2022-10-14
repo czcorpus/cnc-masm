@@ -126,7 +126,7 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, jobInfo)
+	api.WriteJSONResponse(w, jobInfo.FullInfo())
 }
 
 func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {

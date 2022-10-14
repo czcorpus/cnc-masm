@@ -89,7 +89,7 @@ func (j *JobInfo) FullInfo() any {
 		Start       jobs.JSONTime `json:"start"`
 		Update      jobs.JSONTime `json:"update"`
 		Finished    bool          `json:"finished"`
-		Error       error         `json:"error,omitempty"`
+		Error       string        `json:"error,omitempty"`
 		OK          bool          `json:"ok"`
 		Result      *syncResponse `json:"result"`
 		NumRestarts int           `json:"numRestarts"`
@@ -100,7 +100,7 @@ func (j *JobInfo) FullInfo() any {
 		Start:       j.Start,
 		Update:      j.Update,
 		Finished:    j.Finished,
-		Error:       j.Error,
+		Error:       jobs.ErrorToString(j.Error),
 		OK:          j.Error == nil,
 		Result:      j.Result,
 		NumRestarts: j.NumRestarts,

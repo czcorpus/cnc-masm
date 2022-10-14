@@ -131,7 +131,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status)
+	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status.FullInfo())
 }
 
 // Delete removes all the live attributes data for a corpus
