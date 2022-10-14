@@ -138,7 +138,8 @@ func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	err = qs.ExportValuesToCouchDB(a.laDB, &a.conf.NgramDB, corpusDBInfo.GroupedName())
+	exporter := qs.NewExporter(&a.conf.NgramDB, a.laDB, corpusDBInfo.GroupedName(), a.jobActions)
+	err = exporter.ExportValuesToCouchDB()
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return

@@ -25,6 +25,7 @@ import (
 	"masm/v3/common"
 	"masm/v3/corpus"
 	"masm/v3/db/couchdb"
+	"masm/v3/jobs"
 	"regexp"
 	"strings"
 
@@ -78,13 +79,16 @@ func (lemma *Lemma) ToJSON() ([]byte, error) {
 	return json.Marshal(lemma)
 }
 
-func ExportValuesToCouchDB(db *sql.DB, conf *corpus.NgramDB, groupedName string) error {
-	cb := &couchdb.ClientBase{
-		BaseURL: conf.URL,
-		DBName:  fmt.Sprintf("%s_sublemmas", groupedName),
-	}
-	bulkWriter := couchdb.NewDocHandler[*Lemma](cb)
-	couchdbSchema := couchdb.NewSchema(cb)
+type Exporter struct {
+	db          *sql.DB
+	cb          *couchdb.ClientBase
+	groupedName string
+	jobActions  *jobs.Actions
+}
+
+func (exp *Exporter) ExportValuesToCouchDB() error {
+	bulkWriter := couchdb.NewDocHandler[*Lemma](exp.cb)
+	couchdbSchema := couchdb.NewSchema(exp.cb)
 	err := couchdbSchema.CreateDatabase("masm")
 	if err != nil {
 		return err
@@ -94,14 +98,14 @@ func ExportValuesToCouchDB(db *sql.DB, conf *corpus.NgramDB, groupedName string)
 		return err
 	}
 	// TODO select from db
-	rows, err := db.Query(fmt.Sprintf( // TODO w.pos AS lemma_pos !?
+	rows, err := exp.db.Query(fmt.Sprintf( // TODO w.pos AS lemma_pos !?
 		"SELECT w.value, w.lemma, s.value AS sublemma, s.count AS sublemma_count, "+
 			"w.pos, w.count, w.arf, w.pos as lemma_pos, m.count as lemma_count, m.arf as lemma_arf, "+
 			"m.is_pname as lemma_is_pname "+
 			"FROM %s_word AS w "+
 			"JOIN %s_sublemma AS s ON s.value = w.sublemma AND s.lemma = w.lemma AND s.pos = w.pos "+
 			"JOIN %s_lemma AS m ON m.value = s.lemma AND m.pos = s.pos "+
-			"ORDER BY w.lemma, w.pos, w.value", groupedName, groupedName, groupedName))
+			"ORDER BY w.lemma, w.pos, w.value", exp.groupedName, exp.groupedName, exp.groupedName))
 	if err != nil {
 		return err
 	}
@@ -175,4 +179,21 @@ func ExportValuesToCouchDB(db *sql.DB, conf *corpus.NgramDB, groupedName string)
 		}
 	}
 	return nil
+}
+
+func NewExporter(
+	conf *corpus.NgramDB,
+	db *sql.DB,
+	groupedName string,
+	jobActions *jobs.Actions,
+) *Exporter {
+	return &Exporter{
+		cb: &couchdb.ClientBase{
+			BaseURL: conf.URL,
+			DBName:  fmt.Sprintf("%s_sublemmas", groupedName),
+		},
+		db:          db,
+		groupedName: groupedName,
+		jobActions:  jobActions,
+	}
 }
