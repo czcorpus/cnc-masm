@@ -99,10 +99,10 @@ func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	baseErrTpl := fmt.Sprintf("failed to get liveattrs conf for %s", corpusID)
 	conf, err := a.laConfCache.GetWithoutPasswords(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSONResponse(w, conf)
@@ -114,17 +114,17 @@ func (a *Actions) CreateConf(w http.ResponseWriter, req *http.Request) {
 	baseErrTpl := fmt.Sprintf("failed to create liveattrs config for %s", corpusID)
 	newConf, _, err := a.createConf(corpusID, req, true)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Clear(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Save(newConf)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSONResponse(w, newConf)

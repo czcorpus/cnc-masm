@@ -39,7 +39,8 @@ func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
 	ans["data"] = a.Version
 	resp, err := json.Marshal(ans)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("failed to run the root action", err), http.StatusInternalServerError)
 	}
 	w.Write(resp)
 }

@@ -20,6 +20,7 @@ package cncdb
 
 import (
 	"database/sql"
+	"fmt"
 	"masm/v3/corpus"
 	"net/http"
 
@@ -62,13 +63,16 @@ func NewActions(conf *corpus.Conf, db DataHandler) *Actions {
 func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to update info for corpus %s", corpusID)
 	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
-	if !corpusInfo.IndexedData.Path.FileExists {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Corpus %s not found", corpusID), http.StatusNotFound)
+	if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+	if !corpusInfo.IndexedData.Path.FileExists {
+		err := fmt.Errorf("data not found for corpus %s", corpusID)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 		return
 	}
 	transact, err := a.db.StartTx()
@@ -78,7 +82,8 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 		if err2 != nil {
 			log.Error().Err(err2).Msg("failed to rollback transaction")
 		}
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -93,7 +98,8 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 
 	err = a.db.CommitTx(transact)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 	}
 	api.WriteJSONResponse(w, updateSizeResp{OK: true})
 }

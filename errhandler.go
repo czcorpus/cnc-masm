@@ -19,7 +19,6 @@
 package main
 
 import (
-	"errors"
 	"masm/v3/api"
 	"net/http"
 )
@@ -29,7 +28,7 @@ type NotFoundHandler struct {
 
 func (handler NotFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSONErrorResponse(
-		w, api.NewActionErrorFrom(errors.New("action not found")), http.StatusNotFound)
+		w, api.NewActionError("action not found"), http.StatusNotFound)
 }
 
 type NotAllowedHandler struct {
@@ -37,5 +36,5 @@ type NotAllowedHandler struct {
 
 func (handler NotAllowedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	api.WriteJSONErrorResponse(
-		w, api.NewActionErrorFrom(errors.New("method not alloweed")), http.StatusMethodNotAllowed)
+		w, api.NewActionError("method not allowed"), http.StatusMethodNotAllowed)
 }

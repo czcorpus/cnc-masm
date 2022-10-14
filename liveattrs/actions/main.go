@@ -271,12 +271,12 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	var qry query.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	usageEntry := db.RequestData{
@@ -296,12 +296,12 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	ans, err = a.getAttrValues(corpInfo, qry)
 	if err == laconf.ErrorNoSuchConfig {
 		log.Error().Err(err).Msgf("configuration not found for %s", corpusID)
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
 		log.Error().Err(err).Msg("")
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	usageEntry.ProcTime = time.Since(t0)
@@ -318,21 +318,21 @@ func (a *Actions) FillAttrs(w http.ResponseWriter, req *http.Request) {
 	var qry fillattrs.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.FillAttrs(a.laDB, corpusDBInfo, qry)
 	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -346,18 +346,18 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 	var qry equery.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	corpora := append([]string{corpusID}, qry.Aligned...)
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	size, err := db.GetSubcSize(a.laDB, corpusDBInfo.GroupedName(), corpora, qry.Attrs)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, response.GetSubcSize{Total: size})
@@ -371,26 +371,26 @@ func (a *Actions) GetBibliography(w http.ResponseWriter, req *http.Request) {
 	var qry biblio.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	laConf, err := a.laConfCache.Get(corpInfo.Name)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.GetBibliography(a.laDB, corpInfo, laConf, qry)
 	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -404,26 +404,26 @@ func (a *Actions) FindBibTitles(w http.ResponseWriter, req *http.Request) {
 	var qry biblio.PayloadList
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	laConf, err := a.laConfCache.Get(corpInfo.Name)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.FindBibTitles(a.laDB, corpInfo, laConf, qry)
 	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -437,17 +437,17 @@ func (a *Actions) AttrValAutocomplete(w http.ResponseWriter, req *http.Request) 
 	var qry query.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := a.getAttrValues(corpInfo, qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError(baseErrTpl, err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -459,7 +459,7 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 	ans, err := db.LoadUsage(a.laDB, corpusID)
 	if err != nil {
 		api.WriteJSONErrorResponse(
-			w, api.NewActionError(fmt.Sprintf("failed to get stats for corpus %s", corpusID), err), http.StatusInternalServerError)
+			w, api.NewActionErrorFrom(fmt.Sprintf("failed to get stats for corpus %s", corpusID), err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, &ans)
@@ -492,17 +492,18 @@ func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 	maxColumnsArg := req.URL.Query().Get("maxColumns")
 	if maxColumnsArg == "" {
 		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFromMsg("missing maxColumns argument"), http.StatusBadRequest)
+			w, api.NewActionError("missing maxColumns argument"), http.StatusBadRequest)
 		return
 	}
 	maxColumns, err := strconv.Atoi(maxColumnsArg)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusUnprocessableEntity)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("failed to update indexes", err), http.StatusUnprocessableEntity)
 		return
 	}
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Failed to start 'update indexes' job for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start 'update indexes' job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 	newStatus := liveattrs.IdxUpdateJobInfo{
@@ -543,7 +544,10 @@ func (a *Actions) InferredAtomStructure(w http.ResponseWriter, req *http.Request
 
 	conf, err := a.laConfCache.Get(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("failed to get inferred atom structure", err),
+			http.StatusInternalServerError,
+		)
 		return
 	}
 

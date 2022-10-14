@@ -63,7 +63,7 @@ func (a *Actions) GetPosSetInfo(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	if srch.ID == "" {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg(fmt.Sprintf("Tagset %s not found", posID)), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionError(fmt.Sprintf("Tagset %s not found", posID)), http.StatusInternalServerError)
 
 	} else {
 		api.WriteJSONResponse(w, srch)
