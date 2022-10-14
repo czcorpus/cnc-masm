@@ -139,10 +139,10 @@ func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	exporter := qs.NewExporter(&a.conf.NgramDB, a.laDB, corpusDBInfo.GroupedName(), a.jobActions)
-	err = exporter.ExportValuesToCouchDB()
+	jobInfo, err := exporter.RunAsyncExportJob()
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, map[string]any{"ok": true})
+	api.WriteJSONResponse(w, jobInfo)
 }
