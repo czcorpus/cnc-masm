@@ -39,19 +39,13 @@ func (me ActionError) MarshalJSON() ([]byte, error) {
 	return json.Marshal(me.Error())
 }
 
-// NewActionErrorFrom is the default factory for creating an ActionError instance
-// out of an existing error
-func NewActionErrorFrom(origErr error) ActionError {
-	return ActionError{fmt.Errorf("action error: %w", origErr)}
-}
-
-func NewActionError(message string, origErr error) ActionError {
+func NewActionErrorFrom(message string, origErr error) ActionError {
 	return ActionError{fmt.Errorf("%s: %w", message, origErr)}
 }
 
-// NewActionErrorFromMsg creates an Action error from provided message using
+// NewActionError creates an Action error from provided message using
 // a newly defined general error as the original error
-func NewActionErrorFromMsg(msg string, args ...interface{}) ActionError {
+func NewActionError(msg string, args ...interface{}) ActionError {
 	return ActionError{fmt.Errorf(msg, args...)}
 }
 

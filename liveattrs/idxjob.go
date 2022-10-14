@@ -83,7 +83,7 @@ func (j *IdxUpdateJobInfo) FullInfo() any {
 		Start       jobs.JSONTime  `json:"start"`
 		Update      jobs.JSONTime  `json:"update"`
 		Finished    bool           `json:"finished"`
-		Error       error          `json:"error,omitempty"`
+		Error       string         `json:"error,omitempty"`
 		OK          bool           `json:"ok"`
 		NumRestarts int            `json:"numRestarts"`
 		Args        IdxJobInfoArgs `json:"args"`
@@ -95,7 +95,7 @@ func (j *IdxUpdateJobInfo) FullInfo() any {
 		Start:       j.Start,
 		Update:      j.Update,
 		Finished:    j.Finished,
-		Error:       j.Error,
+		Error:       jobs.ErrorToString(j.Error),
 		OK:          j.Error == nil,
 		NumRestarts: j.NumRestarts,
 		Args:        j.Args,

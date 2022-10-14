@@ -55,6 +55,7 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	if subdir != "" {
 		corpusID = filepath.Join(subdir, corpusID)
 	}
+	baseErrTpl := fmt.Sprintf("failed to get corpus info for %s", corpusID)
 	wsattr := req.URL.Query().Get("wsattr")
 	if wsattr == "" {
 		wsattr = "lemma"
@@ -63,10 +64,12 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
 	switch err.(type) {
 	case NotFound:
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 		log.Error().Err(err)
 	case InfoError:
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		log.Error().Err(err)
 	case nil:
 		api.WriteJSONResponse(w, ans)
@@ -105,18 +108,18 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		corpusID = filepath.Join(subdir, corpusID)
 	}
 	if !a.conf.CorporaSetup.AllowsSyncForCorpus(corpusID) {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, jobTypeSyncCNK); ok {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
+		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
 		return
 	}
 
@@ -140,7 +143,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		updateJobChan <- &jobRec
 	}(*jobRec)
 
-	api.WriteJSONResponse(w, jobRec)
+	api.WriteJSONResponse(w, jobRec.FullInfo())
 }
 
 // NewActions is the default factory

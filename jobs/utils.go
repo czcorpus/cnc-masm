@@ -1,5 +1,5 @@
-// Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2022 Institute of the Czech National Corpus,
+// Copyright 2020 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2020 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of CNC-MASM.
 //
@@ -16,25 +16,18 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package main
+package jobs
 
-import (
-	"masm/v3/api"
-	"net/http"
+const (
+	PasswordReplacement = "*****"
 )
 
-type NotFoundHandler struct {
-}
-
-func (handler NotFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	api.WriteJSONErrorResponse(
-		w, api.NewActionError("action not found"), http.StatusNotFound)
-}
-
-type NotAllowedHandler struct {
-}
-
-func (handler NotAllowedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	api.WriteJSONErrorResponse(
-		w, api.NewActionError("method not allowed"), http.StatusMethodNotAllowed)
+// ErrorToString is a helper function for exporting job status
+// to JSON. It just ensures string is always returned no matter
+// err is nil or not.
+func ErrorToString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }

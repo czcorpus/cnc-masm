@@ -19,6 +19,7 @@
 package actions
 
 import (
+	"fmt"
 	"masm/v3/api"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
@@ -45,6 +46,7 @@ import (
 func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to generate liveattrs for %s", corpusID)
 	noCache := false
 	if req.URL.Query().Get("noCache") == "1" {
 		noCache = true
@@ -62,26 +64,26 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		var err error
 		newConf, jsonArgs, err = a.createConf(corpusID, req, false)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 			return
 		}
 
 		err = a.laConfCache.Save(newConf)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 			return
 		}
 
 		conf, err = a.laConfCache.Get(corpusID)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 			return
 		}
 
 	} else {
 		jsonArgs, err = a.getJsonArgs(req)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("LiveAttrs generator failed: '%s'", err), http.StatusBadRequest)
+			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -98,17 +100,15 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	// TODO search collisions only in liveattrs type jobs
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Failed to start liveattrs job for '%s'", corpusID), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusUnauthorized)
 		return
 	}
 
 	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, liveattrs.JobType); ok {
+		err := fmt.Errorf("the previous job %s not finished yet", prevRunning.GetID())
 		api.WriteJSONErrorResponse(
 			w,
-			api.NewActionErrorFromMsg(
-				"LiveAttrs generator failed - the previous job '%s' have not finished yet",
-				prevRunning.GetID(),
-			),
+			api.NewActionErrorFrom(baseErrTpl, err),
 			http.StatusConflict,
 		)
 		return
@@ -128,19 +128,22 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	}
 	err = a.createDataFromJobStatus(status)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status)
+	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status.FullInfo())
 }
 
 // Delete removes all the live attributes data for a corpus
 func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to delete configuration for %s", corpusID)
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	tx0, err := a.laDB.Begin()
@@ -150,19 +153,22 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 		corpusID,
 	)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		tx0.Rollback()
 		return
 	}
 	tx1, err := a.cncDB.StartTx()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	err = a.cncDB.UnsetLiveAttrs(tx1, corpusID)
 	if err != nil {
 		tx1.Rollback()
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	// Now we commit tx0 and tx1 deliberately before soft reset below as a failed operation of
@@ -173,17 +179,20 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 	err = tx0.Commit()
 	if err != nil {
 		tx1.Rollback()
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	err = tx1.Commit() // in case this fails we're screwed as tx0 is already commited
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(
+			baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	err = a.setSoftResetToKontext()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, map[string]any{"ok": true})

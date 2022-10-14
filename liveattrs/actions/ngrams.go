@@ -20,6 +20,7 @@ package actions
 
 import (
 	"errors"
+	"fmt"
 	"masm/v3/api"
 	"masm/v3/liveattrs/db/freqdb"
 	"masm/v3/liveattrs/laconf"
@@ -74,7 +75,7 @@ func applyPosProperties(
 func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-
+	baseErrTpl := fmt.Sprintf("failed to generate n-grams for %s", corpusID)
 	// PosColumnIdx defines a vertical column number (starting from zero)
 	// where PoS can be extracted. In case no direct "pos" tag exists,
 	// a "tag" can be used along with a proper "transformFn" defined for
@@ -85,7 +86,7 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		api.WriteJSONErrorResponse(
 			w,
-			api.NewActionError("invalid value for posColIdx", err),
+			api.NewActionErrorFrom("invalid value for posColIdx", err),
 			http.StatusBadRequest)
 		return
 	}
@@ -93,24 +94,26 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	posTagset := req.URL.Query().Get("posTagset")
 	if posTagset == "" {
 		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFromMsg("missing URL argument posTagset"), http.StatusBadRequest)
+			w, api.NewActionError("missing URL argument posTagset"), http.StatusBadRequest)
 		return
 	}
 
 	laConf, err := a.laConfCache.Get(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	posFn, err := applyPosProperties(laConf, posColumnIdx, posTagset)
 
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -123,24 +126,28 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	)
 	jobInfo, err := generator.GenerateAsync(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, jobInfo)
+	api.WriteJSONResponse(w, jobInfo.FullInfo())
 }
 
 func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to generate query suggestions for %s", corpusID)
 
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	err = qs.ExportValuesToCouchDB(a.laDB, &a.conf.NgramDB, corpusDBInfo.GroupedName())
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
 	api.WriteJSONResponse(w, map[string]any{"ok": true})

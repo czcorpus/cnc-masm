@@ -20,6 +20,7 @@ package actions
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"masm/v3/api"
 	"masm/v3/corpus"
@@ -95,13 +96,13 @@ func (a *Actions) createConf(
 func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	conf, err := a.laConfCache.Get(corpusID)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("error fetching configuration: %s", err), http.StatusBadRequest)
-		return
-	}
-	if conf == nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("Configuration not found"), http.StatusNotFound)
+	baseErrTpl := fmt.Sprintf("failed to get liveattrs conf for %s", corpusID)
+	conf, err := a.laConfCache.GetWithoutPasswords(corpusID)
+	if err == laconf.ErrorNoSuchConfig {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
+
+	} else if err != nil {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSONResponse(w, conf)
@@ -110,19 +111,20 @@ func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 func (a *Actions) CreateConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to create liveattrs config for %s", corpusID)
 	newConf, _, err := a.createConf(corpusID, req, true)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Clear(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Save(newConf)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFromMsg("failed to create liveattrs config: '%s'", err), http.StatusBadRequest)
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSONResponse(w, newConf)

@@ -26,6 +26,7 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/fsops"
 	"masm/v3/general/collections"
+	"masm/v3/jobs"
 	"masm/v3/liveattrs/utils"
 	"os"
 	"path"
@@ -182,6 +183,17 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 		return v, nil
 	}
 	return nil, ErrorNoSuchConfig
+}
+
+// GetWithoutPasswords is a variant of Get with passwords and similar stuff removed
+func (lcache *LiveAttrsBuildConfProvider) GetWithoutPasswords(corpname string) (*vteconf.VTEConf, error) {
+	entry, err := lcache.Get(corpname)
+	if err != nil {
+		return nil, err
+	}
+	ans := *entry
+	ans.DB.Password = jobs.PasswordReplacement
+	return &ans, nil
 }
 
 // Save saves a provided configuration to a file for later use

@@ -65,7 +65,8 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 	for _, regPathRoot := range a.conf.CorporaSetup.RegistryDirPaths {
 		regPaths, err := fsops.ListDirsInDir(regPathRoot, false)
 		if err != nil {
-			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+			api.WriteJSONErrorResponse(
+				w, api.NewActionErrorFrom("failed to get data locations", err), http.StatusInternalServerError)
 			return
 		}
 		regPaths.ForEach(func(info os.FileInfo, idx int) bool {
