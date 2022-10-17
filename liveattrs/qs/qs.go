@@ -25,9 +25,11 @@ import (
 	"masm/v3/common"
 	"masm/v3/corpus"
 	"masm/v3/db/couchdb"
+	"masm/v3/jobs"
 	"regexp"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -50,6 +52,12 @@ func mkID(x int) string {
 		idx -= 1
 	}
 	return strings.Join(common.MapSlice(ans, func(v byte, _ int) string { return string(v) }), "")
+}
+
+type exporterStatus struct {
+	TablesReady  bool  `json:"tablesReady"`
+	NumProcLines int   `json:"numProcLines"`
+	Error        error `json:"error"`
 }
 
 type Form struct {
@@ -78,37 +86,20 @@ func (lemma *Lemma) ToJSON() ([]byte, error) {
 	return json.Marshal(lemma)
 }
 
-func ExportValuesToCouchDB(db *sql.DB, conf *corpus.NgramDB, groupedName string) error {
-	cb := &couchdb.ClientBase{
-		BaseURL: conf.URL,
-		DBName:  fmt.Sprintf("%s_sublemmas", groupedName),
-	}
-	bulkWriter := couchdb.NewDocHandler[*Lemma](cb)
-	couchdbSchema := couchdb.NewSchema(cb)
-	err := couchdbSchema.CreateDatabase("masm")
-	if err != nil {
-		return err
-	}
-	err = couchdbSchema.CreateViews()
-	if err != nil {
-		return err
-	}
-	// TODO select from db
-	rows, err := db.Query(fmt.Sprintf( // TODO w.pos AS lemma_pos !?
-		"SELECT w.value, w.lemma, s.value AS sublemma, s.count AS sublemma_count, "+
-			"w.pos, w.count, w.arf, w.pos as lemma_pos, m.count as lemma_count, m.arf as lemma_arf, "+
-			"m.is_pname as lemma_is_pname "+
-			"FROM %s_word AS w "+
-			"JOIN %s_sublemma AS s ON s.value = w.sublemma AND s.lemma = w.lemma AND s.pos = w.pos "+
-			"JOIN %s_lemma AS m ON m.value = s.lemma AND m.pos = s.pos "+
-			"ORDER BY w.lemma, w.pos, w.value", groupedName, groupedName, groupedName))
-	if err != nil {
-		return err
-	}
+type Exporter struct {
+	db          *sql.DB
+	cb          *couchdb.ClientBase
+	groupedName string
+	jobActions  *jobs.Actions
+}
+
+func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatus, status exporterStatus) error {
+	bulkWriter := couchdb.NewDocHandler[*Lemma](exp.cb)
 	var idBase, procRecords int
 	chunk := make([]*Lemma, 0, exportChunkSize)
 	var currLemma *Lemma
 	sublemmas := make(map[string]int)
+
 	for rows.Next() {
 		var lemmaValue, sublemmaValue, wordValue, lemmaPos, wordPos string
 		var sublemmaCount, lemmaCount, wordCount int
@@ -119,6 +110,8 @@ func ExportValuesToCouchDB(db *sql.DB, conf *corpus.NgramDB, groupedName string)
 			&wordPos, &wordCount, &wordArf, &lemmaPos, &lemmaCount, &lemmaArf,
 			&isPname)
 		if err != nil {
+			status.Error = err
+			statusChan <- status
 			return err
 		}
 		if validWordRegexp.MatchString(lemmaValue) {
@@ -164,15 +157,107 @@ func ExportValuesToCouchDB(db *sql.DB, conf *corpus.NgramDB, groupedName string)
 		}
 		procRecords++
 		if procRecords%100000 == 0 {
+			status.NumProcLines = procRecords
+			statusChan <- status
 			log.Debug().Msgf("Processed %d records", procRecords)
 		}
 	}
+
 	chunk = append(chunk, currLemma)
 	if len(chunk) > 0 {
-		err = bulkWriter.BulkInsert(chunk)
+		err := bulkWriter.BulkInsert(chunk)
 		if err != nil {
+			status.Error = err
+			statusChan <- status
 			return err
 		}
 	}
 	return nil
+}
+
+func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) error {
+	defer close(statusChan)
+	status := exporterStatus{}
+
+	couchdbSchema := couchdb.NewSchema(exp.cb)
+	err := couchdbSchema.CreateDatabase("masm")
+	if err != nil {
+		status.Error = err
+		statusChan <- status
+		return err
+	}
+	err = couchdbSchema.CreateViews()
+	if err != nil {
+		status.Error = err
+		statusChan <- status
+		return err
+	}
+	status.TablesReady = true
+	statusChan <- status
+	// TODO select from db
+	rows, err := exp.db.Query(fmt.Sprintf( // TODO w.pos AS lemma_pos !?
+		"SELECT w.value, w.lemma, s.value AS sublemma, s.count AS sublemma_count, "+
+			"w.pos, w.count, w.arf, w.pos as lemma_pos, m.count as lemma_count, m.arf as lemma_arf, "+
+			"m.is_pname as lemma_is_pname "+
+			"FROM %s_word AS w "+
+			"JOIN %s_sublemma AS s ON s.value = w.sublemma AND s.lemma = w.lemma AND s.pos = w.pos "+
+			"JOIN %s_lemma AS m ON m.value = s.lemma AND m.pos = s.pos "+
+			"ORDER BY w.lemma, w.pos, w.value", exp.groupedName, exp.groupedName, exp.groupedName))
+	if err != nil {
+		status.Error = err
+		statusChan <- status
+		return err
+	}
+	return exp.processRows(rows, statusChan, status)
+}
+
+func (exp *Exporter) RunAsyncExportJob() (ExportJobInfo, error) {
+	jobID, err := uuid.NewUUID()
+	if err != nil {
+		return ExportJobInfo{}, err
+	}
+	status := ExportJobInfo{
+		ID:       jobID.String(),
+		Type:     "qs-exporting",
+		CorpusID: exp.groupedName,
+		Start:    jobs.CurrentDatetime(),
+		Update:   jobs.CurrentDatetime(),
+		Finished: false,
+		Args:     ExportJobInfoArgs{},
+	}
+	statusChan := make(chan exporterStatus)
+	updateJobChan := exp.jobActions.AddJobInfo(&status)
+	go func(runStatus ExportJobInfo) {
+		for statUpd := range statusChan {
+			runStatus.Result = statUpd
+			runStatus.Error = statUpd.Error
+			runStatus.Update = jobs.CurrentDatetime()
+			updateJobChan <- &runStatus
+		}
+		runStatus.Update = jobs.CurrentDatetime()
+		runStatus.Finished = true
+		updateJobChan <- &runStatus
+		close(updateJobChan)
+	}(status)
+	go func() {
+		exp.exportValuesToCouchDB(statusChan)
+	}()
+	return status, nil
+}
+
+func NewExporter(
+	conf *corpus.NgramDB,
+	db *sql.DB,
+	groupedName string,
+	jobActions *jobs.Actions,
+) *Exporter {
+	return &Exporter{
+		cb: &couchdb.ClientBase{
+			BaseURL: conf.URL,
+			DBName:  fmt.Sprintf("%s_sublemmas", groupedName),
+		},
+		db:          db,
+		groupedName: groupedName,
+		jobActions:  jobActions,
+	}
 }

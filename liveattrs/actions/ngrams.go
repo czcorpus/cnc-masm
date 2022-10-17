@@ -144,11 +144,12 @@ func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {
 			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
-	err = qs.ExportValuesToCouchDB(a.laDB, &a.conf.NgramDB, corpusDBInfo.GroupedName())
+	exporter := qs.NewExporter(&a.conf.NgramDB, a.laDB, corpusDBInfo.GroupedName(), a.jobActions)
+	jobInfo, err := exporter.RunAsyncExportJob()
 	if err != nil {
 		api.WriteJSONErrorResponse(
 			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, map[string]any{"ok": true})
+	api.WriteJSONResponse(w, jobInfo)
 }
