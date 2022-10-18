@@ -34,6 +34,7 @@ import (
 
 const (
 	reportEachNthItem = 50000
+	duplicateRowErrNo = 1062
 )
 
 type NgramFreqGenerator struct {
@@ -103,7 +104,7 @@ func (nfg *NgramFreqGenerator) procLine(
 				startsWithUpcase(currLemma.lemma),
 			)
 			terr, ok := err.(*mysql.MySQLError)
-			if ok && terr.Number == 1062 {
+			if ok && terr.Number == duplicateRowErrNo {
 				tx.Exec(fmt.Sprintf(
 					`UPDATE %s_lemma
 					SET count = count + ?, arf = arf + ?
@@ -120,7 +121,7 @@ func (nfg *NgramFreqGenerator) procLine(
 					nfg.groupedName),
 					subl, currLemma.lemma, nfg.posFn.Transform(currLemma.tag), sublemmas[subl])
 				terr, ok := err.(*mysql.MySQLError)
-				if ok && terr.Number == 1062 {
+				if ok && terr.Number == duplicateRowErrNo {
 					_, err := tx.Exec(fmt.Sprintf(
 						`UPDATE %s_sublemma SET count = count + ?
 						WHERE value = ? AND lemma = ? AND pos = ?`, nfg.groupedName),
@@ -138,7 +139,7 @@ func (nfg *NgramFreqGenerator) procLine(
 					VALUES (?, ?, ?, ?, ?, ?)`, nfg.groupedName),
 					word.word, word.lemma, word.sublemma, nfg.posFn.Transform(word.tag), word.abs, word.arf)
 				terr, ok := err.(*mysql.MySQLError)
-				if ok && terr.Number == 1 { // TODO !!!!! find proper error code
+				if ok && terr.Number == duplicateRowErrNo {
 					_, err := tx.Exec(fmt.Sprintf(
 						`UPDATE %s_word
 						SET count = count + ?, arf = arf + ?
