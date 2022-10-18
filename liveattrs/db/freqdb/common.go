@@ -19,6 +19,8 @@
 package freqdb
 
 import (
+	"encoding/json"
+	"masm/v3/jobs"
 	"regexp"
 	"strings"
 )
@@ -33,10 +35,29 @@ var (
 )
 
 type genNgramsStatus struct {
-	TablesReady      bool  `json:"tablesReady"`
-	NumProcLines     int   `json:"numProcLines"`
-	SpeedItemsPerSec int   `json:"speedItemsPerSec"`
-	Error            error `json:"error"`
+	TablesReady         bool
+	NumProcLines        int
+	AvgSpeedItemsPerSec int
+	TimeEstimationSecs  int
+	Error               error
+}
+
+func (gns genNgramsStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		struct {
+			TablesReady         bool   `json:"tablesReady"`
+			NumProcLines        int    `json:"numProcLines"`
+			AvgSpeedItemsPerSec int    `json:"avgSpeedItemsPerSec"`
+			TimeEstimationSecs  int    `json:"timeEstimationSecs,omitempty"`
+			Error               string `json:"error,omitempty"`
+		}{
+			TablesReady:         gns.TablesReady,
+			NumProcLines:        gns.NumProcLines,
+			AvgSpeedItemsPerSec: gns.AvgSpeedItemsPerSec,
+			TimeEstimationSecs:  gns.TimeEstimationSecs,
+			Error:               jobs.ErrorToString(gns.Error),
+		},
+	)
 }
 
 type ngRecord struct {
@@ -86,4 +107,8 @@ func startsWithUpcase(w string) int {
 		return 1
 	}
 	return 0
+}
+
+func streamAvg(currAvg float64, currCount int, newValue float64) float64 {
+	return (float64(currCount)*currAvg + newValue) / (float64(currCount) + 1)
 }

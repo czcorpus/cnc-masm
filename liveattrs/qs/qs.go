@@ -55,9 +55,23 @@ func mkID(x int) string {
 }
 
 type exporterStatus struct {
-	TablesReady  bool  `json:"tablesReady"`
-	NumProcLines int   `json:"numProcLines"`
-	Error        error `json:"error"`
+	TablesReady  bool
+	NumProcLines int
+	Error        error
+}
+
+func (es exporterStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(
+		struct {
+			TablesReady  bool   `json:"tablesReady"`
+			NumProcLines int    `json:"numProcLines"`
+			Error        string `json:"error,omitempty"`
+		}{
+			TablesReady:  es.TablesReady,
+			NumProcLines: es.NumProcLines,
+			Error:        jobs.ErrorToString(es.Error),
+		},
+	)
 }
 
 type Form struct {
@@ -162,8 +176,15 @@ func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatu
 			log.Debug().Msgf("Processed %d records", procRecords)
 		}
 	}
-
-	chunk = append(chunk, currLemma)
+	if procRecords == 0 {
+		err := fmt.Errorf("there were no n-gram records to process")
+		status.Error = err
+		statusChan <- status
+		return err
+	}
+	if currLemma != nil {
+		chunk = append(chunk, currLemma)
+	}
 	if len(chunk) > 0 {
 		err := bulkWriter.BulkInsert(chunk)
 		if err != nil {
@@ -194,7 +215,6 @@ func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) err
 	}
 	status.TablesReady = true
 	statusChan <- status
-	// TODO select from db
 	rows, err := exp.db.Query(fmt.Sprintf( // TODO w.pos AS lemma_pos !?
 		"SELECT w.value, w.lemma, s.value AS sublemma, s.count AS sublemma_count, "+
 			"w.pos, w.count, w.arf, w.pos as lemma_pos, m.count as lemma_count, m.arf as lemma_arf, "+

@@ -22,6 +22,7 @@ import (
 	"database/sql"
 	"fmt"
 	"masm/v3/jobs"
+	"masm/v3/liveattrs/db"
 	"math"
 	"time"
 
@@ -32,7 +33,7 @@ import (
 )
 
 const (
-	chunkSize = 50000
+	reportEachNthItem = 50000
 )
 
 type NgramFreqGenerator struct {
@@ -158,10 +159,11 @@ func (nfg *NgramFreqGenerator) procLine(
 }
 
 func (nfg *NgramFreqGenerator) findTotalNumLines() (int, error) {
+	// TODO the following query is not general enough
 	row := nfg.db.QueryRow(fmt.Sprintf(
 		"SELECT COUNT(*) "+
 			"FROM %s_colcounts "+
-			"WHERE col4 <> 'X@-------------' ", nfg.groupedName)) // TODO generalize the tag filter
+			"WHERE col4 <> 'X@-------------' ", nfg.groupedName))
 	if row.Err() != nil {
 		return -1, row.Err()
 	}
@@ -181,55 +183,79 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 
 	total, err := nfg.findTotalNumLines()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to run n-gram generator: %w", err)
 	}
-	log.Info().Msgf("about to process %d lines of raw n-grams for corpus %s", total, nfg.corpusName)
-	chunkEmpty := false
-	var numStop, offset int
-	for !chunkEmpty {
-		t0 := time.Now()
-		rows, err := nfg.db.Query(fmt.Sprintf(
-			"SELECT col0, col2, col3, col4, `count` AS abs, arf "+
-				"FROM %s_colcounts "+
-				"WHERE col4 <> 'X@-------------' "+
-				"ORDER BY col2, col3, col4, col0 "+
-				"LIMIT ? OFFSET ?", nfg.groupedName), chunkSize, offset)
-		if err != nil {
-			return err
-		}
-		var currLemma *ngRecord
-		words := make([]*ngRecord, 0)
-		sublemmas := make(map[string]int)
-		chunkEmpty = true
-		for rows.Next() {
-			chunkEmpty = false
-			rec := new(ngRecord)
-			// 'word', 'lemma', 'sublemma', 'tag', 'abs', 'arf'
-			err := rows.Scan(&rec.word, &rec.lemma, &rec.sublemma, &rec.tag, &rec.abs, &rec.arf)
-			if err != nil {
-				return err
-			}
-			if isStopNgram(rec.lemma) {
-				numStop++
-				continue
-			}
-			words, sublemmas, currLemma, err = nfg.procLine(tx, rec, currLemma, words, sublemmas)
-			if err != nil {
-				return err
-			}
-			sublemmas[rec.sublemma] += 1
-		}
-		// proc the last element
-		lastRec := new(ngRecord)
-		nfg.procLine(tx, lastRec, currLemma, words, sublemmas)
-		currStatus.SpeedItemsPerSec = int(math.RoundToEven(chunkSize / time.Since(t0).Seconds()))
-		currStatus.NumProcLines = offset + chunkSize
+	estim, err := db.EstimateProcTimeSecs(nfg.db, "ngrams", total)
+	if err == db.ErrorEstimationNotAvail {
+		log.Warn().Msgf("processing estimation not (yet) available for %s", nfg.corpusName)
+		estim = -1
+	} else if err != nil {
+		return fmt.Errorf("failed to run n-gram generator: %w", err)
+	}
+	if estim > 0 {
+		currStatus.TimeEstimationSecs = estim
 		statusChan <- *currStatus
-		log.Debug().Msgf(
-			"Processed chunk %d - %d, processing speed: %d items / sec.",
-			offset, offset+chunkSize, currStatus.SpeedItemsPerSec)
-		offset += chunkSize
 	}
+	log.Info().Msgf(
+		"About to process %d lines of raw n-grams for corpus %s. Time estimation (seconds): %d",
+		total, nfg.corpusName, estim)
+	var numStop int
+	t0 := time.Now()
+	// TODO the following query is not general enough
+	rows, err := nfg.db.Query(fmt.Sprintf(
+		"SELECT col0, col2, col3, col4, `count` AS abs, arf "+
+			"FROM %s_colcounts "+
+			"WHERE col4 <> 'X@-------------' "+
+			"ORDER BY col2, col3, col4, col0 ", nfg.groupedName))
+	if err != nil {
+		return fmt.Errorf("failed to run n-gram generator: %w", err)
+	}
+	var currLemma *ngRecord
+	words := make([]*ngRecord, 0)
+	sublemmas := make(map[string]int)
+	var numProcessed int
+	for rows.Next() {
+		rec := new(ngRecord)
+		// 'word', 'lemma', 'sublemma', 'tag', 'abs', 'arf'
+		err := rows.Scan(&rec.word, &rec.lemma, &rec.sublemma, &rec.tag, &rec.abs, &rec.arf)
+		if err != nil {
+			return fmt.Errorf("failed to run n-gram generator: %w", err)
+		}
+		if isStopNgram(rec.lemma) {
+			numStop++
+			continue
+		}
+		words, sublemmas, currLemma, err = nfg.procLine(tx, rec, currLemma, words, sublemmas)
+		if err != nil {
+			return fmt.Errorf("failed to run n-gram generator: %w", err)
+		}
+		sublemmas[rec.sublemma] += 1
+		numProcessed++
+		if numProcessed%reportEachNthItem == 0 {
+			procTime := time.Since(t0).Seconds()
+			currStatus.NumProcLines = numProcessed
+			currStatus.AvgSpeedItemsPerSec = int(math.RoundToEven(float64(numProcessed) / procTime))
+			statusChan <- *currStatus
+		}
+	}
+	// proc the last element
+	lastRec := new(ngRecord)
+	nfg.procLine(tx, lastRec, currLemma, words, sublemmas)
+	numProcessed++
+	currStatus.NumProcLines = numProcessed
+	procTime := time.Since(t0).Seconds()
+	currStatus.AvgSpeedItemsPerSec = int(math.RoundToEven(float64(numProcessed) / procTime))
+	err = db.AddProcTimeEntry(
+		nfg.db,
+		"ngrams",
+		total,
+		numProcessed,
+		procTime,
+	)
+	if err != nil {
+		log.Err(err).Msg("failed to write proc_time statistics")
+	}
+	statusChan <- *currStatus
 	log.Info().Msgf("num stop words: %d", numStop)
 	return nil
 }
