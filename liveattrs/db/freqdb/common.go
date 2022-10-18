@@ -38,6 +38,7 @@ type genNgramsStatus struct {
 	TablesReady         bool
 	NumProcLines        int
 	AvgSpeedItemsPerSec int
+	TimeEstimationSecs  int
 	Error               error
 }
 
@@ -47,11 +48,13 @@ func (gns genNgramsStatus) MarshalJSON() ([]byte, error) {
 			TablesReady         bool   `json:"tablesReady"`
 			NumProcLines        int    `json:"numProcLines"`
 			AvgSpeedItemsPerSec int    `json:"avgSpeedItemsPerSec"`
+			TimeEstimationSecs  int    `json:"timeEstimationSecs,omitempty"`
 			Error               string `json:"error,omitempty"`
 		}{
 			TablesReady:         gns.TablesReady,
 			NumProcLines:        gns.NumProcLines,
 			AvgSpeedItemsPerSec: gns.AvgSpeedItemsPerSec,
+			TimeEstimationSecs:  gns.TimeEstimationSecs,
 			Error:               jobs.ErrorToString(gns.Error),
 		},
 	)
