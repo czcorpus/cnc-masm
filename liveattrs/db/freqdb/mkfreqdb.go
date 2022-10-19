@@ -312,10 +312,10 @@ func (nfg *NgramFreqGenerator) generate(statusChan chan<- genNgramsStatus) error
 	return nil
 }
 
-func (nfg *NgramFreqGenerator) GenerateAsync(corpusID string) (NgramJobInfo, error) {
+func (nfg *NgramFreqGenerator) GenerateAsync(corpusID string) (NgramJobInfo, chan jobs.GeneralJobInfo, error) {
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		return NgramJobInfo{}, err
+		return NgramJobInfo{}, nil, err
 	}
 	status := NgramJobInfo{
 		ID:       jobID.String(),
@@ -343,7 +343,7 @@ func (nfg *NgramFreqGenerator) GenerateAsync(corpusID string) (NgramJobInfo, err
 	go func() {
 		nfg.generate(statusChan)
 	}()
-	return status, nil
+	return status, updateJobChan, nil
 }
 
 func NewNgramFreqGenerator(

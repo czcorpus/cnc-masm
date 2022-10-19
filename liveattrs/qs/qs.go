@@ -21,6 +21,7 @@ package qs
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"masm/v3/common"
 	"masm/v3/corpus"
@@ -240,10 +241,10 @@ func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) err
 	return exp.processRows(rows, statusChan, status)
 }
 
-func (exp *Exporter) RunAsyncExportJob() (ExportJobInfo, error) {
+func (exp *Exporter) RunAsyncExportJob(ngramsReadyChan chan bool) (ExportJobInfo, chan jobs.GeneralJobInfo, error) {
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		return ExportJobInfo{}, err
+		return ExportJobInfo{}, nil, err
 	}
 	status := ExportJobInfo{
 		ID:       jobID.String(),
@@ -269,9 +270,17 @@ func (exp *Exporter) RunAsyncExportJob() (ExportJobInfo, error) {
 		close(updateJobChan)
 	}(status)
 	go func() {
+		if ngramsReadyChan != nil {
+			ready := <-ngramsReadyChan
+			if !ready {
+				statusChan <- exporterStatus{Error: errors.New("Ngrams are not ready. Can not start export.")}
+				close(statusChan)
+				return
+			}
+		}
 		exp.exportValuesToCouchDB(statusChan)
 	}()
-	return status, nil
+	return status, updateJobChan, nil
 }
 
 func NewExporter(
