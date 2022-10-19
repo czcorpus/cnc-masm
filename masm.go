@@ -237,7 +237,7 @@ func main() {
 	router.HandleFunc(
 		"/liveAttributes/{corpusId}/ngrams", liveattrsActions.GenerateNgrams).Methods(http.MethodPost)
 	router.HandleFunc(
-		"/liveAttributes/{corpusId}/querySuggestions", liveattrsActions.QuerySuggestions).Methods(http.MethodPost)
+		"/liveAttributes/{corpusId}/querySuggestions", liveattrsActions.CreateQuerySuggestions).Methods(http.MethodPost)
 
 	router.HandleFunc(
 		"/jobs", jobActions.JobList).Methods(http.MethodGet)

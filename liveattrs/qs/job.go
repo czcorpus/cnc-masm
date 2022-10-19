@@ -24,6 +24,7 @@ import (
 )
 
 type ExportJobInfoArgs struct {
+	MultiValuesEnabled bool `json:"multiValuesEnabled"`
 }
 
 // ExportJobInfo

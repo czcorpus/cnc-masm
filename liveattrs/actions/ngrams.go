@@ -133,10 +133,11 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, jobInfo.FullInfo())
 }
 
-func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) CreateQuerySuggestions(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
 	baseErrTpl := fmt.Sprintf("failed to generate query suggestions for %s", corpusID)
+	multiValuesEnabled := req.URL.Query().Get("multiValuesEnabled") == "1"
 
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
@@ -144,7 +145,13 @@ func (a *Actions) QuerySuggestions(w http.ResponseWriter, req *http.Request) {
 			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 		return
 	}
-	exporter := qs.NewExporter(&a.conf.NgramDB, a.laDB, corpusDBInfo.GroupedName(), a.jobActions)
+	exporter := qs.NewExporter(
+		&a.conf.NgramDB,
+		a.laDB,
+		corpusDBInfo.GroupedName(),
+		multiValuesEnabled,
+		a.jobActions,
+	)
 	jobInfo, err := exporter.RunAsyncExportJob()
 	if err != nil {
 		api.WriteJSONErrorResponse(

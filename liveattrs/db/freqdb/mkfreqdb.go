@@ -16,6 +16,12 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
+/*
+Implementation note:
+The current implementation is not general enough as it expects specific
+tagset and positional attribute types and order.
+*/
+
 package freqdb
 
 import (
@@ -33,8 +39,9 @@ import (
 )
 
 const (
-	reportEachNthItem = 50000
-	duplicateRowErrNo = 1062
+	reportEachNthItem   = 50000
+	duplicateRowErrNo   = 1062
+	NonWordCSCNC2020Tag = "X@-------------"
 )
 
 type NgramFreqGenerator struct {
@@ -84,6 +91,11 @@ func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
 	return nil
 }
 
+// procLine processes current ngRecord item (= vertical file line containing a token data)
+// with respect to currently processed currLemma and collected sublemmas.
+// Please note that should the method to work as expected, it is critical to process
+// the token data ordered by word, sublemma, lemma. Otherwise, the procLine method
+// won't be able to detect end of the current lemma forms (and sublemmas).
 func (nfg *NgramFreqGenerator) procLine(
 	tx *sql.Tx,
 	item *ngRecord,
@@ -164,7 +176,7 @@ func (nfg *NgramFreqGenerator) findTotalNumLines() (int, error) {
 	row := nfg.db.QueryRow(fmt.Sprintf(
 		"SELECT COUNT(*) "+
 			"FROM %s_colcounts "+
-			"WHERE col4 <> 'X@-------------' ", nfg.groupedName))
+			"WHERE col4 <> ? ", nfg.groupedName), NonWordCSCNC2020Tag)
 	if row.Err() != nil {
 		return -1, row.Err()
 	}
@@ -206,8 +218,8 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 	rows, err := nfg.db.Query(fmt.Sprintf(
 		"SELECT col0, col2, col3, col4, `count` AS abs, arf "+
 			"FROM %s_colcounts "+
-			"WHERE col4 <> 'X@-------------' "+
-			"ORDER BY col2, col3, col4, col0 ", nfg.groupedName))
+			"WHERE col4 <> ? "+
+			"ORDER BY col2, col3, col4, col0 ", nfg.groupedName), NonWordCSCNC2020Tag)
 	if err != nil {
 		return fmt.Errorf("failed to run n-gram generator: %w", err)
 	}
