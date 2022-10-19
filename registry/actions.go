@@ -38,7 +38,7 @@ func (a *Actions) DynamicFunctions(w http.ResponseWriter, req *http.Request) {
 	fullList := dynFnList[:]
 	fullList = append(fullList, DynFn{
 		Name:        "geteachncharbysep",
-		Args:        []string{"n"},
+		Args:        []string{"str", "n"},
 		Description: "Separate a string by \"|\" and return all the pos-th elements from respective items",
 		Dynlib:      a.conf.CorporaSetup.ManateeDynlibPath,
 	})
