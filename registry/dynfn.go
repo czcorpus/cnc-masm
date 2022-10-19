@@ -36,9 +36,14 @@ type DynFn struct {
 	Description string
 }
 
+// Funtype produces function type codes as required in
+// corpus registry files. Please note that the codes are
+// based only on arguments starting from the second one as
+// the first argument is always the same (the source string).
 func (df *DynFn) Funtype() string {
-	ans := make([]string, len(df.Args))
-	for i, arg := range df.Args {
+	usedArgs := df.Args[1:]
+	ans := make([]string, len(usedArgs))
+	for i, arg := range usedArgs {
 		switch arg {
 		case "str":
 			ans[i] = "s"
