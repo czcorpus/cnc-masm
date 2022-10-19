@@ -83,10 +83,10 @@ func (df DynFn) MarshalJSON() ([]byte, error) {
 
 var dynFnList = []DynFn{
 	{"striplastn", []string{"str", "n"}, "internal", "returns str striped from last n characters"},
-	{"lowercase", []string{"str", "locale"}, "internal", "returns str in lowercase (for any single-byte encoding and the corresponding locale"},
-	{"utf8lowercase", []string{"str"}, "internal", "returns str in lowercase (for any utf-8 encoded string str"},
-	{"utf8uppercase", []string{"str"}, "internal", "returns str in uppercase (for any utf-8 encoded string str"},
-	{"utf8capital", []string{"str"}, "internal", "returns str with first character capitalized (for any utf-8 encoded string str"},
+	{"lowercase", []string{"str", "locale"}, "internal", "returns str in lowercase (for any single-byte encoding and the corresponding locale)"},
+	{"utf8lowercase", []string{"str"}, "internal", "returns str in lowercase (for any utf-8 encoded string str)"},
+	{"utf8uppercase", []string{"str"}, "internal", "returns str in uppercase (for any utf-8 encoded string str)"},
+	{"utf8capital", []string{"str"}, "internal", "returns str with first character capitalized (for any utf-8 encoded string str)"},
 	{"getfirstn", []string{"str", "n"}, "internal", "returns first n characters of str"},
 	{"getlastn", []string{"str", "n"}, "internal", "returns last n characters of str (for any single-byte encoding)"},
 	{"utf8getlastn", []string{"str", "n"}, "internal", "returns last n characters of str (for any utf-8 encoded string)"},
