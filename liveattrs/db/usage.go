@@ -18,13 +18,6 @@
 //
 // This struct tracks column usage in liveattrs search.
 // We use it to optimize db indexes.
-//
-// CREATE TABLE usage (
-//	corpus_id varchar(127) NOT NULL,
-//	structattr_name varchar(127) NOT NULL,
-//	num_used int NOT NULL DEFAULT 1,
-//	UNIQUE (corpus_id, structattr_name)
-// )
 
 package db
 

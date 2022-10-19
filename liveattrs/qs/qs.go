@@ -38,8 +38,9 @@ const (
 )
 
 var (
-	keyAlphabet     = []byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'}
-	validWordRegexp = regexp.MustCompile(`^[\sA-Za-z0-9áÁéÉěĚšŠčČřŘžŽýÝíÍúÚůťŤďĎňŇóÓ\-\|]`)
+	keyAlphabet       = []byte{'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'}
+	validMVWordRegexp = regexp.MustCompile(`^[\sA-Za-z0-9áÁéÉěĚšŠčČřŘžŽýÝíÍúÚůťŤďĎňŇóÓ\-\|]+$`)
+	validWordRegexp   = regexp.MustCompile(`^[\sA-Za-z0-9áÁéÉěĚšŠčČřŘžŽýÝíÍúÚůťŤďĎňŇóÓ\-]+$`)
 )
 
 func mkID(x int) string {
@@ -101,10 +102,18 @@ func (lemma *Lemma) ToJSON() ([]byte, error) {
 }
 
 type Exporter struct {
-	db          *sql.DB
-	cb          *couchdb.ClientBase
-	groupedName string
-	jobActions  *jobs.Actions
+	db                 *sql.DB
+	cb                 *couchdb.ClientBase
+	groupedName        string
+	jobActions         *jobs.Actions
+	multiValuesEnabled bool
+}
+
+func (exp *Exporter) isValidWord(w string) bool {
+	if exp.multiValuesEnabled {
+		return validMVWordRegexp.MatchString(w)
+	}
+	return validWordRegexp.MatchString(w)
 }
 
 func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatus, status exporterStatus) error {
@@ -128,7 +137,7 @@ func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatu
 			statusChan <- status
 			return err
 		}
-		if validWordRegexp.MatchString(lemmaValue) {
+		if exp.isValidWord(lemmaValue) {
 			newLemma := lemmaValue
 			newPos := lemmaPos
 			if currLemma == nil || newLemma != currLemma.Lemma || newPos != currLemma.PoS {
@@ -243,7 +252,7 @@ func (exp *Exporter) RunAsyncExportJob() (ExportJobInfo, error) {
 		Start:    jobs.CurrentDatetime(),
 		Update:   jobs.CurrentDatetime(),
 		Finished: false,
-		Args:     ExportJobInfoArgs{},
+		Args:     ExportJobInfoArgs{MultiValuesEnabled: exp.multiValuesEnabled},
 	}
 	statusChan := make(chan exporterStatus)
 	updateJobChan := exp.jobActions.AddJobInfo(&status)
@@ -269,6 +278,7 @@ func NewExporter(
 	conf *corpus.NgramDB,
 	db *sql.DB,
 	groupedName string,
+	multiValuesEnabled bool,
 	jobActions *jobs.Actions,
 ) *Exporter {
 	return &Exporter{
@@ -276,8 +286,9 @@ func NewExporter(
 			BaseURL: conf.URL,
 			DBName:  fmt.Sprintf("%s_sublemmas", groupedName),
 		},
-		db:          db,
-		groupedName: groupedName,
-		jobActions:  jobActions,
+		db:                 db,
+		groupedName:        groupedName,
+		jobActions:         jobActions,
+		multiValuesEnabled: multiValuesEnabled,
 	}
 }
