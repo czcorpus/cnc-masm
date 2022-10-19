@@ -18,16 +18,6 @@
 //
 // This struct tracks processing times in misc. parts of liveattrs
 //
-/*
-CREATE TABLE proc_times (
-  id int NOT NULL AUTO_INCREMENT,
-  data_size INT NOT NULL,
-  proc_type ENUM('ngrams', 'qs'),
-  num_items INT NOT NULL,
-  proc_time float,
-  PRIMARY KEY (id)
-)
-*/
 
 package db
 
