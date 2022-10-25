@@ -67,7 +67,7 @@ func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
 	}
 	_, err = tx.Exec(fmt.Sprintf(
 		`CREATE TABLE %s_lemma (value VARCHAR(80), pos VARCHAR(80), count INTEGER, arf FLOAT,
-			is_pname TINYINT, PRIMARY KEY(value, pos))`,
+			is_pname TINYINT, PRIMARY KEY(value, pos)) COLLATE utf8mb4_bin`,
 		nfg.groupedName))
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
 	_, err = tx.Exec(fmt.Sprintf(
 		`CREATE TABLE %s_sublemma (value VARCHAR(80), lemma VARCHAR(80), pos VARCHAR(80), count INTEGER,
 			PRIMARY KEY (value, lemma, pos),
-			FOREIGN KEY (lemma, pos) REFERENCES %s_lemma(value, pos))`,
+			FOREIGN KEY (lemma, pos) REFERENCES %s_lemma(value, pos)) COLLATE utf8mb4_bin`,
 		nfg.groupedName, nfg.groupedName))
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
 	_, err = tx.Exec(fmt.Sprintf(
 		`CREATE TABLE %s_word (value VARCHAR(80), lemma VARCHAR(80), sublemma VARCHAR(80), pos VARCHAR(80),
 			count INTEGER, arf FLOAT, PRIMARY KEY (value, lemma, sublemma, pos),
-			FOREIGN KEY (sublemma, lemma, pos) REFERENCES %s_sublemma(value, lemma, pos))`,
+			FOREIGN KEY (sublemma, lemma, pos) REFERENCES %s_sublemma(value, lemma, pos)) COLLATE utf8mb4_bin`,
 		nfg.groupedName, nfg.groupedName))
 	if err != nil {
 		return err
@@ -168,6 +168,7 @@ func (nfg *NgramFreqGenerator) procLine(
 		sublemmas = make(map[string]int)
 	}
 	words = append(words, item)
+	sublemmas[item.sublemma] += 1
 	return words, sublemmas, currLemma, nil
 }
 
