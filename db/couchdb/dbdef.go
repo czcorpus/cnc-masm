@@ -84,7 +84,7 @@ type Schema struct {
 	db *ClientBase
 }
 
-func (db *Schema) CreateDatabase(userName string) error {
+func (db *Schema) CreateDatabase(readAccessUsers []string) error {
 	_, err := db.db.DoRequest(
 		http.MethodDelete,
 		"",
@@ -106,7 +106,7 @@ func (db *Schema) CreateDatabase(userName string) error {
 		"_security",
 		&security{
 			Admins:  securityEntry{Names: []string{}, Roles: []string{}},
-			Members: securityEntry{Names: []string{userName}, Roles: []string{}},
+			Members: securityEntry{Names: readAccessUsers, Roles: []string{}},
 		},
 	)
 	return err

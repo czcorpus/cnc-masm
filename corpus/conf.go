@@ -87,8 +87,8 @@ type LiveAttrsConf struct {
 }
 
 type NgramDB struct {
-	URL            string `json:"url"`
-	ReadAccessUser string `json:"readAccessUser"`
+	URL             string   `json:"url"`
+	ReadAccessUsers []string `json:"readAccessUsers"`
 }
 
 // Conf is a global configuration of the app
