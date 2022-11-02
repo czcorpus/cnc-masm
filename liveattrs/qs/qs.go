@@ -108,6 +108,7 @@ type Exporter struct {
 	groupedName        string
 	jobActions         *jobs.Actions
 	multiValuesEnabled bool
+	readAccessUsers    []string
 }
 
 func (exp *Exporter) isValidWord(w string) bool {
@@ -211,7 +212,7 @@ func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) err
 	status := exporterStatus{}
 
 	couchdbSchema := couchdb.NewSchema(exp.cb)
-	err := couchdbSchema.CreateDatabase("masm")
+	err := couchdbSchema.CreateDatabase(exp.readAccessUsers)
 	if err != nil {
 		status.Error = err
 		statusChan <- status
@@ -287,6 +288,7 @@ func NewExporter(
 	conf *corpus.NgramDB,
 	db *sql.DB,
 	groupedName string,
+	readAccessUsers []string,
 	multiValuesEnabled bool,
 	jobActions *jobs.Actions,
 ) *Exporter {
@@ -297,6 +299,7 @@ func NewExporter(
 		},
 		db:                 db,
 		groupedName:        groupedName,
+		readAccessUsers:    readAccessUsers,
 		jobActions:         jobActions,
 		multiValuesEnabled: multiValuesEnabled,
 	}

@@ -151,6 +151,7 @@ func (a *Actions) CreateQuerySuggestions(w http.ResponseWriter, req *http.Reques
 		&a.conf.NgramDB,
 		a.laDB,
 		corpusDBInfo.GroupedName(),
+		a.conf.NgramDB.ReadAccessUsers,
 		multiValuesEnabled,
 		a.jobActions,
 	)
@@ -247,7 +248,14 @@ func (a *Actions) CreateNgramsAndQuerySuggestions(w http.ResponseWriter, req *ht
 	}
 
 	// prepare query suggestions export job
-	exporter := qs.NewExporter(&a.conf.NgramDB, a.laDB, corpusDBInfo.GroupedName(), multiValuesEnabled, a.jobActions)
+	exporter := qs.NewExporter(
+		&a.conf.NgramDB,
+		a.laDB,
+		corpusDBInfo.GroupedName(),
+		a.conf.NgramDB.ReadAccessUsers,
+		multiValuesEnabled,
+		a.jobActions,
+	)
 	ngramsReadyChan := make(chan bool, 1) // channel to run export after generation is done
 	qsJobInfo, updateExportJobChan, err := exporter.RunAsyncExportJob(ngramsReadyChan)
 	if err != nil {
