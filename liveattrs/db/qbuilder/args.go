@@ -94,7 +94,7 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 			cnfItem = append(
 				cnfItem,
 				fmt.Sprintf(
-					"%s.%s LIKE ?",
+					"%s.%s REGEXP ?",
 					itemPrefix, key),
 			)
 			sqlValues = append(sqlValues, args.importValue(tValues))
