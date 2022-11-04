@@ -23,6 +23,8 @@ import (
 	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/utils"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 func cmpOperator(val string) string {
@@ -60,7 +62,6 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 			continue
 		}
 		cnfItem := make([]string, 0, 20)
-
 		switch tValues := values.(type) {
 		case []any:
 			for _, value := range tValues {
@@ -94,16 +95,21 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 			cnfItem = append(
 				cnfItem,
 				fmt.Sprintf(
-					"%s.%s REGEXP ?",
+					"%s.%s LIKE ?",
 					itemPrefix, key),
 			)
 			sqlValues = append(sqlValues, args.importValue(tValues))
-		case map[string]string:
-			if args.data.AttrIsRange(dkey) {
+		case map[string]any:
+			regexpVal, ok := args.data.GetRegexpAttrVal(dkey)
+			if ok {
+				cnfItem = append(cnfItem, fmt.Sprintf("%s.%s REGEXP ?", itemPrefix, key))
+				sqlValues = append(sqlValues, args.importValue(regexpVal))
+
 				// TODO add support for this
 			} else {
 				// TODO handle in a better way
-				panic("Unknown type")
+				log.Error().Msgf(
+					"failed to determine type of liveattrs attribute %s (corpus %s)", key, corpusID)
 			}
 		default: // TODO can this even happen???
 			cnfItem = append(

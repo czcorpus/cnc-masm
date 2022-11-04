@@ -85,7 +85,7 @@ func (a *Actions) getAttrValues(
 	}
 	// also make sure that range attributes are expanded to full lists
 	for attr := range qry.Attrs {
-		if qry.Attrs.AttrIsRange(attr) {
+		if _, air := qry.Attrs.GetRegexpAttrVal(attr); air {
 			expandAttrs.Add(utils.ImportKey(attr))
 		}
 	}
