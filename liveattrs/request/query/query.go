@@ -25,17 +25,28 @@ import (
 // Attrs represents a user selection of text types
 // The values can be of different types. To handle them
 // in a more convenient way, the type contains helper methods
-// (AttrIsRange, GetListingOf).
+// (GetRegexpAttrVal, GetListingOf).
 type Attrs map[string]any
 
-// AttrIsRange tests whether the
-func (q Attrs) AttrIsRange(attr string) bool {
+// GetRegexpAttrVal tries to extract value of a regular
+// expression from Attrs under the 'attr' key. In case
+// the type matches (i.e. there is a regexp value stored
+// in q[attr]), a respective value is returned long with true.
+// In any other case, false is returned as the second value.
+func (q Attrs) GetRegexpAttrVal(attr string) (string, bool) {
 	v, ok := q[attr]
 	if !ok {
-		return false
+		return "", false
 	}
-	tv, ok := v.(map[string]string)
-	return ok && tv["from"] != "" && tv["to"] != ""
+	tm, ok := v.(map[string]any)
+	if ok && tm["regexp"] != "" {
+		v := tm["regexp"]
+		tv, ok := v.(string)
+		if ok {
+			return tv, true
+		}
+	}
+	return "", false
 }
 
 // GetListingOf returns a list of strings (= selected values) for
