@@ -155,8 +155,15 @@ func (a *Actions) PutKontextDefaults(w http.ResponseWriter, req *http.Request) {
 	if subdir != "" {
 		corpusID = filepath.Join(subdir, corpusID)
 	}
+
+	defaultViewAttrs, err := a.cncDB.GetSimpleQueryDefaultAttrs(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("Failed to get simple query default attrs", err), http.StatusInternalServerError)
+		return
+	}
 	defaultViewOpts := cncdb.DefaultViewOpts{
-		Attrs: make([]string, 0),
+		Attrs: defaultViewAttrs,
 	}
 
 	tx, err := a.cncDB.StartTx()

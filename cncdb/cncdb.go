@@ -164,6 +164,27 @@ func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 
 }
 
+func (c *CNCMySQLHandler) GetSimpleQueryDefaultAttrs(corpusID string) ([]string, error) {
+	rows, err := c.conn.Query(
+		"SELECT pos_attr FROM kontext_simple_query_default_attrs WHERE corpus_name = ?",
+		corpusID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var attr string
+	attrs := make([]string, 0)
+	for rows.Next() {
+		err := rows.Scan(&attr)
+		if err != nil {
+			return nil, err
+		}
+		attrs = append(attrs, attr)
+	}
+	return attrs, nil
+}
+
 func (c *CNCMySQLHandler) StartTx() (*sql.Tx, error) {
 	return c.conn.Begin()
 }
