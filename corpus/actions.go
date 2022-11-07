@@ -146,6 +146,32 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	api.WriteJSONResponse(w, jobRec.FullInfo())
 }
 
+func (a *Actions) GetKontextDefaults(w http.ResponseWriter, req *http.Request) {
+	var err error
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	subdir := vars["subdir"]
+	if subdir != "" {
+		corpusID = filepath.Join(subdir, corpusID)
+	}
+	wsattr := req.URL.Query().Get("wsattr")
+	if wsattr == "" {
+		wsattr = "lemma"
+	}
+	log.Info().Msgf("request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
+	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
+	switch err.(type) {
+	case NotFound:
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
+		log.Error().Err(err)
+	case InfoError:
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
+		log.Error().Err(err)
+	case nil:
+		api.WriteJSONResponse(w, ans)
+	}
+}
+
 // NewActions is the default factory
 func NewActions(conf *Conf, jobActions *jobs.Actions) *Actions {
 	return &Actions{

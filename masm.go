@@ -200,11 +200,15 @@ func main() {
 	router.HandleFunc(
 		"/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc(
+		"/corpora/{corpusId}/kontextDefaults", corpusActions.GetKontextDefaults).Methods(http.MethodPut)
+	router.HandleFunc(
 		"/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 	router.HandleFunc(
 		"/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc(
 		"/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/corpora/{subdir}/{corpusId}/kontextDefaults", corpusActions.GetKontextDefaults).Methods(http.MethodPut)
 
 	router.HandleFunc(
 		"/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
