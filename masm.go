@@ -162,7 +162,7 @@ func main() {
 	jobStopChannel := make(chan string)
 
 	jobActions := jobs.NewActions(conf.Jobs, exitEvent, jobStopChannel)
-	corpusActions := corpus.NewActions(conf, jobActions)
+	corpusActions := corpus.NewActions(conf, jobActions, cncDB)
 	liveattrsActions := laActions.NewActions(
 		conf, exitEvent, jobStopChannel, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
@@ -200,7 +200,7 @@ func main() {
 	router.HandleFunc(
 		"/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc(
-		"/corpora/{corpusId}/kontextDefaults", corpusActions.GetKontextDefaults).Methods(http.MethodPut)
+		"/corpora/{corpusId}/kontextDefaults", corpusActions.PutKontextDefaults).Methods(http.MethodPut)
 	router.HandleFunc(
 		"/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 	router.HandleFunc(
@@ -208,7 +208,7 @@ func main() {
 	router.HandleFunc(
 		"/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 	router.HandleFunc(
-		"/corpora/{subdir}/{corpusId}/kontextDefaults", corpusActions.GetKontextDefaults).Methods(http.MethodPut)
+		"/corpora/{subdir}/{corpusId}/kontextDefaults", corpusActions.PutKontextDefaults).Methods(http.MethodPut)
 
 	router.HandleFunc(
 		"/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)

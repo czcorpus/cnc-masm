@@ -20,12 +20,17 @@ package cncdb
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"masm/v3/corpus"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 )
+
+type DefaultViewOpts struct {
+	Attrs []string `json:"attrs"`
+}
 
 type CNCMySQLHandler struct {
 	conn             *sql.DB
@@ -37,6 +42,19 @@ func (c *CNCMySQLHandler) UpdateSize(transact *sql.Tx, corpus string, size int64
 	_, err := transact.Exec(
 		fmt.Sprintf("UPDATE %s SET size = ? WHERE name = ?", c.corporaTableName),
 		size,
+		corpus,
+	)
+	return err
+}
+
+func (c *CNCMySQLHandler) UpdateDefaultViewOpts(transact *sql.Tx, corpus string, defaultViewOpts DefaultViewOpts) error {
+	data, err := json.Marshal(defaultViewOpts)
+	if err != nil {
+		return err
+	}
+	_, err = transact.Exec(
+		fmt.Sprintf("UPDATE %s SET default_view_opts = ? WHERE name = ?", c.corporaTableName),
+		string(data),
 		corpus,
 	)
 	return err

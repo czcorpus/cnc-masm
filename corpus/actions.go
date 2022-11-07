@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
+	"masm/v3/cncdb"
 	"masm/v3/jobs"
 )
 
@@ -42,6 +43,7 @@ type Actions struct {
 	conf       *Conf
 	osSignal   chan os.Signal
 	jobActions *jobs.Actions
+	cncDB      *cncdb.CNCMySQLHandler
 }
 
 func (a *Actions) OnExit() {}
@@ -146,36 +148,39 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	api.WriteJSONResponse(w, jobRec.FullInfo())
 }
 
-func (a *Actions) GetKontextDefaults(w http.ResponseWriter, req *http.Request) {
-	var err error
+func (a *Actions) PutKontextDefaults(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
 	subdir := vars["subdir"]
 	if subdir != "" {
 		corpusID = filepath.Join(subdir, corpusID)
 	}
-	wsattr := req.URL.Query().Get("wsattr")
-	if wsattr == "" {
-		wsattr = "lemma"
+	defaultViewOpts := cncdb.DefaultViewOpts{
+		Attrs: make([]string, 0),
 	}
-	log.Info().Msgf("request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
-	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
-	switch err.(type) {
-	case NotFound:
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusNotFound)
-		log.Error().Err(err)
-	case InfoError:
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(err), http.StatusInternalServerError)
-		log.Error().Err(err)
-	case nil:
-		api.WriteJSONResponse(w, ans)
+
+	tx, err := a.cncDB.StartTx()
+	if err != nil {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("Failed to start database transaction", err), http.StatusInternalServerError)
+		return
 	}
+	err = a.cncDB.UpdateDefaultViewOpts(tx, corpusID, defaultViewOpts)
+	if err != nil {
+		tx.Rollback()
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("Failed to update `default_view_opts`", err), http.StatusInternalServerError)
+		return
+	}
+
+	api.WriteJSONResponse(w, defaultViewOpts)
 }
 
 // NewActions is the default factory
-func NewActions(conf *Conf, jobActions *jobs.Actions) *Actions {
+func NewActions(conf *Conf, jobActions *jobs.Actions, cncDB *cncdb.CNCMySQLHandler) *Actions {
 	return &Actions{
 		conf:       conf,
 		jobActions: jobActions,
+		cncDB:      cncDB,
 	}
 }
