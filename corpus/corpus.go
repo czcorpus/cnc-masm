@@ -283,3 +283,37 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	attachTextTypeDbInfo(corpusID, setup, ans)
 	return ans, nil
 }
+
+func GetCorpusAttrs(corpusID string, setup *CorporaSetup) ([]string, error) {
+	procCorpora := make(map[string]bool)
+
+	for _, regPathRoot := range setup.RegistryDirPaths {
+		_, alreadyProc := procCorpora[corpusID]
+		if alreadyProc {
+			continue
+		}
+		regPath := filepath.Join(regPathRoot, corpusID)
+		if fsops.IsFile(regPath) {
+			corp, err := mango.OpenCorpus(regPath)
+			if err != nil {
+				if strings.Contains(err.Error(), "CorpInfoNotFound") {
+					return nil, NotFound{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
+
+				}
+				return nil, InfoError{err}
+			}
+
+			defer mango.CloseCorpus(corp)
+
+			unparsedStructs, err := mango.GetCorpusConf(corp, "ATTRLIST")
+			if err != nil {
+				return nil, InfoError{err}
+			}
+			if unparsedStructs != "" {
+				return strings.Split(unparsedStructs, ","), nil
+			}
+		}
+	}
+
+	return nil, nil
+}

@@ -166,6 +166,23 @@ func (a *Actions) PutKontextDefaults(w http.ResponseWriter, req *http.Request) {
 		Attrs: defaultViewAttrs,
 	}
 
+	if len(defaultViewOpts.Attrs) == 0 {
+		corpusAttrs, err := GetCorpusAttrs(corpusID, a.conf.CorporaSetup)
+		if err != nil {
+			api.WriteJSONErrorResponse(
+				w, api.NewActionErrorFrom("Failed to get corpus attrs", err), http.StatusInternalServerError)
+			return
+		}
+
+		defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, "word")
+		for _, attr := range corpusAttrs {
+			if attr == "lemma" {
+				defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, "lemma")
+				break
+			}
+		}
+	}
+
 	tx, err := a.cncDB.StartTx()
 	if err != nil {
 		api.WriteJSONErrorResponse(
