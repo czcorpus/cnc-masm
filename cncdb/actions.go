@@ -39,6 +39,7 @@ type DataHandler interface {
 	UpdateSize(transact *sql.Tx, corpus string, size int64) error
 	UpdateDescription(transact *sql.Tx, corpus, descCs, descEn string) error
 	GetSimpleQueryDefaultAttrs(corpus string) ([]string, error)
+	GetCorpusTagsetAttrs(corpus string) ([]string, error)
 	UpdateDefaultViewOpts(transact *sql.Tx, corpus string, defaultViewOpts DefaultViewOpts) error
 	StartTx() (*sql.Tx, error)
 	CommitTx(transact *sql.Tx) error
@@ -141,6 +142,14 @@ func (a *Actions) PutKontextDefaults(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
+
+	tagsetAttrs, err := a.db.GetCorpusTagsetAttrs(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("Failed to get corpus tagset attrs", err), http.StatusInternalServerError)
+		return
+	}
+	defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, tagsetAttrs...)
 
 	tx, err := a.db.StartTx()
 	if err != nil {
