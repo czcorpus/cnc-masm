@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"masm/v3/corpus"
 	"net/http"
+	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 
@@ -37,6 +38,8 @@ import (
 type DataHandler interface {
 	UpdateSize(transact *sql.Tx, corpus string, size int64) error
 	UpdateDescription(transact *sql.Tx, corpus, descCs, descEn string) error
+	GetSimpleQueryDefaultAttrs(corpus string) ([]string, error)
+	UpdateDefaultViewOpts(transact *sql.Tx, corpus string, defaultViewOpts DefaultViewOpts) error
 	StartTx() (*sql.Tx, error)
 	CommitTx(transact *sql.Tx) error
 	RollbackTx(transact *sql.Tx) error
@@ -102,4 +105,57 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
 	}
 	api.WriteJSONResponse(w, updateSizeResp{OK: true})
+}
+
+func (a *Actions) PutKontextDefaults(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	subdir := vars["subdir"]
+	if subdir != "" {
+		corpusID = filepath.Join(subdir, corpusID)
+	}
+
+	defaultViewAttrs, err := a.db.GetSimpleQueryDefaultAttrs(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("Failed to get simple query default attrs", err), http.StatusInternalServerError)
+		return
+	}
+	defaultViewOpts := DefaultViewOpts{
+		Attrs: defaultViewAttrs,
+	}
+
+	if len(defaultViewOpts.Attrs) == 0 {
+		corpusAttrs, err := corpus.GetCorpusAttrs(corpusID, a.conf.CorporaSetup)
+		if err != nil {
+			api.WriteJSONErrorResponse(
+				w, api.NewActionErrorFrom("Failed to get corpus attrs", err), http.StatusInternalServerError)
+			return
+		}
+
+		defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, "word")
+		for _, attr := range corpusAttrs {
+			if attr == "lemma" {
+				defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, "lemma")
+				break
+			}
+		}
+	}
+
+	tx, err := a.db.StartTx()
+	if err != nil {
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("Failed to start database transaction", err), http.StatusInternalServerError)
+		return
+	}
+	err = a.db.UpdateDefaultViewOpts(tx, corpusID, defaultViewOpts)
+	if err != nil {
+		tx.Rollback()
+		api.WriteJSONErrorResponse(
+			w, api.NewActionErrorFrom("Failed to update `default_view_opts`", err), http.StatusInternalServerError)
+		return
+	}
+	tx.Commit()
+
+	api.WriteJSONResponse(w, defaultViewOpts)
 }

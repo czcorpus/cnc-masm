@@ -30,7 +30,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
-	"masm/v3/cncdb"
 	"masm/v3/jobs"
 )
 
@@ -43,7 +42,6 @@ type Actions struct {
 	conf       *Conf
 	osSignal   chan os.Signal
 	jobActions *jobs.Actions
-	cncDB      *cncdb.CNCMySQLHandler
 }
 
 func (a *Actions) OnExit() {}
@@ -148,63 +146,10 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	api.WriteJSONResponse(w, jobRec.FullInfo())
 }
 
-func (a *Actions) PutKontextDefaults(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
-	subdir := vars["subdir"]
-	if subdir != "" {
-		corpusID = filepath.Join(subdir, corpusID)
-	}
-
-	defaultViewAttrs, err := a.cncDB.GetSimpleQueryDefaultAttrs(corpusID)
-	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("Failed to get simple query default attrs", err), http.StatusInternalServerError)
-		return
-	}
-	defaultViewOpts := cncdb.DefaultViewOpts{
-		Attrs: defaultViewAttrs,
-	}
-
-	if len(defaultViewOpts.Attrs) == 0 {
-		corpusAttrs, err := GetCorpusAttrs(corpusID, a.conf.CorporaSetup)
-		if err != nil {
-			api.WriteJSONErrorResponse(
-				w, api.NewActionErrorFrom("Failed to get corpus attrs", err), http.StatusInternalServerError)
-			return
-		}
-
-		defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, "word")
-		for _, attr := range corpusAttrs {
-			if attr == "lemma" {
-				defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, "lemma")
-				break
-			}
-		}
-	}
-
-	tx, err := a.cncDB.StartTx()
-	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("Failed to start database transaction", err), http.StatusInternalServerError)
-		return
-	}
-	err = a.cncDB.UpdateDefaultViewOpts(tx, corpusID, defaultViewOpts)
-	if err != nil {
-		tx.Rollback()
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("Failed to update `default_view_opts`", err), http.StatusInternalServerError)
-		return
-	}
-
-	api.WriteJSONResponse(w, defaultViewOpts)
-}
-
 // NewActions is the default factory
-func NewActions(conf *Conf, jobActions *jobs.Actions, cncDB *cncdb.CNCMySQLHandler) *Actions {
+func NewActions(conf *Conf, jobActions *jobs.Actions) *Actions {
 	return &Actions{
 		conf:       conf,
 		jobActions: jobActions,
-		cncDB:      cncDB,
 	}
 }

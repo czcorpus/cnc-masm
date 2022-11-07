@@ -162,7 +162,7 @@ func main() {
 	jobStopChannel := make(chan string)
 
 	jobActions := jobs.NewActions(conf.Jobs, exitEvent, jobStopChannel)
-	corpusActions := corpus.NewActions(conf, jobActions, cncDB)
+	corpusActions := corpus.NewActions(conf, jobActions)
 	liveattrsActions := laActions.NewActions(
 		conf, exitEvent, jobStopChannel, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
@@ -200,15 +200,11 @@ func main() {
 	router.HandleFunc(
 		"/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc(
-		"/corpora/{corpusId}/kontextDefaults", corpusActions.PutKontextDefaults).Methods(http.MethodPut)
-	router.HandleFunc(
 		"/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
 	router.HandleFunc(
 		"/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
 	router.HandleFunc(
 		"/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/corpora/{subdir}/{corpusId}/kontextDefaults", corpusActions.PutKontextDefaults).Methods(http.MethodPut)
 
 	router.HandleFunc(
 		"/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
@@ -286,6 +282,10 @@ func main() {
 
 	cncdbActions := cncdb.NewActions(conf, cncDB)
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
+	router.HandleFunc(
+		"/corpora/{corpusId}/kontextDefaults", cncdbActions.PutKontextDefaults).Methods(http.MethodPut)
+	router.HandleFunc(
+		"/corpora/{subdir}/{corpusId}/kontextDefaults", cncdbActions.PutKontextDefaults).Methods(http.MethodPut)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
