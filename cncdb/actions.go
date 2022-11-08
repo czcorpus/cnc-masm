@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"masm/v3/corpus"
 	"net/http"
-	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 
@@ -108,13 +107,9 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	api.WriteJSONResponse(w, updateSizeResp{OK: true})
 }
 
-func (a *Actions) PutKontextDefaults(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	subdir := vars["subdir"]
-	if subdir != "" {
-		corpusID = filepath.Join(subdir, corpusID)
-	}
 
 	defaultViewAttrs, err := a.db.GetSimpleQueryDefaultAttrs(corpusID)
 	if err != nil {

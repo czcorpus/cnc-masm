@@ -282,10 +282,7 @@ func main() {
 
 	cncdbActions := cncdb.NewActions(conf, cncDB)
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/corpora/{corpusId}/kontextDefaults", cncdbActions.PutKontextDefaults).Methods(http.MethodPut)
-	router.HandleFunc(
-		"/corpora/{subdir}/{corpusId}/kontextDefaults", cncdbActions.PutKontextDefaults).Methods(http.MethodPut)
+	router.HandleFunc("/corpora-database/{corpusId}/kontextDefaults", cncdbActions.InferKontextDefaults).Methods(http.MethodPut)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
