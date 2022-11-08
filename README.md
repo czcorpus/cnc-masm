@@ -2,8 +2,10 @@
 
 *M*anatee *A*ssets, *S*ervices and *M*etadata is a set of REST services for 
 enhancing [KonText](https://github.com/czcorpus/kontext) installations. 
-But it can be also run as a standalone service for generating
-n-grams and searching corpora structural metadata.
+But it can be also run as a standalone service for:
+- generating n-grams,
+- generating and searching corpora structural metadata,
+- managing Manatee-open compatible data
 
 Functions:
 
