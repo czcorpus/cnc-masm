@@ -37,6 +37,7 @@ import (
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
 	"masm/v3/db/mysql"
+	"masm/v3/dummy"
 	"masm/v3/general"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
@@ -283,6 +284,10 @@ func main() {
 	cncdbActions := cncdb.NewActions(conf, cncDB)
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
 	router.HandleFunc("/corpora-database/{corpusId}/kontextDefaults", cncdbActions.InferKontextDefaults).Methods(http.MethodPut)
+
+	dummyActions := dummy.NewActions(jobActions)
+	router.HandleFunc("/dummy/createJob", dummyActions.CreateDummyJob).Methods(http.MethodPost)
+	router.HandleFunc("/dummy/finishJob/{jobId}", dummyActions.FinishDummyJob).Methods(http.MethodPost)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
