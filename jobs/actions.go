@@ -19,8 +19,10 @@
 package jobs
 
 import (
+	"fmt"
 	"masm/v3/api"
 	"masm/v3/fsops"
+	"masm/v3/mail"
 	"net/http"
 	"os"
 	"reflect"
@@ -397,5 +399,19 @@ func NewActions(
 
 		}
 	}()
+
+	go func() {
+		for upd := range ans.tableUpdate {
+			switch upd.action {
+			case tableActionFinishJob:
+				recipients, ok := ans.notificationRecipients[upd.itemID]
+				if ok {
+					message := fmt.Sprintf("Job `%s` finished", upd.itemID)
+					mail.SendNotification(&conf.EmailNotification, recipients, message, message)
+				}
+			}
+		}
+	}()
+
 	return ans
 }
