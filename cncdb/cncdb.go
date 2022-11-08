@@ -20,12 +20,17 @@ package cncdb
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"masm/v3/corpus"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
 )
+
+type DefaultViewOpts struct {
+	Attrs []string `json:"attrs"`
+}
 
 type CNCMySQLHandler struct {
 	conn             *sql.DB
@@ -37,6 +42,19 @@ func (c *CNCMySQLHandler) UpdateSize(transact *sql.Tx, corpus string, size int64
 	_, err := transact.Exec(
 		fmt.Sprintf("UPDATE %s SET size = ? WHERE name = ?", c.corporaTableName),
 		size,
+		corpus,
+	)
+	return err
+}
+
+func (c *CNCMySQLHandler) UpdateDefaultViewOpts(transact *sql.Tx, corpus string, defaultViewOpts DefaultViewOpts) error {
+	data, err := json.Marshal(defaultViewOpts)
+	if err != nil {
+		return err
+	}
+	_, err = transact.Exec(
+		fmt.Sprintf("UPDATE %s SET default_view_opts = ? WHERE name = ?", c.corporaTableName),
+		string(data),
 		corpus,
 	)
 	return err
@@ -144,6 +162,48 @@ func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 	}
 	return &ans, nil
 
+}
+
+func (c *CNCMySQLHandler) GetSimpleQueryDefaultAttrs(corpusID string) ([]string, error) {
+	rows, err := c.conn.Query(
+		"SELECT pos_attr FROM kontext_simple_query_default_attrs WHERE corpus_name = ?",
+		corpusID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var attr string
+	attrs := make([]string, 0)
+	for rows.Next() {
+		err := rows.Scan(&attr)
+		if err != nil {
+			return nil, err
+		}
+		attrs = append(attrs, attr)
+	}
+	return attrs, nil
+}
+
+func (c *CNCMySQLHandler) GetCorpusTagsetAttrs(corpusID string) ([]string, error) {
+	rows, err := c.conn.Query(
+		"SELECT pos_attr FROM corpus_tagset WHERE corpus_name = ? and pos_attr IS NOT NULL",
+		corpusID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var attr string
+	attrs := make([]string, 0)
+	for rows.Next() {
+		err := rows.Scan(&attr)
+		if err != nil {
+			return nil, err
+		}
+		attrs = append(attrs, attr)
+	}
+	return attrs, nil
 }
 
 func (c *CNCMySQLHandler) StartTx() (*sql.Tx, error) {
