@@ -1,5 +1,5 @@
-// Copyright 2019 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2019 Institute of the Czech National Corpus,
+// Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2022 Institute of the Czech National Corpus,
 //                Faculty of Arts, Charles University
 //   This file is part of CNC-MASM.
 //
@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package dummy
+package debug
 
 import (
 	"net/http"

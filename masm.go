@@ -37,7 +37,7 @@ import (
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
 	"masm/v3/db/mysql"
-	"masm/v3/dummy"
+	"masm/v3/debug"
 	"masm/v3/general"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
@@ -77,8 +77,10 @@ func setupLog(path string, debugMode bool) {
 
 	if debugMode {
 		log.Logger = log.Logger.Level(zerolog.DebugLevel)
+	} else {
+		log.Logger = log.Logger.Level(zerolog.InfoLevel)
 	}
-	log.Debug().Msg("Application running in debug mode...")
+	log.Debug().Msg("Running application in debug mode...")
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -291,9 +293,9 @@ func main() {
 	router.HandleFunc("/corpora-database/{corpusId}/kontextDefaults", cncdbActions.InferKontextDefaults).Methods(http.MethodPut)
 
 	if conf.DebugMode {
-		dummyActions := dummy.NewActions(jobActions)
-		router.HandleFunc("/dummy/createJob", dummyActions.CreateDummyJob).Methods(http.MethodPost)
-		router.HandleFunc("/dummy/finishJob/{jobId}", dummyActions.FinishDummyJob).Methods(http.MethodPost)
+		debugActions := debug.NewActions(jobActions)
+		router.HandleFunc("/debug/createJob", debugActions.CreateDummyJob).Methods(http.MethodPost)
+		router.HandleFunc("/debug/finishJob/{jobId}", debugActions.FinishDummyJob).Methods(http.MethodPost)
 	}
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
