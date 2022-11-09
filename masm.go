@@ -141,13 +141,20 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err)
 	}
-	log.Info().Msgf("CNC SQL database at '%s'", conf.CNCDB.Host)
+	log.Info().Msgf("CNC SQL database: %s", conf.CNCDB.Host)
 
 	laDB, err := mysql.OpenDB(conf.LiveAttrs.DB)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
-	log.Info().Msgf("LiveAttrs SQL database at '%s'", conf.LiveAttrs.DB.Host)
+	var dbInfo string
+	if conf.LiveAttrs.DB.Type == "mysql" {
+		dbInfo = conf.LiveAttrs.DB.Host
+
+	} else {
+		dbInfo = fmt.Sprintf("file://%s/*.db", conf.LiveAttrs.DB.Name)
+	}
+	log.Info().Msgf("LiveAttrs SQL database(s): '%s", dbInfo)
 
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)

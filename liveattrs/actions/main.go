@@ -25,7 +25,6 @@ import (
 	"masm/v3/api"
 	"masm/v3/cncdb"
 	"masm/v3/corpus"
-	"masm/v3/db/sqlite"
 	"masm/v3/general"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
@@ -234,14 +233,6 @@ func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) er
 				}
 			}
 		case "sqlite":
-			err := sqlite.InstallSqliteDatabase(
-				status.Args.VteConf.Corpus,
-				status.Args.VteConf.DB.Name,
-				a.conf.CorporaSetup.TextTypesDbDirPath,
-			)
-			if err != nil {
-				updateJobChan <- status.CloneWithError(err)
-			}
 			err = a.setSoftResetToKontext()
 			if err != nil {
 				updateJobChan <- status.CloneWithError(err)
