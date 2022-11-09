@@ -20,6 +20,7 @@ package jobs
 
 import (
 	"encoding/gob"
+	"masm/v3/mail"
 	"os"
 	"strings"
 	"time"
@@ -28,8 +29,9 @@ import (
 )
 
 type Conf struct {
-	StatusDataPath string `json:"statusDataPath"`
-	MaxNumRestarts int    `json:"maxNumRestarts"`
+	StatusDataPath    string                 `json:"statusDataPath"`
+	MaxNumRestarts    int                    `json:"maxNumRestarts"`
+	EmailNotification mail.EmailNotification `json:"emailNotification"`
 }
 
 // GeneralJobInfo defines a general job information

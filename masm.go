@@ -264,6 +264,14 @@ func main() {
 		"/jobs/{jobId}", jobActions.Delete).Methods(http.MethodDelete)
 	router.HandleFunc(
 		"/jobs/{jobId}/clearIfFinished", jobActions.ClearIfFinished).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/jobs/{jobId}/emailNotification", jobActions.GetNotifications).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/jobs/{jobId}/emailNotification/{address}", jobActions.CheckNotification).Methods(http.MethodGet)
+	router.HandleFunc(
+		"/jobs/{jobId}/emailNotification/{address}", jobActions.AddNotification).Methods(http.MethodPut)
+	router.HandleFunc(
+		"/jobs/{jobId}/emailNotification/{address}", jobActions.RemoveNotification).Methods(http.MethodDelete)
 
 	router.HandleFunc(
 		"/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)

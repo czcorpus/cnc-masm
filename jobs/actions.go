@@ -19,8 +19,10 @@
 package jobs
 
 import (
+	"fmt"
 	"masm/v3/api"
 	"masm/v3/fsops"
+	"masm/v3/mail"
 	"net/http"
 	"os"
 	"reflect"
@@ -59,6 +61,8 @@ type Actions struct {
 	// tableUpdate is the only way jobList is actually
 	// updated
 	tableUpdate chan TableUpdate
+
+	notificationRecipients map[string][]string
 }
 
 func (a *Actions) createJobList(unfinishedOnly bool) JobInfoList {
@@ -210,6 +214,121 @@ func (a *Actions) GetJob(jobID string) (GeneralJobInfo, bool) {
 	return v, ok
 }
 
+func (a *Actions) AddNotification(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	jobID := vars["jobId"]
+	job := FindJob(a.jobList, jobID)
+	if job != nil {
+		recipients, ok := a.notificationRecipients[jobID]
+		if !ok {
+			recipients = make([]string, 1)
+			recipients[0] = vars["address"]
+		} else {
+			hasValue := false
+			for _, addr := range recipients {
+				if addr == vars["address"] {
+					hasValue = true
+				}
+			}
+			if !hasValue {
+				recipients = append(recipients, vars["address"])
+			}
+		}
+		a.notificationRecipients[jobID] = recipients
+		resp := struct {
+			Registered bool `json:"registered"`
+		}{
+			Registered: true,
+		}
+		api.WriteJSONResponse(w, resp)
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+	}
+}
+
+func (a *Actions) GetNotifications(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	jobID := vars["jobId"]
+	job := FindJob(a.jobList, jobID)
+	if job != nil {
+		recipients, ok := a.notificationRecipients[job.GetID()]
+		resp := struct {
+			Recipients []string `json:"recipients"`
+		}{
+			Recipients: []string{},
+		}
+		if ok {
+			resp.Recipients = recipients
+		}
+		api.WriteJSONResponse(w, resp)
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+	}
+}
+
+func (a *Actions) CheckNotification(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	jobID := vars["jobId"]
+	job := FindJob(a.jobList, jobID)
+	if job != nil {
+		registered := false
+		recipients, ok := a.notificationRecipients[jobID]
+		if ok {
+			for _, addr := range recipients {
+				if addr == vars["address"] {
+					registered = true
+					break
+				}
+			}
+		}
+
+		resp := struct {
+			Registered bool `json:"registered"`
+		}{
+			Registered: registered,
+		}
+
+		if registered {
+			api.WriteJSONResponse(w, resp)
+		} else {
+			api.WriteJSONResponseWithStatus(w, http.StatusNotFound, resp)
+		}
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+	}
+}
+
+func (a *Actions) RemoveNotification(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	jobID := vars["jobId"]
+	job := FindJob(a.jobList, jobID)
+	if job != nil {
+		recipients, ok := a.notificationRecipients[jobID]
+		if ok {
+			for i, addr := range recipients {
+				if addr == vars["address"] {
+					recipients = append(recipients[:i], recipients[i+1:]...)
+					break
+				}
+			}
+			a.notificationRecipients[jobID] = recipients
+		}
+
+		resp := struct {
+			Registered bool `json:"registered"`
+		}{
+			Registered: false,
+		}
+		api.WriteJSONResponse(w, resp)
+
+	} else {
+		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+	}
+}
+
 // NewActions is the default factory
 func NewActions(
 	conf *Conf,
@@ -217,11 +336,12 @@ func NewActions(
 	jobStop chan<- string,
 ) *Actions {
 	ans := &Actions{
-		conf:         conf,
-		jobList:      make(map[string]GeneralJobInfo),
-		detachedJobs: make(map[string]GeneralJobInfo),
-		tableUpdate:  make(chan TableUpdate),
-		jobStop:      jobStop,
+		conf:                   conf,
+		jobList:                make(map[string]GeneralJobInfo),
+		detachedJobs:           make(map[string]GeneralJobInfo),
+		tableUpdate:            make(chan TableUpdate),
+		jobStop:                jobStop,
+		notificationRecipients: make(map[string][]string),
 	}
 	if fsops.IsFile(conf.StatusDataPath) {
 		log.Info().Msgf("found status data in %s - loading...", conf.StatusDataPath)
@@ -279,5 +399,19 @@ func NewActions(
 
 		}
 	}()
+
+	go func() {
+		for upd := range ans.tableUpdate {
+			switch upd.action {
+			case tableActionFinishJob:
+				recipients, ok := ans.notificationRecipients[upd.itemID]
+				if ok {
+					message := fmt.Sprintf("Job `%s` finished", upd.itemID)
+					mail.SendNotification(&conf.EmailNotification, recipients, message, message)
+				}
+			}
+		}
+	}()
+
 	return ans
 }
