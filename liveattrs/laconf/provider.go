@@ -132,18 +132,29 @@ func Create(
 		}
 		newConf.SelfJoin.GeneratorFn = mergeFn
 	}
-	newConf.DB = vtedb.Conf{
-		Type:           "mysql",
-		Host:           masmConf.LiveAttrs.DB.Host,
-		User:           masmConf.LiveAttrs.DB.User,
-		Password:       masmConf.LiveAttrs.DB.Password,
-		PreconfQueries: masmConf.LiveAttrs.DB.PreconfQueries,
-	}
-	if corpusDBInfo.ParallelCorpus != "" {
-		newConf.DB.Name = corpusDBInfo.ParallelCorpus
+	if masmConf.LiveAttrs.DB.Type == "mysql" {
+		newConf.DB = vtedb.Conf{
+			Type:           "mysql",
+			Host:           masmConf.LiveAttrs.DB.Host,
+			User:           masmConf.LiveAttrs.DB.User,
+			Password:       masmConf.LiveAttrs.DB.Password,
+			PreconfQueries: masmConf.LiveAttrs.DB.PreconfQueries,
+		}
+		if corpusDBInfo.ParallelCorpus != "" {
+			newConf.DB.Name = corpusDBInfo.ParallelCorpus
+
+		} else {
+			newConf.DB.Name = corpusInfo.ID
+		}
 
 	} else {
-		newConf.DB.Name = corpusInfo.ID
+		newConf.DB = vtedb.Conf{
+			Type: "sqlite",
+			Name: path.Join(
+				masmConf.CorporaSetup.TextTypesDbDirPath,
+				fmt.Sprintf("%s.db", corpusInfo.ID),
+			),
+		}
 	}
 	return &newConf, nil
 }
@@ -196,7 +207,9 @@ func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 		return err
 	}
 	lcache.data[data.Corpus] = data
-	data.DB = *lcache.globalDBConf
+	if data.DB.Type == "mysql" {
+		data.DB = *lcache.globalDBConf
+	}
 	return nil
 }
 
