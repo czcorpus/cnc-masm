@@ -104,6 +104,7 @@ type Conf struct {
 	Jobs                   *jobs.Conf     `json:"jobs"`
 	KontextSoftResetURL    string         `json:"kontextSoftResetURL"`
 	NgramDB                NgramDB        `json:"ngramDb"`
+	DebugMode              bool           `json:"debugMode"`
 }
 
 func LoadConfig(path string) *Conf {
@@ -115,6 +116,7 @@ func LoadConfig(path string) *Conf {
 		log.Fatal().Err(err).Msg("Cannot load config")
 	}
 	var conf Conf
+	conf.DebugMode = false
 	err = json.Unmarshal(rawData, &conf)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Cannot load config")

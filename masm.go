@@ -37,6 +37,7 @@ import (
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
 	"masm/v3/db/mysql"
+	"masm/v3/debug"
 	"masm/v3/general"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
@@ -57,7 +58,7 @@ type ExitHandler interface {
 	OnExit()
 }
 
-func setupLog(path string) {
+func setupLog(path string, debugMode bool) {
 	if path != "" {
 		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -73,6 +74,13 @@ func setupLog(path string) {
 			},
 		)
 	}
+
+	if debugMode {
+		log.Logger = log.Logger.Level(zerolog.DebugLevel)
+	} else {
+		log.Logger = log.Logger.Level(zerolog.InfoLevel)
+	}
+	log.Debug().Msg("Running application in debug mode...")
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -110,7 +118,7 @@ func main() {
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
 	conf := corpus.LoadConfig(flag.Arg(1))
-	setupLog(conf.LogFile)
+	setupLog(conf.LogFile, conf.DebugMode)
 	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
 	corpus.ApplyDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
@@ -290,6 +298,12 @@ func main() {
 	cncdbActions := cncdb.NewActions(conf, cncDB)
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
 	router.HandleFunc("/corpora-database/{corpusId}/kontextDefaults", cncdbActions.InferKontextDefaults).Methods(http.MethodPut)
+
+	if conf.DebugMode {
+		debugActions := debug.NewActions(jobActions)
+		router.HandleFunc("/debug/createJob", debugActions.CreateDummyJob).Methods(http.MethodPost)
+		router.HandleFunc("/debug/finishJob/{jobId}", debugActions.FinishDummyJob).Methods(http.MethodPost)
+	}
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
