@@ -144,7 +144,7 @@ func main() {
 		dbInfo = conf.LiveAttrs.DB.Host
 
 	} else {
-		dbInfo = fmt.Sprintf("file://%s/*.db", conf.LiveAttrs.DB.Name)
+		dbInfo = fmt.Sprintf("file://%s/*.db", conf.CorporaSetup.TextTypesDbDirPath)
 	}
 	log.Info().Msgf("LiveAttrs SQL database(s): '%s", dbInfo)
 
