@@ -190,7 +190,9 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 			return nil, err
 		}
 		lcache.data[corpname] = v
-		v.DB = *lcache.globalDBConf
+		if lcache.globalDBConf.Type == "mysql" {
+			v.DB = *lcache.globalDBConf
+		}
 		return v, nil
 	}
 	return nil, ErrorNoSuchConfig
