@@ -58,7 +58,7 @@ type ExitHandler interface {
 	OnExit()
 }
 
-func setupLog(path string) {
+func setupLog(path string, debugMode bool) {
 	if path != "" {
 		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -74,6 +74,11 @@ func setupLog(path string) {
 			},
 		)
 	}
+
+	if debugMode {
+		log.Logger = log.Logger.Level(zerolog.DebugLevel)
+	}
+	log.Debug().Msg("Application running in debug mode...")
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -111,7 +116,7 @@ func main() {
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
 	conf := corpus.LoadConfig(flag.Arg(1))
-	setupLog(conf.LogFile)
+	setupLog(conf.LogFile, conf.DebugMode)
 	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
 	corpus.ApplyDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
@@ -285,9 +290,11 @@ func main() {
 	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
 	router.HandleFunc("/corpora-database/{corpusId}/kontextDefaults", cncdbActions.InferKontextDefaults).Methods(http.MethodPut)
 
-	dummyActions := dummy.NewActions(jobActions)
-	router.HandleFunc("/dummy/createJob", dummyActions.CreateDummyJob).Methods(http.MethodPost)
-	router.HandleFunc("/dummy/finishJob/{jobId}", dummyActions.FinishDummyJob).Methods(http.MethodPost)
+	if conf.DebugMode {
+		dummyActions := dummy.NewActions(jobActions)
+		router.HandleFunc("/dummy/createJob", dummyActions.CreateDummyJob).Methods(http.MethodPost)
+		router.HandleFunc("/dummy/finishJob/{jobId}", dummyActions.FinishDummyJob).Methods(http.MethodPost)
+	}
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
