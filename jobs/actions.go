@@ -19,7 +19,6 @@
 package jobs
 
 import (
-	"fmt"
 	"masm/v3/api"
 	"masm/v3/fsops"
 	"masm/v3/mail"
@@ -31,6 +30,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/text/message"
 
 	"github.com/gorilla/mux"
 )
@@ -57,6 +57,7 @@ type Actions struct {
 	detachedJobs     map[string]GeneralJobInfo
 	detachedJobsLock sync.Mutex
 	jobStop          chan<- string
+	msgPrinter       *message.Printer
 
 	// tableUpdate is the only way jobList is actually
 	// updated
@@ -90,7 +91,8 @@ func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 	a.jobListLock.Unlock()
 	syncUpdates := make(chan GeneralJobInfo, 10)
 	go func() {
-		for item := range syncUpdates {
+		var item GeneralJobInfo
+		for item = range syncUpdates {
 			a.tableUpdate <- TableUpdate{
 				action: tableActionUpdateJob,
 				itemID: j.GetID(),
@@ -100,6 +102,7 @@ func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 		a.tableUpdate <- TableUpdate{
 			action: tableActionFinishJob,
 			itemID: j.GetID(),
+			data:   item,
 		}
 	}()
 	return syncUpdates
@@ -332,6 +335,7 @@ func (a *Actions) RemoveNotification(w http.ResponseWriter, req *http.Request) {
 // NewActions is the default factory
 func NewActions(
 	conf *Conf,
+	lang string,
 	exitEvent <-chan os.Signal,
 	jobStop chan<- string,
 ) *Actions {
@@ -342,6 +346,7 @@ func NewActions(
 		tableUpdate:            make(chan TableUpdate),
 		jobStop:                jobStop,
 		notificationRecipients: make(map[string][]string),
+		msgPrinter:             message.NewPrinter(message.MatchLanguage(lang)),
 	}
 	if fsops.IsFile(conf.StatusDataPath) {
 		log.Info().Msgf("found status data in %s - loading...", conf.StatusDataPath)
@@ -391,25 +396,21 @@ func NewActions(
 				ans.jobListLock.Lock()
 				ans.jobList[upd.itemID].SetFinished()
 				ans.jobListLock.Unlock()
+				recipients, ok := ans.notificationRecipients[upd.itemID]
+				if ok {
+					jdesc := extractJobDescription(upd.data, ans.msgPrinter)
+					subject := ans.msgPrinter.Sprintf("Job `%s` finished", upd.itemID)
+					err := mail.SendNotification(&conf.EmailNotification, recipients, subject, subject, jdesc)
+					if err != nil {
+						log.Error().Err(err).Msg("failed to send finished job notification")
+					}
+				}
 			case tableActionClearOldJobs:
 				ans.jobListLock.Lock()
 				clearOldJobs(ans.jobList)
 				ans.jobListLock.Unlock()
 			}
 
-		}
-	}()
-
-	go func() {
-		for upd := range ans.tableUpdate {
-			switch upd.action {
-			case tableActionFinishJob:
-				recipients, ok := ans.notificationRecipients[upd.itemID]
-				if ok {
-					message := fmt.Sprintf("Job `%s` finished", upd.itemID)
-					mail.SendNotification(&conf.EmailNotification, recipients, message, message)
-				}
-			}
 		}
 	}()
 

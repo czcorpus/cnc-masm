@@ -1,0 +1,43 @@
+{
+    "language": "en",
+    "messages": [
+        {
+            "id": "Job `{ItemID}` finished",
+            "message": "Job `{ItemID}` finished",
+            "translation": "Job `{ItemID}` finished",
+            "translatorComment": "Copied from source.",
+            "placeholders": [
+                {
+                    "id": "ItemID",
+                    "string": "%[1]s",
+                    "type": "string",
+                    "underlyingType": "string",
+                    "argNum": 1,
+                    "expr": "upd.itemID"
+                }
+            ],
+            "fuzzy": true
+        },
+        {
+            "id": "N-grams and query suggestion data generation",
+            "message": "N-grams and query suggestion data generation",
+            "translation": "N-grams and query suggestion data generation",
+            "translatorComment": "Copied from source.",
+            "fuzzy": true
+        },
+        {
+            "id": "Live attributes data extraction and generation",
+            "message": "Live attributes data extraction and generation",
+            "translation": "Live attributes data extraction and generation",
+            "translatorComment": "Copied from source.",
+            "fuzzy": true
+        },
+        {
+            "id": "Unknown job",
+            "message": "Unknown job",
+            "translation": "Unknown job",
+            "translatorComment": "Copied from source.",
+            "fuzzy": true
+        }
+    ]
+}

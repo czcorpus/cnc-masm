@@ -30,6 +30,7 @@ import (
 
 const (
 	dfltServerWriteTimeoutSecs = 10
+	dfltLanguage               = "en"
 )
 
 // CorporaDataPaths describes three
@@ -105,6 +106,7 @@ type Conf struct {
 	KontextSoftResetURL    string         `json:"kontextSoftResetURL"`
 	NgramDB                NgramDB        `json:"ngramDb"`
 	DebugMode              bool           `json:"debugMode"`
+	Language               string         `json:"language"`
 }
 
 func LoadConfig(path string) *Conf {
@@ -131,5 +133,9 @@ func ApplyDefaults(conf *Conf) {
 			"serverWriteTimeoutSecs not specified, using default: %d",
 			dfltServerWriteTimeoutSecs,
 		)
+	}
+	if conf.Language == "" {
+		conf.Language = dfltLanguage
+		log.Warn().Msgf("language not specified, using default: %s", conf.Language)
 	}
 }
