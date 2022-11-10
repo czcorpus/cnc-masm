@@ -45,6 +45,8 @@ import (
 	"masm/v3/registry"
 	"masm/v3/root"
 
+	_ "masm/v3/translations"
+
 	"github.com/gorilla/mux"
 )
 
@@ -162,7 +164,7 @@ func main() {
 	} else {
 		dbInfo = fmt.Sprintf("file://%s/*.db", conf.CorporaSetup.TextTypesDbDirPath)
 	}
-	log.Info().Msgf("LiveAttrs SQL database(s): '%s", dbInfo)
+	log.Info().Msgf("LiveAttrs SQL database(s): %s", dbInfo)
 
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
@@ -176,7 +178,7 @@ func main() {
 
 	jobStopChannel := make(chan string)
 
-	jobActions := jobs.NewActions(conf.Jobs, exitEvent, jobStopChannel)
+	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
 	corpusActions := corpus.NewActions(conf, jobActions)
 	liveattrsActions := laActions.NewActions(
 		conf, exitEvent, jobStopChannel, jobActions, cncDB, laDB, version)
@@ -324,7 +326,7 @@ func main() {
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {
-			log.Error().Err(err)
+			log.Error().Err(err).Msg("")
 		}
 		syscallChan <- syscall.SIGTERM
 	}()

@@ -13,3 +13,4 @@ masm
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+locales/*/out.gotext.json
