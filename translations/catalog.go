@@ -39,32 +39,38 @@ func init() {
 }
 
 var messageKeyToIndex = map[string]int{
-	"Job `%s` finished": 0,
-	"Job type":          1,
+	"Job ID: %s":                                     1,
+	"Job finished with error: %s":                    7,
+	"Job finished without errors":                    6,
+	"Job of type \"%s\" finished":                    0,
 	"Live attributes data extraction and generation": 3,
 	"N-grams and query suggestion data generation":   2,
 	"Testing and debugging empty job":                4,
 	"Unknown job":                                    5,
 }
 
-var csIndex = []uint32{ // 7 elements
-	0x00000000, 0x0000001f, 0x0000002a, 0x00000058,
-	0x0000007f, 0x000000a6, 0x000000b7,
-} // Size: 52 bytes
+var csIndex = []uint32{ // 9 elements
+	0x00000000, 0x00000024, 0x00000035, 0x00000063,
+	0x0000008a, 0x000000b1, 0x000000c2, 0x000000dc,
+	0x000000fd,
+} // Size: 60 bytes
 
-const csData string = "" + // Size: 183 bytes
-	"\x02Úloha `%[1]s` byla dokončena\x02Typ úlohy\x02Generování n-gramů a da" +
-	"t pro našeptávač\x02vygenerování dat pro Live attributes\x02Prázdný test" +
-	"ovací a debugovací job\x02Neznámá úloha"
+const csData string = "" + // Size: 253 bytes
+	"\x02Úloha typu \x22%[1]s\x22 byla dokončena\x02ID úlohy: %[1]s\x02Genero" +
+	"vání n-gramů a dat pro našeptávač\x02vygenerování dat pro Live attribute" +
+	"s\x02Prázdný testovací a debugovací job\x02Neznámá úloha\x02Úloha skonči" +
+	"la bez chyb\x02Úloha skončila s chybou: %[1]s"
 
-var enIndex = []uint32{ // 7 elements
-	0x00000000, 0x00000015, 0x0000001e, 0x0000004b,
-	0x0000007a, 0x0000009a, 0x000000a6,
-} // Size: 52 bytes
+var enIndex = []uint32{ // 9 elements
+	0x00000000, 0x0000001d, 0x0000002b, 0x00000058,
+	0x00000087, 0x000000a7, 0x000000b3, 0x000000cf,
+	0x000000ee,
+} // Size: 60 bytes
 
-const enData string = "" + // Size: 166 bytes
-	"\x02Job `%[1]s` finished\x02Job type\x02N-grams and query suggestion dat" +
-	"a generation\x02Live attributes data extraction and generation\x02Testin" +
-	"g and debugging empty job\x02Unknown job"
+const enData string = "" + // Size: 238 bytes
+	"\x02Job of type \x22%[1]s\x22 finished\x02Job ID: %[1]s\x02N-grams and q" +
+	"uery suggestion data generation\x02Live attributes data extraction and g" +
+	"eneration\x02Testing and debugging empty job\x02Unknown job\x02Job finis" +
+	"hed without errors\x02Job finished with error: %[1]s"
 
-	// Total table size 453 bytes (0KiB); checksum: 7D0C1079
+	// Total table size 611 bytes (0KiB); checksum: 1EE06547

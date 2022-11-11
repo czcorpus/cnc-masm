@@ -19,6 +19,7 @@
 package debug
 
 import (
+	"fmt"
 	"net/http"
 
 	"masm/v3/api"
@@ -43,7 +44,8 @@ type Actions struct {
 func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to create dummy"), http.StatusUnauthorized)
+		api.WriteJSONErrorResponse(
+			w, api.NewActionError("failed to create dummy job"), http.StatusUnauthorized)
 		return
 	}
 
@@ -52,6 +54,9 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 		Type:     "dummy-job",
 		Start:    jobs.CurrentDatetime(),
 		CorpusID: "dummy",
+	}
+	if req.URL.Query().Get("error") == "1" {
+		jobInfo.Error = fmt.Errorf("dummy error")
 	}
 	jobChannel := a.jobActions.AddJobInfo(&jobInfo)
 	a.dummyJobs[jobID.String()] = &storedDummyJob{

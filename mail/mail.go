@@ -19,22 +19,97 @@ package mail
 
 import (
 	"bytes"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
 )
 
+var (
+	NotFoundMsgPlaceholder = "??"
+)
+
 type EmailNotification struct {
-	Sender     string `json:"sender"`
-	SMTPServer string `json:"smtpServer"`
+	Sender       string `json:"sender"`
+	SMTPServer   string `json:"smtpServer"`
+	SMTPUsername string `json:"smtpUsername"`
+	SMTPPassword string `json:"smtpPassword"`
+	// Signature defines multi-language signature for notification e-mails
+	Signature map[string]string `json:"signature"`
+}
+
+// LocalizedSignature returns a mail signature based on configuration
+// and provided language. It is able to search for 2-character codes
+// in case 5-ones are not matching.
+// In case nothing is found, the returned message is NotFoundMsgPlaceholder
+// (and an error is returned).
+func (enConf EmailNotification) LocalizedSignature(lang string) (string, error) {
+	if msg, ok := enConf.Signature[lang]; ok {
+		return msg, nil
+	}
+	lang2 := strings.Split(lang, "-")[0]
+	for k, msg := range enConf.Signature {
+		if strings.Split(k, "-")[0] == lang2 {
+			return msg, nil
+		}
+	}
+	return NotFoundMsgPlaceholder, fmt.Errorf("e-mail signature for language %s not found", lang)
+}
+
+func (enConf EmailNotification) HasSignature() bool {
+	return len(enConf.Signature) > 0
+}
+
+func (enConf EmailNotification) DefaultSignature(lang string) string {
+	if lang == "cs" || lang == "cs-CZ" {
+		return "Váš CNC-MASM"
+	}
+	return "Your CNC-MASM"
+}
+
+func dialSmtpServer(conf *EmailNotification) (*smtp.Client, error) {
+	host, port, err := net.SplitHostPort(conf.SMTPServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SMTP server info: %w", err)
+	}
+	if port == "25" {
+		ans, err := smtp.Dial(conf.SMTPServer)
+		if err != nil {
+			return nil, fmt.Errorf("failed to dial: %w", err)
+		}
+		return ans, err
+	}
+	auth := smtp.PlainAuth("", conf.SMTPUsername, conf.SMTPPassword, host)
+	client, err := smtp.Dial(conf.SMTPServer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial: %w", err)
+	}
+	client.StartTLS(&tls.Config{
+		InsecureSkipVerify: true,
+		ServerName:         host,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to StartTLS: %w", err)
+	}
+	err = client.Auth(auth)
+	if err != nil {
+		return nil, fmt.Errorf("failed to authenticate client: %w", err)
+	}
+	return client, nil
 }
 
 // SendNotification sends a general e-mail notification based on
 // a respective monitoring configuration. The 'alarmToken' argument
 // can be nil - in such case the 'turn of the alarm' text won't be
 // part of the message.
-func SendNotification(conf *EmailNotification, receivers []string, subject string, msgParagraphs ...string) error {
-	client, err := smtp.Dial(conf.SMTPServer)
+func SendNotification(
+	conf *EmailNotification,
+	receivers []string,
+	subject string,
+	msgParagraphs ...string,
+) error {
+	client, err := dialSmtpServer(conf)
 	if err != nil {
 		return err
 	}
