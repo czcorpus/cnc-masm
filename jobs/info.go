@@ -19,14 +19,11 @@
 package jobs
 
 import (
-	"fmt"
-
 	"golang.org/x/text/message"
 )
 
-func extractJobDescription(info GeneralJobInfo, printer *message.Printer) string {
-	intro := printer.Sprintf("Job type")
-	var desc string
+func extractJobDescription(printer *message.Printer, info GeneralJobInfo) string {
+	desc := "??"
 	switch info.GetType() {
 	case "ngram-and-qs-generating":
 		desc = printer.Sprintf("N-grams and query suggestion data generation")
@@ -37,5 +34,12 @@ func extractJobDescription(info GeneralJobInfo, printer *message.Printer) string
 	default:
 		desc = printer.Sprintf("Unknown job")
 	}
-	return fmt.Sprintf("%s: %s", intro, desc)
+	return desc
+}
+
+func localizedStatus(printer *message.Printer, info GeneralJobInfo) string {
+	if info.GetError() == nil {
+		return printer.Sprintf("Job finished without errors")
+	}
+	return printer.Sprintf("Job finished with error: %s", info.GetError())
 }

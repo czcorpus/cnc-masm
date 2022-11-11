@@ -398,11 +398,34 @@ func NewActions(
 				ans.jobListLock.Unlock()
 				recipients, ok := ans.notificationRecipients[upd.itemID]
 				if ok {
-					jdesc := extractJobDescription(upd.data, ans.msgPrinter)
-					subject := ans.msgPrinter.Sprintf("Job `%s` finished", upd.itemID)
-					err := mail.SendNotification(&conf.EmailNotification, recipients, subject, subject, jdesc)
+					jdesc := extractJobDescription(ans.msgPrinter, upd.data)
+					subject := ans.msgPrinter.Sprintf("Job of type \"%s\" finished", jdesc)
+					var sign string
+					if conf.EmailNotification.HasSignature() {
+						var err error
+						sign, err = conf.EmailNotification.LocalizedSignature(lang)
+						if err != nil {
+							log.Error().Err(err).Send()
+						}
+
+					} else {
+						sign = conf.EmailNotification.DefaultSignature(lang)
+					}
+					body := []string{
+						subject,
+						ans.msgPrinter.Sprintf("Job ID: %s", upd.itemID),
+						localizedStatus(ans.msgPrinter, upd.data),
+						"",
+						"",
+						sign,
+					}
+					err := mail.SendNotification(
+						&conf.EmailNotification, recipients, subject, body...)
 					if err != nil {
-						log.Error().Err(err).Msg("failed to send finished job notification")
+						log.Error().Err(err).
+							Str("mailSubject", subject).
+							Strs("mailBody", []string{subject, jdesc}).
+							Msg("Failed to send finished job notification")
 					}
 				}
 			case tableActionClearOldJobs:
