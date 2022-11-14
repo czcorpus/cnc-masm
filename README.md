@@ -4,7 +4,7 @@
 enhancing [KonText](https://github.com/czcorpus/kontext) installations. 
 But it can be also run as a standalone service for:
 - generating n-grams,
-- generating and searching corpora structural metadata,
+- generating and querying corpora structural metadata,
 - managing Manatee-open compatible data
 
 Functions:
