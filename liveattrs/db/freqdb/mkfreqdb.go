@@ -313,10 +313,14 @@ func (nfg *NgramFreqGenerator) generate(statusChan chan<- genNgramsStatus) error
 	return nil
 }
 
-func (nfg *NgramFreqGenerator) GenerateAsync(corpusID string) (NgramJobInfo, chan jobs.GeneralJobInfo, error) {
+func (nfg *NgramFreqGenerator) Generate(corpusID string) (NgramJobInfo, error) {
+	return nfg.GenerateAfter(corpusID, "")
+}
+
+func (nfg *NgramFreqGenerator) GenerateAfter(corpusID, parentJobID string) (NgramJobInfo, error) {
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		return NgramJobInfo{}, nil, err
+		return NgramJobInfo{}, err
 	}
 	status := NgramJobInfo{
 		ID:       jobID.String(),
@@ -327,24 +331,29 @@ func (nfg *NgramFreqGenerator) GenerateAsync(corpusID string) (NgramJobInfo, cha
 		Finished: false,
 		Args:     NgramJobInfoArgs{},
 	}
-	statusChan := make(chan genNgramsStatus)
-	updateJobChan := nfg.jobActions.AddJobInfo(&status)
-	go func(runStatus NgramJobInfo) {
-		for statUpd := range statusChan {
-			runStatus.Result = statUpd
-			runStatus.Error = statUpd.Error
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+		statusChan := make(chan genNgramsStatus)
+		go func(runStatus NgramJobInfo) {
+			for statUpd := range statusChan {
+				runStatus.Result = statUpd
+				runStatus.Error = statUpd.Error
+				runStatus.Update = jobs.CurrentDatetime()
+				updateJobChan <- &runStatus
+			}
 			runStatus.Update = jobs.CurrentDatetime()
+			runStatus.Finished = true
 			updateJobChan <- &runStatus
-		}
-		runStatus.Update = jobs.CurrentDatetime()
-		runStatus.Finished = true
-		updateJobChan <- &runStatus
-		close(updateJobChan)
-	}(status)
-	go func() {
-		nfg.generate(statusChan)
-	}()
-	return status, updateJobChan, nil
+			close(updateJobChan)
+		}(status)
+		return nfg.generate(statusChan)
+	}
+	if parentJobID != "" {
+		nfg.jobActions.EqueueJobAfter(&fn, &status, parentJobID)
+
+	} else {
+		nfg.jobActions.EnqueueJob(&fn, &status)
+	}
+	return status, nil
 }
 
 func NewNgramFreqGenerator(

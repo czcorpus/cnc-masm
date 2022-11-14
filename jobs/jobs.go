@@ -29,9 +29,10 @@ import (
 )
 
 type Conf struct {
-	StatusDataPath    string                 `json:"statusDataPath"`
-	MaxNumRestarts    int                    `json:"maxNumRestarts"`
-	EmailNotification mail.EmailNotification `json:"emailNotification"`
+	StatusDataPath       string                 `json:"statusDataPath"`
+	MaxNumConcurrentJobs int                    `json:"maxNumConcurrentJobs"`
+	MaxNumRestarts       int                    `json:"maxNumRestarts"`
+	EmailNotification    mail.EmailNotification `json:"emailNotification"`
 }
 
 // GeneralJobInfo defines a general job information

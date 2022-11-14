@@ -164,82 +164,84 @@ func (a *Actions) setSoftResetToKontext() error {
 
 // createDataFromJobStatus starts data extraction and generation
 // based on (initial) job status
-func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) error {
-	a.vteExitEvents[status.ID] = make(chan os.Signal)
-	procStatus, err := vteLib.ExtractData(
-		&status.Args.VteConf, status.Args.Append, a.vteExitEvents[status.ID])
-	if err != nil {
-		return fmt.Errorf("failed to start vert-tagextract: %s", err)
-	}
-	go func() {
-		updateJobChan := a.jobActions.AddJobInfo(status)
-		defer func() {
-			close(updateJobChan)
-			close(a.vteExitEvents[status.ID])
-			delete(a.vteExitEvents, status.ID)
-		}()
-
-		for upd := range procStatus {
-			updateJobChan <- &liveattrs.LiveAttrsJobInfo{
-				ID:             status.ID,
-				Type:           liveattrs.JobType,
-				CorpusID:       status.CorpusID,
-				Start:          status.Start,
-				Update:         jobs.CurrentDatetime(),
-				Error:          upd.Error,
-				ProcessedAtoms: upd.ProcessedAtoms,
-				ProcessedLines: upd.ProcessedLines,
-				NumRestarts:    status.NumRestarts,
-				Args:           status.Args,
-			}
-			if upd.Error == vteProc.ErrorTooManyParsingErrors {
-				log.Error().Err(upd.Error).Msg("live attributes extraction failed")
-				return
-
-			} else if upd.Error != nil {
-				log.Error().Err(upd.Error).Msg("(just registered)")
-			}
+func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+		a.vteExitEvents[status.ID] = make(chan os.Signal)
+		procStatus, err := vteLib.ExtractData(
+			&status.Args.VteConf, status.Args.Append, a.vteExitEvents[status.ID])
+		if err != nil {
+			return fmt.Errorf("failed to start vert-tagextract: %s", err)
 		}
+		go func() {
+			defer func() {
+				close(updateJobChan)
+				close(a.vteExitEvents[status.ID])
+				delete(a.vteExitEvents, status.ID)
+			}()
 
-		a.eqCache.Del(status.CorpusID)
-
-		switch status.Args.VteConf.DB.Type {
-		case "mysql":
-			if !status.Args.NoCorpusUpdate {
-				transact, err := a.cncDB.StartTx()
-				if err != nil {
-					updateJobChan <- status.CloneWithError(err)
+			for upd := range procStatus {
+				updateJobChan <- &liveattrs.LiveAttrsJobInfo{
+					ID:             status.ID,
+					Type:           liveattrs.JobType,
+					CorpusID:       status.CorpusID,
+					Start:          status.Start,
+					Update:         jobs.CurrentDatetime(),
+					Error:          upd.Error,
+					ProcessedAtoms: upd.ProcessedAtoms,
+					ProcessedLines: upd.ProcessedLines,
+					NumRestarts:    status.NumRestarts,
+					Args:           status.Args,
+				}
+				if upd.Error == vteProc.ErrorTooManyParsingErrors {
+					log.Error().Err(upd.Error).Msg("live attributes extraction failed")
 					return
+
+				} else if upd.Error != nil {
+					log.Error().Err(upd.Error).Msg("(just registered)")
 				}
-				var bibIDStruct, bibIDAttr string
-				if status.Args.VteConf.BibView.IDAttr != "" {
-					bibIDAttrElms := strings.SplitN(status.Args.VteConf.BibView.IDAttr, "_", 2)
-					bibIDStruct = bibIDAttrElms[0]
-					bibIDAttr = bibIDAttrElms[1]
+			}
+
+			a.eqCache.Del(status.CorpusID)
+
+			switch status.Args.VteConf.DB.Type {
+			case "mysql":
+				if !status.Args.NoCorpusUpdate {
+					transact, err := a.cncDB.StartTx()
+					if err != nil {
+						updateJobChan <- status.CloneWithError(err)
+						return
+					}
+					var bibIDStruct, bibIDAttr string
+					if status.Args.VteConf.BibView.IDAttr != "" {
+						bibIDAttrElms := strings.SplitN(status.Args.VteConf.BibView.IDAttr, "_", 2)
+						bibIDStruct = bibIDAttrElms[0]
+						bibIDAttr = bibIDAttrElms[1]
+					}
+					err = a.cncDB.SetLiveAttrs(
+						transact, status.CorpusID, bibIDStruct, bibIDAttr)
+					if err != nil {
+						updateJobChan <- status.CloneWithError(err)
+						transact.Rollback()
+					}
+					err = a.setSoftResetToKontext()
+					if err != nil {
+						updateJobChan <- status.CloneWithError(err)
+					}
+					err = transact.Commit()
+					if err != nil {
+						updateJobChan <- status.CloneWithError(err)
+					}
 				}
-				err = a.cncDB.SetLiveAttrs(
-					transact, status.CorpusID, bibIDStruct, bibIDAttr)
-				if err != nil {
-					updateJobChan <- status.CloneWithError(err)
-					transact.Rollback()
-				}
+			case "sqlite":
 				err = a.setSoftResetToKontext()
 				if err != nil {
 					updateJobChan <- status.CloneWithError(err)
 				}
-				err = transact.Commit()
-				if err != nil {
-					updateJobChan <- status.CloneWithError(err)
-				}
 			}
-		case "sqlite":
-			err = a.setSoftResetToKontext()
-			if err != nil {
-				updateJobChan <- status.CloneWithError(err)
-			}
-		}
-	}()
-	return nil
+		}()
+		return nil
+	}
+	a.jobActions.EnqueueJob(&fn, status)
 }
 
 func (a *Actions) runStopJobListener() {
@@ -457,8 +459,7 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Actions) updateIndexesFromJobStatus(status *liveattrs.IdxUpdateJobInfo) {
-	go func() {
-		updateJobChan := a.jobActions.AddJobInfo(status)
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
 		defer close(updateJobChan)
 		finalStatus := *status
 		corpusDBInfo, err := a.cncDB.LoadInfo(status.CorpusID)
@@ -474,7 +475,9 @@ func (a *Actions) updateIndexesFromJobStatus(status *liveattrs.IdxUpdateJobInfo)
 		finalStatus.Result.RemovedIndexes = ans.RemovedIndexes
 		finalStatus.Result.UsedIndexes = ans.UsedIndexes
 		updateJobChan <- &finalStatus
-	}()
+		return nil
+	}
+	a.jobActions.EnqueueJob(&fn, status)
 }
 
 func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
@@ -517,10 +520,7 @@ func (a *Actions) RestartLiveAttrsJob(jinfo *liveattrs.LiveAttrsJobInfo) error {
 	jinfo.Start = jobs.CurrentDatetime()
 	jinfo.NumRestarts++
 	jinfo.Update = jobs.CurrentDatetime()
-	err := a.createDataFromJobStatus(jinfo)
-	if err != nil {
-		return err
-	}
+	a.createDataFromJobStatus(jinfo)
 	log.Info().Msgf("Restarted liveAttributes job %s", jinfo.ID)
 	return nil
 }

@@ -16,61 +16,60 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package debug
+package jobs
 
 import (
-	"masm/v3/jobs"
 	"time"
 )
 
-type dummyResult struct {
+type DummyJobResult struct {
 	Payload string `json:"payload"`
 }
 
-// dummyJobInfo collects information about corpus data synchronization job
-type dummyJobInfo struct {
-	ID          string        `json:"id"`
-	Type        string        `json:"type"`
-	CorpusID    string        `json:"corpusId"`
-	Start       jobs.JSONTime `json:"start"`
-	Update      jobs.JSONTime `json:"update"`
-	Finished    bool          `json:"finished"`
-	Error       error         `json:"error,omitempty"`
-	Result      *dummyResult  `json:"result"`
-	NumRestarts int           `json:"numRestarts"`
+//DummyJobInfo collects information about corpus data synchronization job
+type DummyJobInfo struct {
+	ID          string          `json:"id"`
+	Type        string          `json:"type"`
+	CorpusID    string          `json:"corpusId"`
+	Start       JSONTime        `json:"start"`
+	Update      JSONTime        `json:"update"`
+	Finished    bool            `json:"finished"`
+	Error       error           `json:"error,omitempty"`
+	Result      *DummyJobResult `json:"result"`
+	NumRestarts int             `json:"numRestarts"`
 }
 
-func (j *dummyJobInfo) GetID() string {
+func (j *DummyJobInfo) GetID() string {
 	return j.ID
 }
 
-func (j *dummyJobInfo) GetType() string {
+func (j *DummyJobInfo) GetType() string {
 	return j.Type
 }
 
-func (j *dummyJobInfo) GetStartDT() jobs.JSONTime {
+func (j *DummyJobInfo) GetStartDT() JSONTime {
 	return j.Start
 }
 
-func (j *dummyJobInfo) GetNumRestarts() int {
+func (j *DummyJobInfo) GetNumRestarts() int {
 	return j.NumRestarts
 }
 
-func (j *dummyJobInfo) GetCorpus() string {
+func (j *DummyJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *dummyJobInfo) IsFinished() bool {
+func (j *DummyJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *dummyJobInfo) SetFinished() {
-	j.Update = jobs.CurrentDatetime()
+func (j *DummyJobInfo) SetFinished() {
+	j.Update = CurrentDatetime()
 	j.Finished = true
 }
 
-func (j *dummyJobInfo) CompactVersion() jobs.JobInfoCompact {
-	item := jobs.JobInfoCompact{
+func (j *DummyJobInfo) CompactVersion() JobInfoCompact {
+	item := JobInfoCompact{
 		ID:       j.ID,
 		Type:     j.Type,
 		CorpusID: j.CorpusID,
@@ -85,18 +84,18 @@ func (j *dummyJobInfo) CompactVersion() jobs.JobInfoCompact {
 	return item
 }
 
-func (j *dummyJobInfo) FullInfo() any {
+func (j *DummyJobInfo) FullInfo() any {
 	return struct {
-		ID          string        `json:"id"`
-		Type        string        `json:"type"`
-		CorpusID    string        `json:"corpusId"`
-		Start       jobs.JSONTime `json:"start"`
-		Update      jobs.JSONTime `json:"update"`
-		Finished    bool          `json:"finished"`
-		Error       string        `json:"error,omitempty"`
-		OK          bool          `json:"ok"`
-		Result      *dummyResult  `json:"result"`
-		NumRestarts int           `json:"numRestarts"`
+		ID          string          `json:"id"`
+		Type        string          `json:"type"`
+		CorpusID    string          `json:"corpusId"`
+		Start       JSONTime        `json:"start"`
+		Update      JSONTime        `json:"update"`
+		Finished    bool            `json:"finished"`
+		Error       string          `json:"error,omitempty"`
+		OK          bool            `json:"ok"`
+		Result      *DummyJobResult `json:"result"`
+		NumRestarts int             `json:"numRestarts"`
 	}{
 		ID:          j.ID,
 		Type:        j.Type,
@@ -104,24 +103,24 @@ func (j *dummyJobInfo) FullInfo() any {
 		Start:       j.Start,
 		Update:      j.Update,
 		Finished:    j.Finished,
-		Error:       jobs.ErrorToString(j.Error),
+		Error:       ErrorToString(j.Error),
 		OK:          j.Error == nil,
 		Result:      j.Result,
 		NumRestarts: j.NumRestarts,
 	}
 }
 
-func (j *dummyJobInfo) GetError() error {
+func (j *DummyJobInfo) GetError() error {
 	return j.Error
 }
 
-func (j *dummyJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
-	return &dummyJobInfo{
+func (j *DummyJobInfo) CloneWithError(err error) GeneralJobInfo {
+	return &DummyJobInfo{
 		ID:          j.ID,
 		Type:        j.Type,
 		CorpusID:    j.CorpusID,
 		Start:       j.Start,
-		Update:      jobs.JSONTime(time.Now()),
+		Update:      JSONTime(time.Now()),
 		Finished:    j.Finished,
 		Error:       err,
 		Result:      j.Result,
