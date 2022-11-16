@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"masm/v3/jobs"
+	"runtime"
 
 	"github.com/rs/zerolog/log"
 
@@ -31,6 +32,7 @@ import (
 const (
 	dfltServerWriteTimeoutSecs = 10
 	dfltLanguage               = "en"
+	dfltMaxNumConcurrentJobs   = 4
 )
 
 // CorporaDataPaths describes three
@@ -137,5 +139,13 @@ func ApplyDefaults(conf *Conf) {
 	if conf.Language == "" {
 		conf.Language = dfltLanguage
 		log.Warn().Msgf("language not specified, using default: %s", conf.Language)
+	}
+	if conf.Jobs.MaxNumConcurrentJobs == 0 {
+		v := dfltMaxNumConcurrentJobs
+		if v >= runtime.NumCPU() {
+			v = runtime.NumCPU()
+		}
+		conf.Jobs.MaxNumConcurrentJobs = v
+		log.Warn().Msgf("jobs.maxNumConcurrentJobs not specified, using default %d", v)
 	}
 }

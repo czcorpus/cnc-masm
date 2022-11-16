@@ -21,7 +21,6 @@ package qs
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"masm/v3/common"
 	"masm/v3/corpus"
@@ -242,10 +241,11 @@ func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) err
 	return exp.processRows(rows, statusChan, status)
 }
 
-func (exp *Exporter) RunAsyncExportJob(ngramsReadyChan chan bool) (ExportJobInfo, chan jobs.GeneralJobInfo, error) {
+func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error) {
+
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		return ExportJobInfo{}, nil, err
+		return ExportJobInfo{}, err
 	}
 	status := ExportJobInfo{
 		ID:       jobID.String(),
@@ -256,32 +256,29 @@ func (exp *Exporter) RunAsyncExportJob(ngramsReadyChan chan bool) (ExportJobInfo
 		Finished: false,
 		Args:     ExportJobInfoArgs{MultiValuesEnabled: exp.multiValuesEnabled},
 	}
-	statusChan := make(chan exporterStatus)
-	updateJobChan := exp.jobActions.AddJobInfo(&status)
-	go func(runStatus ExportJobInfo) {
-		for statUpd := range statusChan {
-			runStatus.Result = statUpd
-			runStatus.Error = statUpd.Error
-			runStatus.Update = jobs.CurrentDatetime()
-			updateJobChan <- &runStatus
-		}
-		runStatus.Update = jobs.CurrentDatetime()
-		runStatus.Finished = true
-		updateJobChan <- &runStatus
-		close(updateJobChan)
-	}(status)
-	go func() {
-		if ngramsReadyChan != nil {
-			ready := <-ngramsReadyChan
-			if !ready {
-				statusChan <- exporterStatus{Error: errors.New("Ngrams are not ready. Can not start export.")}
-				close(statusChan)
-				return
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+		statusChan := make(chan exporterStatus)
+		go func(runStatus ExportJobInfo) {
+			for statUpd := range statusChan {
+				runStatus.Result = statUpd
+				runStatus.Error = statUpd.Error
+				runStatus.Update = jobs.CurrentDatetime()
+				updateJobChan <- &runStatus
 			}
-		}
-		exp.exportValuesToCouchDB(statusChan)
-	}()
-	return status, updateJobChan, nil
+			runStatus.Update = jobs.CurrentDatetime()
+			runStatus.Finished = true
+			updateJobChan <- &runStatus
+			close(updateJobChan)
+		}(status)
+		return exp.exportValuesToCouchDB(statusChan)
+	}
+	if parentJobID != "" {
+		exp.jobActions.EqueueJobAfter(&fn, &status, parentJobID)
+
+	} else {
+		exp.jobActions.EnqueueJob(&fn, &status)
+	}
+	return status, nil
 }
 
 func NewExporter(

@@ -30,14 +30,14 @@ import (
 )
 
 type storedDummyJob struct {
-	jobInfo   dummyJobInfo
+	jobInfo   jobs.DummyJobInfo
 	jobUpdate chan jobs.GeneralJobInfo
 }
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	dummyJobs  map[string]*storedDummyJob
-	jobActions *jobs.Actions
+	finishSignals map[string]chan<- bool
+	jobActions    *jobs.Actions
 }
 
 // GetCorpusInfo provides some basic information about stored data
@@ -49,7 +49,7 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	jobInfo := dummyJobInfo{
+	jobInfo := &jobs.DummyJobInfo{
 		ID:       jobID.String(),
 		Type:     "dummy-job",
 		Start:    jobs.CurrentDatetime(),
@@ -58,25 +58,35 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Query().Get("error") == "1" {
 		jobInfo.Error = fmt.Errorf("dummy error")
 	}
-	jobChannel := a.jobActions.AddJobInfo(&jobInfo)
-	a.dummyJobs[jobID.String()] = &storedDummyJob{
-		jobInfo:   jobInfo,
-		jobUpdate: jobChannel,
+	finishSignal := make(chan bool)
+	fn := func(upds chan<- jobs.GeneralJobInfo) error {
+		<-finishSignal
+		jobInfo.Result = &jobs.DummyJobResult{Payload: "Job Done!"}
+		jobInfo.SetFinished()
+		upds <- jobInfo
+		return nil
 	}
+	a.jobActions.EnqueueJob(&fn, jobInfo)
+	a.finishSignals[jobID.String()] = finishSignal
 	api.WriteJSONResponse(w, jobInfo)
 }
 
 func (a *Actions) FinishDummyJob(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	storedJob, ok := a.dummyJobs[vars["jobId"]]
+	finish, ok := a.finishSignals[vars["jobId"]]
 	if ok {
-		delete(a.dummyJobs, vars["jobId"])
-		defer close(storedJob.jobUpdate)
+		delete(a.finishSignals, vars["jobId"])
+		defer close(finish)
+		finish <- true
+		if storedJob, ok := a.jobActions.GetJob(vars["jobId"]); ok {
+			// TODO please note that here we typically won't see the
+			// final storedJob value (updated elsewhere in a different
+			// goroutine). So it may be a bit confusing.
+			api.WriteJSONResponse(w, storedJob.FullInfo())
 
-		storedJob.jobInfo.SetFinished()
-		storedJob.jobInfo.Result = &dummyResult{Payload: "Job Done!"}
-		storedJob.jobUpdate <- &storedJob.jobInfo
-		api.WriteJSONResponse(w, storedJob.jobInfo)
+		} else {
+			api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		}
 
 	} else {
 		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
@@ -86,7 +96,7 @@ func (a *Actions) FinishDummyJob(w http.ResponseWriter, req *http.Request) {
 // NewActions is the default factory
 func NewActions(jobActions *jobs.Actions) *Actions {
 	return &Actions{
-		dummyJobs:  make(map[string]*storedDummyJob),
-		jobActions: jobActions,
+		finishSignals: make(map[string]chan<- bool),
+		jobActions:    jobActions,
 	}
 }

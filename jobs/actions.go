@@ -19,6 +19,7 @@
 package jobs
 
 import (
+	"fmt"
 	"masm/v3/api"
 	"masm/v3/fsops"
 	"masm/v3/mail"
@@ -56,6 +57,9 @@ type Actions struct {
 	jobListLock      sync.Mutex
 	detachedJobs     map[string]GeneralJobInfo
 	detachedJobsLock sync.Mutex
+	jobQueue         *JobQueue
+	jobQueueLock     sync.Mutex
+	jobDeps          JobsDeps
 	jobStop          chan<- string
 	msgPrinter       *message.Printer
 
@@ -76,9 +80,65 @@ func (a *Actions) createJobList(unfinishedOnly bool) JobInfoList {
 	return ans
 }
 
-// AddJobInfo add a new job to the job table and provides
+func (a *Actions) EnqueueJob(fn *QueuedFunc, initialStatus GeneralJobInfo) {
+	a.jobQueueLock.Lock()
+	a.jobQueue.Enqueue(fn, initialStatus)
+	a.jobQueueLock.Unlock()
+	log.Info().Msgf("Enqueued job %s", initialStatus.GetID())
+}
+
+func (a *Actions) EqueueJobAfter(fn *QueuedFunc, initialStatus GeneralJobInfo, parentJobID string) {
+	a.jobQueueLock.Lock()
+	a.jobQueue.Enqueue(fn, initialStatus)
+	a.jobQueueLock.Unlock()
+	a.jobDeps.Add(initialStatus.GetID(), parentJobID)
+	log.Info().Msgf("Enqueued job %s with parent %s", initialStatus.GetID(), parentJobID)
+}
+
+func (a *Actions) dequeueAndRunJob() {
+	fn, initState, err := a.jobQueue.Dequeue()
+	if err == nil {
+		log.Info().
+			Float32(
+				"utilization",
+				float32(a.numOfUnfinishedJobs())/float32(a.conf.MaxNumConcurrentJobs),
+			).
+			Str("jobId", initState.GetID()).
+			Str("jobType", initState.GetType()).
+			Str("corpus", initState.GetCorpus()).
+			Msgf("Dequeued a new job")
+		updateJobChan := a.addJobInfo(initState)
+		go func() {
+			err := (*fn)(updateJobChan)
+			if err != nil { // = job failed to start;
+				// please note that some job functions may block here
+				// which means we may need to wait until they fail
+				// to finish properly
+				log.Error().Err(err).Msgf("failed to start job %s", initState.GetID())
+				finalState := initState.CloneWithError(err)
+				finalState.SetFinished()
+				updateJobChan <- finalState
+			}
+		}()
+	}
+}
+
+// dequeueJobAsFailed can be used in case we know we cannot
+// run a job e.g. because of a failed dependency (= other job).
+// But we still need to respect basic workflow so we dequeue
+// the job, set the status and send it via a respective channel.
+func (a *Actions) dequeueJobAsFailed(err error) {
+	_, initState, _ := a.jobQueue.Dequeue()
+	finalState := initState.CloneWithError(err)
+	updateJobChan := a.addJobInfo(finalState)
+	finalState.SetFinished()
+	updateJobChan <- finalState
+	log.Error().Err(err).Send()
+}
+
+// addJobInfo add a new job to the job table and provides
 // a channel to update its status
-func (a *Actions) AddJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
+func (a *Actions) addJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 	_, ok := a.detachedJobs[j.GetID()]
 	if ok {
 		log.Info().Msgf("Registering again detached job %s", j.GetID())
@@ -139,7 +199,12 @@ func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	job := FindJob(a.jobList, vars["jobId"])
 	if job != nil {
-		api.WriteJSONResponse(w, job)
+		if req.URL.Query().Get("compact") == "1" {
+			api.WriteJSONResponse(w, job.CompactVersion())
+
+		} else {
+			api.WriteJSONResponse(w, job.FullInfo())
+		}
 
 	} else {
 		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
@@ -199,6 +264,18 @@ func (a *Actions) ClearDetachedJob(jobID string) bool {
 	_, ok := a.detachedJobs[jobID]
 	delete(a.detachedJobs, jobID)
 	return ok
+}
+
+func (a *Actions) numOfUnfinishedJobs() int {
+	ans := 0
+	a.jobListLock.Lock()
+	for _, v := range a.jobList {
+		if !v.IsFinished() {
+			ans++
+		}
+	}
+	a.jobListLock.Unlock()
+	return ans
 }
 
 func (a *Actions) LastUnfinishedJobOfType(corpusID string, jobType string) (GeneralJobInfo, bool) {
@@ -332,6 +409,17 @@ func (a *Actions) RemoveNotification(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+func (a *Actions) Utilization(w http.ResponseWriter, req *http.Request) {
+	numUnfinished := a.numOfUnfinishedJobs()
+	ans := map[string]any{
+		"maxNumConcurrentJobs": a.conf.MaxNumConcurrentJobs,
+		"currentRunningJobs":   numUnfinished,
+		"utilization":          float32(numUnfinished) / float32(a.conf.MaxNumConcurrentJobs),
+		"jobQueueLength":       a.jobQueue.Size(),
+	}
+	api.WriteJSONResponse(w, ans)
+}
+
 // NewActions is the default factory
 func NewActions(
 	conf *Conf,
@@ -347,6 +435,8 @@ func NewActions(
 		jobStop:                jobStop,
 		notificationRecipients: make(map[string][]string),
 		msgPrinter:             message.NewPrinter(message.MatchLanguage(lang)),
+		jobQueue:               &JobQueue{},
+		jobDeps:                make(JobsDeps),
 	}
 	if fsops.IsFile(conf.StatusDataPath) {
 		log.Info().Msgf("found status data in %s - loading...", conf.StatusDataPath)
@@ -362,6 +452,8 @@ func NewActions(
 		}
 	}
 
+	// here we listen for exit events and clean finished
+	// jobs info regularly
 	ticker := time.NewTicker(1 * time.Hour)
 	go func() {
 		for {
@@ -369,6 +461,62 @@ func NewActions(
 			case <-ticker.C:
 				ans.tableUpdate <- TableUpdate{
 					action: tableActionClearOldJobs,
+				}
+			case <-exitEvent:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
+	ticker2 := time.NewTicker(1 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker2.C:
+				ans.jobQueueLock.Lock()
+				numUnfinished := ans.numOfUnfinishedJobs()
+				// Now calling again the numOfUnfinishedJobs() may return
+				// different value but it can be only a value smaller than
+				// numUnfinished as the change can be only caused by another
+				// job being finished (adding of jobs for execution happens
+				// only here and is not concurrent).
+				if ans.conf.MaxNumConcurrentJobs > numUnfinished {
+					// first, let's check whether the current job depends
+					// on other job(s) (= aka 'parents') and delay it in case
+					// parents are not ready yet
+					nextJobID, err := ans.jobQueue.PeekID()
+					if err != nil {
+						// empty queue
+					} else if _, ok := ans.jobDeps[nextJobID]; ok { // job with dependencies
+
+						mustWait, err := ans.jobDeps.MustWait(nextJobID)
+						if err != nil {
+							err := fmt.Errorf("failed to obtain waiting status for job %s: %w", nextJobID, err)
+							ans.dequeueJobAsFailed(err)
+
+						} else if mustWait {
+							ans.jobQueue.DelayNext()
+
+						} else {
+							hasFailedParent, err := ans.jobDeps.HasFailedParent(nextJobID)
+							if err != nil {
+								err := fmt.Errorf("failed to check parents of job %s: %w", nextJobID, err)
+								ans.dequeueJobAsFailed(err)
+
+							} else if hasFailedParent {
+								err := fmt.Errorf("failed to run job %s due to failed parent(s): %w", nextJobID, err)
+								ans.dequeueJobAsFailed(err)
+
+							} else {
+								ans.dequeueAndRunJob()
+							}
+						}
+
+					} else { // job without deps
+						ans.dequeueAndRunJob()
+					}
+					ans.jobQueueLock.Unlock()
 				}
 			case <-exitEvent:
 				ticker.Stop()
@@ -396,6 +544,7 @@ func NewActions(
 				ans.jobListLock.Lock()
 				ans.jobList[upd.itemID].SetFinished()
 				ans.jobListLock.Unlock()
+				ans.jobDeps.SetParentFinished(upd.itemID, upd.data.GetError() != nil)
 				recipients, ok := ans.notificationRecipients[upd.itemID]
 				if ok {
 					jdesc := extractJobDescription(ans.msgPrinter, upd.data)

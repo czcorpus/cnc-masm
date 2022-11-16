@@ -261,6 +261,8 @@ func main() {
 	router.HandleFunc(
 		"/jobs", jobActions.JobList).Methods(http.MethodGet)
 	router.HandleFunc(
+		"/jobs/utilization", jobActions.Utilization).Methods(http.MethodGet)
+	router.HandleFunc(
 		"/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
 	router.HandleFunc(
 		"/jobs/{jobId}", jobActions.Delete).Methods(http.MethodDelete)

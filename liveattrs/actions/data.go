@@ -126,12 +126,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 			NoCorpusUpdate: noCorpusUpdate == "1",
 		},
 	}
-	err = a.createDataFromJobStatus(status)
-	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
-		return
-	}
+	a.createDataFromJobStatus(status)
 	api.WriteJSONResponseWithStatus(w, http.StatusCreated, status.FullInfo())
 }
 
