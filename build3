@@ -10,7 +10,8 @@ APP_NAME = 'masm'
 KNOWN_VERSIONS = {
     '2.167.8',
     '2.167.10',
-    '2.208'
+    '2.208',
+    '2.214.1',
 }
 
 class Version:
