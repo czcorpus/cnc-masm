@@ -61,9 +61,10 @@ func (j *ExportJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *ExportJobInfo) SetFinished() {
+func (j *ExportJobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
+	return j
 }
 
 func (j *ExportJobInfo) IsFinished() bool {

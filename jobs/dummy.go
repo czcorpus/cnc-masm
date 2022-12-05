@@ -63,9 +63,10 @@ func (j *DummyJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *DummyJobInfo) SetFinished() {
+func (j *DummyJobInfo) SetFinished() GeneralJobInfo {
 	j.Update = CurrentDatetime()
 	j.Finished = true
+	return j
 }
 
 func (j *DummyJobInfo) CompactVersion() JobInfoCompact {

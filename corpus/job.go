@@ -60,9 +60,10 @@ func (j *JobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *JobInfo) SetFinished() {
+func (j *JobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
+	return j
 }
 
 func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {

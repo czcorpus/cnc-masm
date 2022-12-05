@@ -117,7 +117,7 @@ func (exp *Exporter) isValidWord(w string) bool {
 	return validWordRegexp.MatchString(w)
 }
 
-func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatus, status exporterStatus) error {
+func (exp *Exporter) processRowsSync(rows *sql.Rows, statusChan chan<- exporterStatus, status exporterStatus) {
 	bulkWriter := couchdb.NewDocHandler[*Lemma](exp.cb)
 	var idBase, procRecords int
 	chunk := make([]*Lemma, 0, exportChunkSize)
@@ -136,7 +136,7 @@ func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatu
 		if err != nil {
 			status.Error = err
 			statusChan <- status
-			return err
+			return
 		}
 		if exp.isValidWord(lemmaValue) {
 			newLemma := lemmaValue
@@ -190,7 +190,7 @@ func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatu
 		err := fmt.Errorf("there were no n-gram records to process")
 		status.Error = err
 		statusChan <- status
-		return err
+		return
 	}
 	if currLemma != nil {
 		chunk = append(chunk, currLemma)
@@ -200,14 +200,13 @@ func (exp *Exporter) processRows(rows *sql.Rows, statusChan chan<- exporterStatu
 		if err != nil {
 			status.Error = err
 			statusChan <- status
-			return err
+			return
 		}
 	}
-	return nil
+	return
 }
 
-func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) error {
-	defer close(statusChan)
+func (exp *Exporter) exportValuesToCouchDBSync(statusChan chan<- exporterStatus) {
 	status := exporterStatus{}
 
 	couchdbSchema := couchdb.NewSchema(exp.cb)
@@ -215,13 +214,13 @@ func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) err
 	if err != nil {
 		status.Error = err
 		statusChan <- status
-		return err
+		return
 	}
 	err = couchdbSchema.CreateViews()
 	if err != nil {
 		status.Error = err
 		statusChan <- status
-		return err
+		return
 	}
 	status.TablesReady = true
 	statusChan <- status
@@ -236,9 +235,9 @@ func (exp *Exporter) exportValuesToCouchDB(statusChan chan<- exporterStatus) err
 	if err != nil {
 		status.Error = err
 		statusChan <- status
-		return err
+		return
 	}
-	return exp.processRows(rows, statusChan, status)
+	exp.processRowsSync(rows, statusChan, status)
 }
 
 func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error) {
@@ -256,9 +255,10 @@ func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error)
 		Finished: false,
 		Args:     ExportJobInfoArgs{MultiValuesEnabled: exp.multiValuesEnabled},
 	}
-	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		statusChan := make(chan exporterStatus)
 		go func(runStatus ExportJobInfo) {
+			defer close(updateJobChan)
 			for statUpd := range statusChan {
 				runStatus.Result = statUpd
 				runStatus.Error = statUpd.Error
@@ -268,9 +268,8 @@ func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error)
 			runStatus.Update = jobs.CurrentDatetime()
 			runStatus.Finished = true
 			updateJobChan <- &runStatus
-			close(updateJobChan)
 		}(status)
-		return exp.exportValuesToCouchDB(statusChan)
+		exp.exportValuesToCouchDBSync(statusChan)
 	}
 	if parentJobID != "" {
 		exp.jobActions.EqueueJobAfter(&fn, &status, parentJobID)

@@ -59,12 +59,12 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 		jobInfo.Error = fmt.Errorf("dummy error")
 	}
 	finishSignal := make(chan bool)
-	fn := func(upds chan<- jobs.GeneralJobInfo) error {
+	fn := func(upds chan<- jobs.GeneralJobInfo) {
+		defer close(upds)
 		<-finishSignal
 		jobInfo.Result = &jobs.DummyJobResult{Payload: "Job Done!"}
 		jobInfo.SetFinished()
 		upds <- jobInfo
-		return nil
 	}
 	a.jobActions.EnqueueJob(&fn, jobInfo)
 	a.finishSignals[jobID.String()] = finishSignal

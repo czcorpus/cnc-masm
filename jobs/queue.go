@@ -27,7 +27,7 @@ var (
 	ErrorEmptyQueue = errors.New("empty queue")
 )
 
-type QueuedFunc = func(chan<- GeneralJobInfo) error
+type QueuedFunc = func(chan<- GeneralJobInfo)
 
 type JobEntry struct {
 	next         *JobEntry

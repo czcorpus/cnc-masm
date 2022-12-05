@@ -26,9 +26,9 @@ import (
 
 func TestEnqueue(t *testing.T) {
 	q := JobQueue{}
-	f1 := func(chan<- GeneralJobInfo) error { return nil }
-	f2 := func(chan<- GeneralJobInfo) error { return nil }
-	f3 := func(chan<- GeneralJobInfo) error { return nil }
+	f1 := func(chan<- GeneralJobInfo) {}
+	f2 := func(chan<- GeneralJobInfo) {}
+	f3 := func(chan<- GeneralJobInfo) {}
 	q.Enqueue(&f1, &DummyJobInfo{ID: "1"})
 	q.Enqueue(&f2, &DummyJobInfo{ID: "2"})
 	q.Enqueue(&f3, &DummyJobInfo{ID: "3"})
@@ -41,9 +41,9 @@ func TestEnqueue(t *testing.T) {
 
 func TestDequeueOne(t *testing.T) {
 	q := JobQueue{}
-	f1 := func(chan<- GeneralJobInfo) error { return nil }
-	f2 := func(chan<- GeneralJobInfo) error { return nil }
-	f3 := func(chan<- GeneralJobInfo) error { return nil }
+	f1 := func(chan<- GeneralJobInfo) {}
+	f2 := func(chan<- GeneralJobInfo) {}
+	f3 := func(chan<- GeneralJobInfo) {}
 	q.Enqueue(&f1, &DummyJobInfo{ID: "1"})
 	q.Enqueue(&f2, &DummyJobInfo{ID: "2"})
 	q.Enqueue(&f3, &DummyJobInfo{ID: "3"})
@@ -57,9 +57,9 @@ func TestDequeueOne(t *testing.T) {
 func TestDequeueAll(t *testing.T) {
 	q := JobQueue{}
 	var err error
-	f1 := func(chan<- GeneralJobInfo) error { return nil }
-	f2 := func(chan<- GeneralJobInfo) error { return nil }
-	f3 := func(chan<- GeneralJobInfo) error { return nil }
+	f1 := func(chan<- GeneralJobInfo) {}
+	f2 := func(chan<- GeneralJobInfo) {}
+	f3 := func(chan<- GeneralJobInfo) {}
 
 	q.Enqueue(&f1, &DummyJobInfo{ID: "1"})
 	q.Enqueue(&f2, &DummyJobInfo{ID: "2"})
@@ -79,9 +79,9 @@ func TestDequeueAll(t *testing.T) {
 
 func TestRepeatedlyEmptied(t *testing.T) {
 	q := JobQueue{}
-	f1 := func(chan<- GeneralJobInfo) error { return nil }
-	f2 := func(chan<- GeneralJobInfo) error { return nil }
-	f3 := func(chan<- GeneralJobInfo) error { return nil }
+	f1 := func(chan<- GeneralJobInfo) {}
+	f2 := func(chan<- GeneralJobInfo) {}
+	f3 := func(chan<- GeneralJobInfo) {}
 
 	q.Enqueue(&f1, &DummyJobInfo{ID: "1"})
 	q.Enqueue(&f2, &DummyJobInfo{ID: "2"})
@@ -108,8 +108,8 @@ func TestDelayNextOnEmpty(t *testing.T) {
 }
 func TestDelayNextOnTwoItemQueue(t *testing.T) {
 	q := JobQueue{}
-	f1 := func(chan<- GeneralJobInfo) error { return nil }
-	f2 := func(chan<- GeneralJobInfo) error { return nil }
+	f1 := func(chan<- GeneralJobInfo) {}
+	f2 := func(chan<- GeneralJobInfo) {}
 	q.Enqueue(&f1, &DummyJobInfo{ID: "1"})
 	q.Enqueue(&f2, &DummyJobInfo{ID: "2"})
 	err := q.DelayNext()
