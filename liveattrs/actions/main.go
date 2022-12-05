@@ -165,12 +165,14 @@ func (a *Actions) setSoftResetToKontext() error {
 // createDataFromJobStatus starts data extraction and generation
 // based on (initial) job status
 func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
-	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		a.vteExitEvents[status.ID] = make(chan os.Signal)
 		procStatus, err := vteLib.ExtractData(
 			&status.Args.VteConf, status.Args.Append, a.vteExitEvents[status.ID])
 		if err != nil {
-			return fmt.Errorf("failed to start vert-tagextract: %s", err)
+			updateJobChan <- status.CloneWithError(
+				fmt.Errorf("failed to start vert-tagextract: %s", err)).SetFinished()
+			close(updateJobChan)
 		}
 		go func() {
 			defer func() {
@@ -239,7 +241,6 @@ func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
 				}
 			}
 		}()
-		return nil
 	}
 	a.jobActions.EnqueueJob(&fn, status)
 }
@@ -459,7 +460,7 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *Actions) updateIndexesFromJobStatus(status *liveattrs.IdxUpdateJobInfo) {
-	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		defer close(updateJobChan)
 		finalStatus := *status
 		corpusDBInfo, err := a.cncDB.LoadInfo(status.CorpusID)
@@ -475,7 +476,6 @@ func (a *Actions) updateIndexesFromJobStatus(status *liveattrs.IdxUpdateJobInfo)
 		finalStatus.Result.RemovedIndexes = ans.RemovedIndexes
 		finalStatus.Result.UsedIndexes = ans.UsedIndexes
 		updateJobChan <- &finalStatus
-		return nil
 	}
 	a.jobActions.EnqueueJob(&fn, status)
 }

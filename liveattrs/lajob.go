@@ -76,9 +76,10 @@ func (j *LiveAttrsJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *LiveAttrsJobInfo) SetFinished() {
+func (j *LiveAttrsJobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
+	return j
 }
 
 func (j *LiveAttrsJobInfo) IsFinished() bool {

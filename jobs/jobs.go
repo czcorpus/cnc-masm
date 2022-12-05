@@ -56,8 +56,9 @@ type GeneralJobInfo interface {
 
 	// SetFinished sets the internal status to a finished state. It is expected that
 	// the lastest stored information (e.g. an error) is preserved and proper update
-	// time information is stored.
-	SetFinished()
+	// time information is stored. It is OK not to create a clone for the returned
+	// value.
+	SetFinished() GeneralJobInfo
 
 	// GetNumRestarts returns how many times was the job restarted. For the normally run
 	// job, this should be always 0. The number > 0 is expect to happen e.g. in case the

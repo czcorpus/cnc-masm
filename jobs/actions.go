@@ -109,16 +109,7 @@ func (a *Actions) dequeueAndRunJob() {
 			Msgf("Dequeued a new job")
 		updateJobChan := a.addJobInfo(initState)
 		go func() {
-			err := (*fn)(updateJobChan)
-			if err != nil { // = job failed to start;
-				// please note that some job functions may block here
-				// which means we may need to wait until they fail
-				// to finish properly
-				log.Error().Err(err).Msgf("failed to start job %s", initState.GetID())
-				finalState := initState.CloneWithError(err)
-				finalState.SetFinished()
-				updateJobChan <- finalState
-			}
+			(*fn)(updateJobChan)
 		}()
 	}
 }

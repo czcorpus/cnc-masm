@@ -84,7 +84,8 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 	jinfo.NumRestarts++
 	jinfo.Update = jobs.CurrentDatetime()
 
-	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
+		defer close(updateJobChan)
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, jinfo.CorpusID)
 		if err != nil {
 			updateJobChan <- jinfo.CloneWithError(err)
@@ -95,7 +96,6 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 			newJinfo.SetFinished()
 			updateJobChan <- &newJinfo
 		}
-		return nil
 	}
 	a.jobActions.EnqueueJob(&fn, jinfo)
 	log.Info().Msgf("Restarted corpus job %s", jinfo.ID)
@@ -136,7 +136,8 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	}
 
 	// now let's define and enqueue the actual synchronization
-	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
+		defer close(updateJobChan)
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
 		if err != nil {
 			jobRec.Error = err
@@ -144,7 +145,6 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		jobRec.Result = &resp
 		jobRec.SetFinished()
 		updateJobChan <- jobRec
-		return nil
 	}
 	a.jobActions.EnqueueJob(&fn, jobRec)
 

@@ -274,18 +274,17 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 	return nil
 }
 
-// generate (synchronously) generates n-grams from raw liveattrs data
+// generateSync (synchronously) generates n-grams from raw liveattrs data
 // provided statusChan is closed by the method once
 // the operation finishes
-func (nfg *NgramFreqGenerator) generate(statusChan chan<- genNgramsStatus) error {
-	defer close(statusChan)
+func (nfg *NgramFreqGenerator) generateSync(statusChan chan<- genNgramsStatus) {
 	var status genNgramsStatus
 	tx, err := nfg.db.Begin()
 	if err != nil {
 		tx.Rollback()
 		status.Error = err
 		statusChan <- status
-		return err
+		return
 	}
 	err = nfg.createTables(tx)
 	status.TablesReady = true
@@ -294,23 +293,21 @@ func (nfg *NgramFreqGenerator) generate(statusChan chan<- genNgramsStatus) error
 		tx.Rollback()
 		status.Error = err
 		statusChan <- status
-		return err
+		return
 	}
 	err = nfg.run(tx, &status, statusChan)
 	if err != nil {
 		tx.Rollback()
 		status.Error = err
 		statusChan <- status
-		return err
+		return
 	}
 	err = tx.Commit()
 	if err != nil {
 		tx.Rollback()
 		status.Error = err
 		statusChan <- status
-		return err
 	}
-	return nil
 }
 
 func (nfg *NgramFreqGenerator) Generate(corpusID string) (NgramJobInfo, error) {
@@ -331,9 +328,10 @@ func (nfg *NgramFreqGenerator) GenerateAfter(corpusID, parentJobID string) (Ngra
 		Finished: false,
 		Args:     NgramJobInfoArgs{},
 	}
-	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) error {
+	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		statusChan := make(chan genNgramsStatus)
 		go func(runStatus NgramJobInfo) {
+			defer close(updateJobChan)
 			for statUpd := range statusChan {
 				runStatus.Result = statUpd
 				runStatus.Error = statUpd.Error
@@ -343,9 +341,8 @@ func (nfg *NgramFreqGenerator) GenerateAfter(corpusID, parentJobID string) (Ngra
 			runStatus.Update = jobs.CurrentDatetime()
 			runStatus.Finished = true
 			updateJobChan <- &runStatus
-			close(updateJobChan)
 		}(status)
-		return nfg.generate(statusChan)
+		nfg.generateSync(statusChan)
 	}
 	if parentJobID != "" {
 		nfg.jobActions.EqueueJobAfter(&fn, &status, parentJobID)
