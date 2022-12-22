@@ -257,6 +257,7 @@ func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error)
 	}
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		statusChan := make(chan exporterStatus)
+		defer close(statusChan)
 		go func(runStatus ExportJobInfo) {
 			defer close(updateJobChan)
 			for statUpd := range statusChan {
@@ -266,7 +267,7 @@ func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error)
 				updateJobChan <- &runStatus
 			}
 			runStatus.Update = jobs.CurrentDatetime()
-			runStatus.Finished = true
+			runStatus.SetFinished()
 			updateJobChan <- &runStatus
 		}(status)
 		exp.exportValuesToCouchDBSync(statusChan)

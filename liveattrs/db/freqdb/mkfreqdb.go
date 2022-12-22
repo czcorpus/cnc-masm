@@ -330,6 +330,7 @@ func (nfg *NgramFreqGenerator) GenerateAfter(corpusID, parentJobID string) (Ngra
 	}
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		statusChan := make(chan genNgramsStatus)
+		defer close(statusChan)
 		go func(runStatus NgramJobInfo) {
 			defer close(updateJobChan)
 			for statUpd := range statusChan {
@@ -339,7 +340,7 @@ func (nfg *NgramFreqGenerator) GenerateAfter(corpusID, parentJobID string) (Ngra
 				updateJobChan <- &runStatus
 			}
 			runStatus.Update = jobs.CurrentDatetime()
-			runStatus.Finished = true
+			runStatus.SetFinished()
 			updateJobChan <- &runStatus
 		}(status)
 		nfg.generateSync(statusChan)
