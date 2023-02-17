@@ -97,8 +97,7 @@ func (mm *MetadataModel) getTextSizes() ([]int, map[string]int, error) {
 	}
 	var sqle strings.Builder
 	sqle.WriteString(fmt.Sprintf(
-		"SELECT m1.%s AS db_id, SUM(poscount) FROM %s AS m1 ",
-		utils.ImportKey(mm.idAttr),
+		"SELECT MIN(m1.id) AS db_id, SUM(poscount) FROM %s AS m1 ",
 		mm.tableName,
 	))
 	args := []any{}
@@ -167,8 +166,7 @@ func (mm *MetadataModel) initAB(node *CategoryTreeNode, usedIDs *collections.Set
 		sqlArgs := []any{}
 		var sqle strings.Builder
 		sqle.WriteString(fmt.Sprintf(
-			"SELECT m1.%s AS db_id, SUM(m1.poscount) FROM %s AS m1 ",
-			utils.ImportKey(mm.idAttr),
+			"SELECT m1.id AS db_id, SUM(m1.poscount) FROM %s AS m1 ",
 			mm.tableName,
 		))
 		mm.cTree.appendAlignedCorpSQL(sqle, &sqlArgs)
