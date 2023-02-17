@@ -75,13 +75,13 @@ func (ej *ExpressionJoin) IsComposed() bool {
 
 func collectAtomsRecursive(current any) []any {
 	switch tCurrent := current.(type) {
-	case ExpressionJoin:
+	case *ExpressionJoin:
 		for _, item := range tCurrent.Items {
 			var ans []any
 			ans = append(ans, collectAtomsRecursive(item)...)
 			return ans
 		}
-	case CategoryExpression:
+	case *CategoryExpression:
 		return []any{&tCurrent}
 	}
 	log.Debug().Msg("possibly invalid expression encoutered")
@@ -92,9 +92,9 @@ func (ej *ExpressionJoin) GetAtoms() []AbstractAtomicExpression {
 	tmp := collectAtomsRecursive(ej)
 	ans := make([]AbstractAtomicExpression, len(tmp))
 	for i, v := range tmp {
-		t, ok := v.(CategoryExpression)
+		t, ok := v.(*CategoryExpression)
 		if ok {
-			ans[i] = &t
+			ans[i] = t
 
 		} else {
 			log.Debug().Msg("possibly invalid expression")
