@@ -40,37 +40,37 @@ type NgramJobInfo struct {
 	Result      genNgramsStatus  `json:"result"`
 }
 
-func (j *NgramJobInfo) GetID() string {
+func (j NgramJobInfo) GetID() string {
 	return j.ID
 }
 
-func (j *NgramJobInfo) GetType() string {
+func (j NgramJobInfo) GetType() string {
 	return j.Type
 }
 
-func (j *NgramJobInfo) GetStartDT() jobs.JSONTime {
+func (j NgramJobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
 }
 
-func (j *NgramJobInfo) GetNumRestarts() int {
+func (j NgramJobInfo) GetNumRestarts() int {
 	return j.NumRestarts
 }
 
-func (j *NgramJobInfo) GetCorpus() string {
+func (j NgramJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *NgramJobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j NgramJobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j
 }
 
-func (j *NgramJobInfo) IsFinished() bool {
+func (j NgramJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *NgramJobInfo) FullInfo() any {
+func (j NgramJobInfo) FullInfo() any {
 	return struct {
 		ID          string           `json:"id"`
 		Type        string           `json:"type"`
@@ -98,7 +98,7 @@ func (j *NgramJobInfo) FullInfo() any {
 	}
 }
 
-func (j *NgramJobInfo) CompactVersion() jobs.JobInfoCompact {
+func (j NgramJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
 		Type:     j.Type,
@@ -112,11 +112,11 @@ func (j *NgramJobInfo) CompactVersion() jobs.JobInfoCompact {
 	return item
 }
 
-func (j *NgramJobInfo) GetError() error {
+func (j NgramJobInfo) GetError() error {
 	return j.Error
 }
 
-func (j *NgramJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
+func (j NgramJobInfo) WithError(err error) jobs.GeneralJobInfo {
 	return &NgramJobInfo{
 		ID:          j.ID,
 		Type:        j.Type,

@@ -36,37 +36,37 @@ type JobInfo struct {
 	NumRestarts int           `json:"numRestarts"`
 }
 
-func (j *JobInfo) GetID() string {
+func (j JobInfo) GetID() string {
 	return j.ID
 }
 
-func (j *JobInfo) GetType() string {
+func (j JobInfo) GetType() string {
 	return j.Type
 }
 
-func (j *JobInfo) GetStartDT() jobs.JSONTime {
+func (j JobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
 }
 
-func (j *JobInfo) GetNumRestarts() int {
+func (j JobInfo) GetNumRestarts() int {
 	return j.NumRestarts
 }
 
-func (j *JobInfo) GetCorpus() string {
+func (j JobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *JobInfo) IsFinished() bool {
+func (j JobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *JobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j JobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j
 }
 
-func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
+func (j JobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
 		Type:     j.Type,
@@ -82,7 +82,7 @@ func (j *JobInfo) CompactVersion() jobs.JobInfoCompact {
 	return item
 }
 
-func (j *JobInfo) FullInfo() any {
+func (j JobInfo) FullInfo() any {
 	return struct {
 		ID          string        `json:"id"`
 		Type        string        `json:"type"`
@@ -108,12 +108,12 @@ func (j *JobInfo) FullInfo() any {
 	}
 }
 
-func (j *JobInfo) GetError() error {
+func (j JobInfo) GetError() error {
 	return j.Error
 }
 
-func (j *JobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
-	return &JobInfo{
+func (j JobInfo) WithError(err error) jobs.GeneralJobInfo {
+	return JobInfo{
 		ID:          j.ID,
 		Type:        j.Type,
 		CorpusID:    j.CorpusID,

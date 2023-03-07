@@ -88,7 +88,7 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 		defer close(updateJobChan)
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, jinfo.CorpusID)
 		if err != nil {
-			updateJobChan <- jinfo.CloneWithError(err)
+			updateJobChan <- jinfo.WithError(err)
 
 		} else {
 			newJinfo := *jinfo

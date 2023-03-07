@@ -123,3 +123,123 @@ func FindBibTitles(
 
 	return ans, nil
 }
+
+type DocumentRow struct {
+	Idx    int               `json:"idx"`
+	ID     string            `json:"id"`
+	Label  string            `json:"label"`
+	Attrs  map[string]string `json:"attrs"`
+	NumPos int               `json:"numOfPos"`
+}
+
+type PageInfo struct {
+	Page     int
+	PageSize int
+	MaxItems int
+}
+
+func (pinfo PageInfo) NumItems() int {
+	if pinfo.PageSize == 0 {
+		return pinfo.MaxItems
+	}
+	return pinfo.Page*pinfo.PageSize + 1
+}
+
+func (pinfo PageInfo) Offset() int {
+	return (pinfo.Page - 1) * pinfo.PageSize
+}
+
+func (pinfo PageInfo) ToSQL() string {
+	if pinfo.PageSize == 0 {
+		return ""
+	}
+	return fmt.Sprintf(
+		"LIMIT %d OFFSET %d",
+		pinfo.PageSize,
+		pinfo.Offset(),
+	)
+}
+
+func createAttrSQLChunk(attrs []string) string {
+	sql := strings.Builder{}
+	for _, attr := range attrs {
+		sql.WriteString(", ")
+		sql.WriteString(utils.ImportKey(attr))
+	}
+	return sql.String()
+}
+
+func GetNumOfDocuments(db *sql.DB, corpusInfo *corpus.DBInfo) (int, error) {
+	sql := fmt.Sprintf(
+		"SELECT COUNT(*) FROM `%s_liveattrs_entry` WHERE corpus_id = ? GROUP BY ?",
+		corpusInfo.GroupedName(),
+	)
+	row := db.QueryRow(sql, corpusInfo.GroupedName(), utils.ImportKey(corpusInfo.BibIDAttr))
+	var ans int
+	err := row.Scan(&ans)
+	if err != nil {
+		return 0, err
+	}
+	return ans, nil
+}
+
+func GetDocuments(
+	db *sql.DB,
+	corpusInfo *corpus.DBInfo,
+	attrs []string,
+	page PageInfo,
+) ([]*DocumentRow, error) {
+	attrSQL := createAttrSQLChunk(attrs)
+	sql := fmt.Sprintf(
+		"SELECT %s, %s, SUM(poscount) AS poscount %s "+
+			"FROM `%s_liveattrs_entry` "+
+			"WHERE corpus_id = ? "+
+			"GROUP BY %s "+
+			"%s",
+		utils.ImportKey(corpusInfo.BibIDAttr),
+		utils.ImportKey(corpusInfo.BibLabelAttr),
+		attrSQL,
+		corpusInfo.GroupedName(),
+		utils.ImportKey(corpusInfo.BibIDAttr),
+		page.ToSQL(),
+	)
+	rows, err := db.Query(sql, corpusInfo.GroupedName())
+	if err != nil {
+		return []*DocumentRow{}, err
+	}
+	if page.MaxItems == 0 {
+		var err error
+		page.MaxItems, err = GetNumOfDocuments(db, corpusInfo)
+		if err != nil {
+			return []*DocumentRow{}, err
+		}
+	}
+	ans := make([]*DocumentRow, 0, page.NumItems())
+	attrVals := make([]string, len(attrs))
+	scanVals := make([]any, 3+len(attrs))
+
+	i := page.Offset()
+	for rows.Next() {
+		docEntry := &DocumentRow{Idx: i}
+		docEntry.Attrs = make(map[string]string)
+		scanVals[0] = &docEntry.ID
+		scanVals[1] = &docEntry.Label
+		scanVals[2] = &docEntry.NumPos
+
+		for i := range attrVals {
+			scanVals[3+i] = &attrVals[i]
+		}
+		err := rows.Scan(scanVals...)
+		if err != nil {
+			return []*DocumentRow{}, err
+		}
+		for i := 3; i < len(scanVals); i++ {
+			if v, ok := scanVals[i].(*string); ok {
+				docEntry.Attrs[attrs[i-3]] = *v
+			}
+		}
+		ans = append(ans, docEntry)
+		i++
+	}
+	return ans, nil
+}

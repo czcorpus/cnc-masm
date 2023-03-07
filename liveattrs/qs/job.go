@@ -41,37 +41,37 @@ type ExportJobInfo struct {
 	Result      exporterStatus    `json:"result"`
 }
 
-func (j *ExportJobInfo) GetID() string {
+func (j ExportJobInfo) GetID() string {
 	return j.ID
 }
 
-func (j *ExportJobInfo) GetType() string {
+func (j ExportJobInfo) GetType() string {
 	return j.Type
 }
 
-func (j *ExportJobInfo) GetStartDT() jobs.JSONTime {
+func (j ExportJobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
 }
 
-func (j *ExportJobInfo) GetNumRestarts() int {
+func (j ExportJobInfo) GetNumRestarts() int {
 	return j.NumRestarts
 }
 
-func (j *ExportJobInfo) GetCorpus() string {
+func (j ExportJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *ExportJobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j ExportJobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j
 }
 
-func (j *ExportJobInfo) IsFinished() bool {
+func (j ExportJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *ExportJobInfo) FullInfo() any {
+func (j ExportJobInfo) FullInfo() any {
 	return struct {
 		ID          string            `json:"id"`
 		Type        string            `json:"type"`
@@ -99,7 +99,7 @@ func (j *ExportJobInfo) FullInfo() any {
 	}
 }
 
-func (j *ExportJobInfo) CompactVersion() jobs.JobInfoCompact {
+func (j ExportJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
 		Type:     j.Type,
@@ -113,11 +113,11 @@ func (j *ExportJobInfo) CompactVersion() jobs.JobInfoCompact {
 	return item
 }
 
-func (j *ExportJobInfo) GetError() error {
+func (j ExportJobInfo) GetError() error {
 	return j.Error
 }
 
-func (j *ExportJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
+func (j ExportJobInfo) WithError(err error) jobs.GeneralJobInfo {
 	return &ExportJobInfo{
 		ID:          j.ID,
 		Type:        j.Type,

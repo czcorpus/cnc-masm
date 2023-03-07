@@ -56,37 +56,37 @@ type LiveAttrsJobInfo struct {
 	Args           JobInfoArgs   `json:"args"`
 }
 
-func (j *LiveAttrsJobInfo) GetID() string {
+func (j LiveAttrsJobInfo) GetID() string {
 	return j.ID
 }
 
-func (j *LiveAttrsJobInfo) GetType() string {
+func (j LiveAttrsJobInfo) GetType() string {
 	return j.Type
 }
 
-func (j *LiveAttrsJobInfo) GetStartDT() jobs.JSONTime {
+func (j LiveAttrsJobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
 }
 
-func (j *LiveAttrsJobInfo) GetNumRestarts() int {
+func (j LiveAttrsJobInfo) GetNumRestarts() int {
 	return j.NumRestarts
 }
 
-func (j *LiveAttrsJobInfo) GetCorpus() string {
+func (j LiveAttrsJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *LiveAttrsJobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j LiveAttrsJobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j
 }
 
-func (j *LiveAttrsJobInfo) IsFinished() bool {
+func (j LiveAttrsJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *LiveAttrsJobInfo) FullInfo() any {
+func (j LiveAttrsJobInfo) FullInfo() any {
 	return struct {
 		ID             string        `json:"id"`
 		Type           string        `json:"type"`
@@ -116,7 +116,7 @@ func (j *LiveAttrsJobInfo) FullInfo() any {
 	}
 }
 
-func (j *LiveAttrsJobInfo) CompactVersion() jobs.JobInfoCompact {
+func (j LiveAttrsJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
 		Type:     j.Type,
@@ -130,14 +130,14 @@ func (j *LiveAttrsJobInfo) CompactVersion() jobs.JobInfoCompact {
 	return item
 }
 
-func (j *LiveAttrsJobInfo) GetError() error {
+func (j LiveAttrsJobInfo) GetError() error {
 	return j.Error
 }
 
-// CloneWithError creates a new instance of LiveAttrsJobInfo with
+// WithError creates a new instance of LiveAttrsJobInfo with
 // the Error property set to the value of 'err'.
-func (j *LiveAttrsJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
-	return &LiveAttrsJobInfo{
+func (j LiveAttrsJobInfo) WithError(err error) jobs.GeneralJobInfo {
+	return LiveAttrsJobInfo{
 		ID:          j.ID,
 		Type:        JobType,
 		CorpusID:    j.CorpusID,

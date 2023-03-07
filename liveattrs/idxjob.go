@@ -46,37 +46,37 @@ type IdxUpdateJobInfo struct {
 	Result      idxJobResult   `json:"result"`
 }
 
-func (j *IdxUpdateJobInfo) GetID() string {
+func (j IdxUpdateJobInfo) GetID() string {
 	return j.ID
 }
 
-func (j *IdxUpdateJobInfo) GetType() string {
+func (j IdxUpdateJobInfo) GetType() string {
 	return j.Type
 }
 
-func (j *IdxUpdateJobInfo) GetStartDT() jobs.JSONTime {
+func (j IdxUpdateJobInfo) GetStartDT() jobs.JSONTime {
 	return j.Start
 }
 
-func (j *IdxUpdateJobInfo) GetNumRestarts() int {
+func (j IdxUpdateJobInfo) GetNumRestarts() int {
 	return j.NumRestarts
 }
 
-func (j *IdxUpdateJobInfo) GetCorpus() string {
+func (j IdxUpdateJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j *IdxUpdateJobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j IdxUpdateJobInfo) SetFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j
 }
 
-func (j *IdxUpdateJobInfo) IsFinished() bool {
+func (j IdxUpdateJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j *IdxUpdateJobInfo) FullInfo() any {
+func (j IdxUpdateJobInfo) FullInfo() any {
 	return struct {
 		ID          string         `json:"id"`
 		Type        string         `json:"type"`
@@ -104,7 +104,7 @@ func (j *IdxUpdateJobInfo) FullInfo() any {
 	}
 }
 
-func (j *IdxUpdateJobInfo) CompactVersion() jobs.JobInfoCompact {
+func (j IdxUpdateJobInfo) CompactVersion() jobs.JobInfoCompact {
 	item := jobs.JobInfoCompact{
 		ID:       j.ID,
 		Type:     j.Type,
@@ -118,12 +118,12 @@ func (j *IdxUpdateJobInfo) CompactVersion() jobs.JobInfoCompact {
 	return item
 }
 
-func (j *IdxUpdateJobInfo) GetError() error {
+func (j IdxUpdateJobInfo) GetError() error {
 	return j.Error
 }
 
-func (j *IdxUpdateJobInfo) CloneWithError(err error) jobs.GeneralJobInfo {
-	return &IdxUpdateJobInfo{
+func (j IdxUpdateJobInfo) WithError(err error) jobs.GeneralJobInfo {
+	return IdxUpdateJobInfo{
 		ID:          j.ID,
 		Type:        j.Type,
 		CorpusID:    j.CorpusID,

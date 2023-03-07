@@ -31,7 +31,6 @@ import (
 	"masm/v3/liveattrs/cache"
 	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/laconf"
-	"masm/v3/liveattrs/request/biblio"
 	"masm/v3/liveattrs/request/equery"
 	"masm/v3/liveattrs/request/fillattrs"
 	"masm/v3/liveattrs/request/query"
@@ -170,7 +169,7 @@ func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
 		procStatus, err := vteLib.ExtractData(
 			&status.Args.VteConf, status.Args.Append, a.vteExitEvents[status.ID])
 		if err != nil {
-			updateJobChan <- status.CloneWithError(
+			updateJobChan <- status.WithError(
 				fmt.Errorf("failed to start vert-tagextract: %s", err)).SetFinished()
 			close(updateJobChan)
 		}
@@ -210,7 +209,7 @@ func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
 				if !status.Args.NoCorpusUpdate {
 					transact, err := a.cncDB.StartTx()
 					if err != nil {
-						updateJobChan <- status.CloneWithError(err)
+						updateJobChan <- status.WithError(err)
 						return
 					}
 					var bibIDStruct, bibIDAttr string
@@ -222,22 +221,22 @@ func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
 					err = a.cncDB.SetLiveAttrs(
 						transact, status.CorpusID, bibIDStruct, bibIDAttr)
 					if err != nil {
-						updateJobChan <- status.CloneWithError(err)
+						updateJobChan <- status.WithError(err)
 						transact.Rollback()
 					}
 					err = a.setSoftResetToKontext()
 					if err != nil {
-						updateJobChan <- status.CloneWithError(err)
+						updateJobChan <- status.WithError(err)
 					}
 					err = transact.Commit()
 					if err != nil {
-						updateJobChan <- status.CloneWithError(err)
+						updateJobChan <- status.WithError(err)
 					}
 				}
 			case "sqlite":
 				err = a.setSoftResetToKontext()
 				if err != nil {
-					updateJobChan <- status.CloneWithError(err)
+					updateJobChan <- status.WithError(err)
 				}
 			}
 		}()
@@ -355,72 +354,6 @@ func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	api.WriteJSONResponse(w, response.GetSubcSize{Total: size})
-}
-
-func (a *Actions) GetBibliography(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to get bibliography from corpus %s", corpusID)
-
-	var qry biblio.Payload
-	err := json.NewDecoder(req.Body).Decode(&qry)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
-		return
-	}
-	corpInfo, err := a.cncDB.LoadInfo(corpusID)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
-		return
-	}
-	laConf, err := a.laConfCache.Get(corpInfo.Name)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
-		return
-	}
-	ans, err := db.GetBibliography(a.laDB, corpInfo, laConf, qry)
-	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
-		return
-
-	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
-		return
-	}
-	api.WriteJSONResponse(w, &ans)
-}
-
-func (a *Actions) FindBibTitles(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to find bibliography titles in corpus %s", corpusID)
-
-	var qry biblio.PayloadList
-	err := json.NewDecoder(req.Body).Decode(&qry)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
-		return
-	}
-	corpInfo, err := a.cncDB.LoadInfo(corpusID)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
-		return
-	}
-	laConf, err := a.laConfCache.Get(corpInfo.Name)
-	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
-		return
-	}
-	ans, err := db.FindBibTitles(a.laDB, corpInfo, laConf, qry)
-	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
-		return
-
-	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
-		return
-	}
-	api.WriteJSONResponse(w, &ans)
 }
 
 func (a *Actions) AttrValAutocomplete(w http.ResponseWriter, req *http.Request) {
