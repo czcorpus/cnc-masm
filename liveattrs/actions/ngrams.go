@@ -161,7 +161,3 @@ func (a *Actions) CreateQuerySuggestions(w http.ResponseWriter, req *http.Reques
 	}
 	api.WriteJSONResponse(w, jobInfo)
 }
-
-func (a *Actions) CreateNgramsAndQuerySuggestions(w http.ResponseWriter, req *http.Request) {
-
-}

@@ -88,13 +88,13 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 		defer close(updateJobChan)
 		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, jinfo.CorpusID)
 		if err != nil {
-			updateJobChan <- jinfo.CloneWithError(err)
+			updateJobChan <- jinfo.WithError(err)
 
 		} else {
 			newJinfo := *jinfo
 			newJinfo.Result = &resp
-			newJinfo.SetFinished()
-			updateJobChan <- &newJinfo
+
+			updateJobChan <- newJinfo.AsFinished()
 		}
 	}
 	a.jobActions.EnqueueJob(&fn, jinfo)
@@ -143,8 +143,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 			jobRec.Error = err
 		}
 		jobRec.Result = &resp
-		jobRec.SetFinished()
-		updateJobChan <- jobRec
+		updateJobChan <- jobRec.AsFinished()
 	}
 	a.jobActions.EnqueueJob(&fn, jobRec)
 

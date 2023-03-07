@@ -120,10 +120,9 @@ func (a *Actions) dequeueAndRunJob() {
 // the job, set the status and send it via a respective channel.
 func (a *Actions) dequeueJobAsFailed(err error) {
 	_, initState, _ := a.jobQueue.Dequeue()
-	finalState := initState.CloneWithError(err)
+	finalState := initState.WithError(err)
 	updateJobChan := a.addJobInfo(finalState)
-	finalState.SetFinished()
-	updateJobChan <- finalState
+	updateJobChan <- finalState.AsFinished()
 	log.Error().Err(err).Send()
 }
 
@@ -525,7 +524,7 @@ func NewActions(
 				// make sure we keep the current error even if new status
 				// comes without one
 				if currErr != nil && upd.data.GetError() == nil {
-					ans.jobList[upd.itemID] = upd.data.CloneWithError(currErr)
+					ans.jobList[upd.itemID] = upd.data.WithError(currErr)
 
 				} else {
 					ans.jobList[upd.itemID] = upd.data
@@ -533,7 +532,7 @@ func NewActions(
 				ans.jobListLock.Unlock()
 			case tableActionFinishJob:
 				ans.jobListLock.Lock()
-				ans.jobList[upd.itemID].SetFinished()
+				ans.jobList[upd.itemID] = ans.jobList[upd.itemID].AsFinished()
 				ans.jobListLock.Unlock()
 				ans.jobDeps.SetParentFinished(upd.itemID, upd.data.GetError() != nil)
 				recipients, ok := ans.notificationRecipients[upd.itemID]

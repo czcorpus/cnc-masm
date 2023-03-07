@@ -263,11 +263,11 @@ func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error)
 				runStatus.Result = statUpd
 				runStatus.Error = statUpd.Error
 				runStatus.Update = jobs.CurrentDatetime()
-				updateJobChan <- &runStatus
+				updateJobChan <- runStatus
 			}
 			runStatus.Update = jobs.CurrentDatetime()
 			runStatus.Finished = true
-			updateJobChan <- &runStatus
+			updateJobChan <- runStatus
 		}(status)
 		exp.exportValuesToCouchDBSync(statusChan)
 	}
