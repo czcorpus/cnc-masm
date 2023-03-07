@@ -93,8 +93,8 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 		} else {
 			newJinfo := *jinfo
 			newJinfo.Result = &resp
-			newJinfo.SetFinished()
-			updateJobChan <- &newJinfo
+
+			updateJobChan <- newJinfo.AsFinished()
 		}
 	}
 	a.jobActions.EnqueueJob(&fn, jinfo)
@@ -143,8 +143,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 			jobRec.Error = err
 		}
 		jobRec.Result = &resp
-		jobRec.SetFinished()
-		updateJobChan <- jobRec
+		updateJobChan <- jobRec.AsFinished()
 	}
 	a.jobActions.EnqueueJob(&fn, jobRec)
 

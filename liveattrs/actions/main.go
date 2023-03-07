@@ -163,36 +163,38 @@ func (a *Actions) setSoftResetToKontext() error {
 
 // createDataFromJobStatus starts data extraction and generation
 // based on (initial) job status
-func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
+func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobInfo) {
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
-		a.vteExitEvents[status.ID] = make(chan os.Signal)
+		a.vteExitEvents[initialStatus.ID] = make(chan os.Signal)
 		procStatus, err := vteLib.ExtractData(
-			&status.Args.VteConf, status.Args.Append, a.vteExitEvents[status.ID])
+			&initialStatus.Args.VteConf, initialStatus.Args.Append, a.vteExitEvents[initialStatus.ID])
 		if err != nil {
-			updateJobChan <- status.WithError(
-				fmt.Errorf("failed to start vert-tagextract: %s", err)).SetFinished()
+			updateJobChan <- initialStatus.WithError(
+				fmt.Errorf("failed to start vert-tagextract: %s", err)).AsFinished()
 			close(updateJobChan)
 		}
 		go func() {
 			defer func() {
 				close(updateJobChan)
-				close(a.vteExitEvents[status.ID])
-				delete(a.vteExitEvents, status.ID)
+				close(a.vteExitEvents[initialStatus.ID])
+				delete(a.vteExitEvents, initialStatus.ID)
 			}()
+			jobStatus := liveattrs.LiveAttrsJobInfo{
+				ID:          initialStatus.ID,
+				Type:        liveattrs.JobType,
+				CorpusID:    initialStatus.CorpusID,
+				Start:       initialStatus.Start,
+				Update:      jobs.CurrentDatetime(),
+				NumRestarts: initialStatus.NumRestarts,
+				Args:        initialStatus.Args,
+			}
 
 			for upd := range procStatus {
-				updateJobChan <- &liveattrs.LiveAttrsJobInfo{
-					ID:             status.ID,
-					Type:           liveattrs.JobType,
-					CorpusID:       status.CorpusID,
-					Start:          status.Start,
-					Update:         jobs.CurrentDatetime(),
-					Error:          upd.Error,
-					ProcessedAtoms: upd.ProcessedAtoms,
-					ProcessedLines: upd.ProcessedLines,
-					NumRestarts:    status.NumRestarts,
-					Args:           status.Args,
-				}
+				jobStatus.Error = upd.Error
+				jobStatus.ProcessedAtoms = upd.ProcessedAtoms
+				jobStatus.ProcessedLines = upd.ProcessedLines
+				updateJobChan <- jobStatus
+
 				if upd.Error == vteProc.ErrorTooManyParsingErrors {
 					log.Error().Err(upd.Error).Msg("live attributes extraction failed")
 					return
@@ -202,46 +204,46 @@ func (a *Actions) createDataFromJobStatus(status *liveattrs.LiveAttrsJobInfo) {
 				}
 			}
 
-			a.eqCache.Del(status.CorpusID)
-
-			switch status.Args.VteConf.DB.Type {
+			a.eqCache.Del(jobStatus.CorpusID)
+			switch jobStatus.Args.VteConf.DB.Type {
 			case "mysql":
-				if !status.Args.NoCorpusUpdate {
+				if !jobStatus.Args.NoCorpusUpdate {
 					transact, err := a.cncDB.StartTx()
 					if err != nil {
-						updateJobChan <- status.WithError(err)
+						updateJobChan <- jobStatus.WithError(err)
 						return
 					}
 					var bibIDStruct, bibIDAttr string
-					if status.Args.VteConf.BibView.IDAttr != "" {
-						bibIDAttrElms := strings.SplitN(status.Args.VteConf.BibView.IDAttr, "_", 2)
+					if jobStatus.Args.VteConf.BibView.IDAttr != "" {
+						bibIDAttrElms := strings.SplitN(jobStatus.Args.VteConf.BibView.IDAttr, "_", 2)
 						bibIDStruct = bibIDAttrElms[0]
 						bibIDAttr = bibIDAttrElms[1]
 					}
 					err = a.cncDB.SetLiveAttrs(
-						transact, status.CorpusID, bibIDStruct, bibIDAttr)
+						transact, jobStatus.CorpusID, bibIDStruct, bibIDAttr)
 					if err != nil {
-						updateJobChan <- status.WithError(err)
+						updateJobChan <- jobStatus.WithError(err)
 						transact.Rollback()
 					}
 					err = a.setSoftResetToKontext()
 					if err != nil {
-						updateJobChan <- status.WithError(err)
+						updateJobChan <- jobStatus.WithError(err)
 					}
 					err = transact.Commit()
 					if err != nil {
-						updateJobChan <- status.WithError(err)
+						updateJobChan <- jobStatus.WithError(err)
 					}
 				}
 			case "sqlite":
 				err = a.setSoftResetToKontext()
 				if err != nil {
-					updateJobChan <- status.WithError(err)
+					updateJobChan <- initialStatus.WithError(err)
 				}
 			}
+			updateJobChan <- jobStatus.AsFinished()
 		}()
 	}
-	a.jobActions.EnqueueJob(&fn, status)
+	a.jobActions.EnqueueJob(&fn, initialStatus)
 }
 
 func (a *Actions) runStopJobListener() {

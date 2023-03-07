@@ -66,7 +66,7 @@ func (j IdxUpdateJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j IdxUpdateJobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j IdxUpdateJobInfo) AsFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j

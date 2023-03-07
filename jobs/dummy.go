@@ -63,7 +63,7 @@ func (j DummyJobInfo) IsFinished() bool {
 	return j.Finished
 }
 
-func (j DummyJobInfo) SetFinished() GeneralJobInfo {
+func (j DummyJobInfo) AsFinished() GeneralJobInfo {
 	j.Update = CurrentDatetime()
 	j.Finished = true
 	return j

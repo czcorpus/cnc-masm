@@ -63,8 +63,7 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 		defer close(upds)
 		<-finishSignal
 		jobInfo.Result = &jobs.DummyJobResult{Payload: "Job Done!"}
-		jobInfo.SetFinished()
-		upds <- jobInfo
+		upds <- jobInfo.AsFinished()
 	}
 	a.jobActions.EnqueueJob(&fn, jobInfo)
 	a.finishSignals[jobID.String()] = finishSignal

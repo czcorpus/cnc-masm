@@ -60,7 +60,7 @@ func (j NgramJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j NgramJobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j NgramJobInfo) AsFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j

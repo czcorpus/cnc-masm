@@ -122,8 +122,7 @@ func (a *Actions) dequeueJobAsFailed(err error) {
 	_, initState, _ := a.jobQueue.Dequeue()
 	finalState := initState.WithError(err)
 	updateJobChan := a.addJobInfo(finalState)
-	finalState.SetFinished()
-	updateJobChan <- finalState
+	updateJobChan <- finalState.AsFinished()
 	log.Error().Err(err).Send()
 }
 
@@ -533,7 +532,7 @@ func NewActions(
 				ans.jobListLock.Unlock()
 			case tableActionFinishJob:
 				ans.jobListLock.Lock()
-				ans.jobList[upd.itemID].SetFinished()
+				ans.jobList[upd.itemID] = ans.jobList[upd.itemID].AsFinished()
 				ans.jobListLock.Unlock()
 				ans.jobDeps.SetParentFinished(upd.itemID, upd.data.GetError() != nil)
 				recipients, ok := ans.notificationRecipients[upd.itemID]

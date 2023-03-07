@@ -61,7 +61,7 @@ func (j ExportJobInfo) GetCorpus() string {
 	return j.CorpusID
 }
 
-func (j ExportJobInfo) SetFinished() jobs.GeneralJobInfo {
+func (j ExportJobInfo) AsFinished() jobs.GeneralJobInfo {
 	j.Update = jobs.CurrentDatetime()
 	j.Finished = true
 	return j
