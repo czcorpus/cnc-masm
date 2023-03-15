@@ -21,9 +21,11 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"masm/v3/api"
 	"masm/v3/liveattrs/db"
 	"masm/v3/liveattrs/request/biblio"
+	"masm/v3/liveattrs/request/query"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -180,7 +182,68 @@ func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
-	ans, err = db.GetDocuments(a.laDB, corpInfo, req.URL.Query()["attr"], pginfo)
+
+	var qry query.Payload
+	err = json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil && err != io.EOF {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		return
+	}
+
+	ans, err = db.GetDocuments(
+		a.laDB,
+		corpInfo,
+		req.URL.Query()["attr"],
+		qry.Aligned,
+		qry.Attrs,
+		pginfo,
+	)
+	if err != nil {
+		api.WriteJSONErrorResponse(
+			w,
+			api.NewActionErrorFrom(baseErrTpl, err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	api.WriteJSONResponse(w, ans)
+}
+
+func (a *Actions) NumMatchingDocuments(w http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	corpusID := vars["corpusId"]
+	baseErrTpl := fmt.Sprintf("failed to count numberf of matching documents in %s", corpusID)
+	corpInfo, err := a.cncDB.LoadInfo(corpusID)
+	if err != nil {
+		api.WriteJSONErrorResponse(
+			w,
+			api.NewActionErrorFrom(baseErrTpl, err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	if corpInfo.BibIDAttr == "" {
+		api.WriteJSONErrorResponse(
+			w,
+			api.NewActionErrorFrom(baseErrTpl, fmt.Errorf("bib. ID not defined for %s", corpusID)),
+			http.StatusNotFound,
+		)
+		return
+	}
+
+	var qry query.Payload
+	err = json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil && err != io.EOF {
+		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		return
+	}
+
+	ans, err := db.GetNumOfDocuments(
+		a.laDB,
+		corpInfo,
+		qry.Aligned,
+		qry.Attrs,
+	)
 	if err != nil {
 		api.WriteJSONErrorResponse(
 			w,

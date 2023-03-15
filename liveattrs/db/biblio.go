@@ -24,10 +24,13 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/laconf"
 	"masm/v3/liveattrs/request/biblio"
+	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/utils"
+	"reflect"
 	"strings"
 
 	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	"github.com/rs/zerolog/log"
 )
 
 func GetBibliography(
@@ -160,21 +163,112 @@ func (pinfo PageInfo) ToSQL() string {
 	)
 }
 
-func createAttrSQLChunk(attrs []string) string {
-	sql := strings.Builder{}
-	for _, attr := range attrs {
-		sql.WriteString(", ")
-		sql.WriteString(utils.ImportKey(attr))
+func attrsWithPrefix(attrs []string) []string {
+	sql := make([]string, len(attrs))
+	for i, attr := range attrs {
+		sql[i] = "t1." + utils.ImportKey(attr)
 	}
-	return sql.String()
+	return sql
 }
 
-func GetNumOfDocuments(db *sql.DB, corpusInfo *corpus.DBInfo) (int, error) {
-	sql := fmt.Sprintf(
-		"SELECT COUNT(*) FROM `%s_liveattrs_entry` WHERE corpus_id = ? GROUP BY ?",
-		corpusInfo.GroupedName(),
-	)
-	row := db.QueryRow(sql, corpusInfo.GroupedName(), utils.ImportKey(corpusInfo.BibIDAttr))
+func mkPlaceholder(times int) string {
+	ans := make([]string, times)
+	for i := 0; i < times; i++ {
+		ans[i] = "?"
+	}
+	return strings.Join(ans, ", ")
+}
+
+func extractRegexp(v map[string]any) string {
+	v2, ok := v["regexp"]
+	if ok {
+		v3, ok := v2.(string)
+		if ok {
+			return v3
+		}
+	}
+	return ""
+}
+
+func attrsToSQL(attrs query.Attrs) (string, []any) {
+	if len(attrs) == 0 {
+		return "1", []any{}
+	}
+	sql := make([]string, 0, len(attrs))
+	sqlValues := make([]any, 0, len(attrs)*2)
+	for attr, values := range attrs {
+		switch tValues := values.(type) {
+		case []any:
+			if len(tValues) > 0 {
+				sql = append(
+					sql,
+					fmt.Sprintf(" %s IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))),
+				)
+				for _, v := range tValues {
+					sqlValues = append(sqlValues, v)
+				}
+			}
+		case map[string]any:
+			v := extractRegexp(tValues)
+			if v != "" {
+				sql = append(
+					sql,
+					fmt.Sprintf("%s REGEXP ?", utils.ImportKey(attr)),
+				)
+				sqlValues = append(sqlValues, v)
+
+			} else {
+				log.Error().Msgf("Incorrect value passed as attribute value filter - map[string]any should contain only 'regexp'")
+			}
+		default:
+			panic(fmt.Sprintf("cannot process non-list attribute values; found: %s", reflect.TypeOf(values)))
+		}
+	}
+	return strings.Join(sql, " AND "), sqlValues
+}
+
+func buildQuery(
+	selection []string,
+	corpusInfo *corpus.DBInfo,
+	alignedCorpora []string,
+	filterAttrs query.Attrs,
+) (string, []any) {
+	sql := strings.Builder{}
+	sql.WriteString(fmt.Sprintf(
+		"SELECT %s FROM `%s_liveattrs_entry` AS t1 ",
+		strings.Join(selection, ", "), corpusInfo.GroupedName(),
+	))
+	whereSQL := make([]string, 0, len(alignedCorpora))
+	queryArgs := make([]any, 0, len(alignedCorpora)+2)
+	for i, item := range alignedCorpora {
+		sql.WriteString(fmt.Sprintf(
+			"JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id", corpusInfo.GroupedName(),
+			i+2, i+2,
+		))
+		whereSQL = append(whereSQL, fmt.Sprintf(" AND t%d.corpus_id = ?", i+2))
+		queryArgs = append(queryArgs, item)
+	}
+	sql.WriteString(" WHERE t1.corpus_id = ? ")
+	queryArgs = append(queryArgs, corpusInfo.GroupedName())
+	for _, w := range whereSQL {
+		sql.WriteString(" AND " + w)
+	}
+	aSql, aValues := attrsToSQL(filterAttrs)
+	sql.WriteString(" AND " + aSql)
+	queryArgs = append(queryArgs, aValues...)
+	sql.WriteString(fmt.Sprintf(" GROUP BY t1.%s", utils.ImportKey(corpusInfo.BibIDAttr)))
+	return sql.String(), queryArgs
+}
+
+func GetNumOfDocuments(
+	db *sql.DB,
+	corpusInfo *corpus.DBInfo,
+	alignedCorpora []string,
+	attrs query.Attrs,
+) (int, error) {
+	sql, args := buildQuery([]string{"*"}, corpusInfo, alignedCorpora, attrs)
+	wsql := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS docitems", sql)
+	row := db.QueryRow(wsql, args...)
 	var ans int
 	err := row.Scan(&ans)
 	if err != nil {
@@ -186,45 +280,55 @@ func GetNumOfDocuments(db *sql.DB, corpusInfo *corpus.DBInfo) (int, error) {
 func GetDocuments(
 	db *sql.DB,
 	corpusInfo *corpus.DBInfo,
-	attrs []string,
+	viewAttrs []string,
+	alignedCorpora []string,
+	filterAttrs query.Attrs,
 	page PageInfo,
 ) ([]*DocumentRow, error) {
-	attrSQL := createAttrSQLChunk(attrs)
-	sql := fmt.Sprintf(
-		"SELECT %s, %s, SUM(poscount) AS poscount %s "+
-			"FROM `%s_liveattrs_entry` "+
-			"WHERE corpus_id = ? "+
-			"GROUP BY %s "+
-			"%s",
-		utils.ImportKey(corpusInfo.BibIDAttr),
-		utils.ImportKey(corpusInfo.BibLabelAttr),
-		attrSQL,
-		corpusInfo.GroupedName(),
-		utils.ImportKey(corpusInfo.BibIDAttr),
-		page.ToSQL(),
+	wpAttrs := attrsWithPrefix(viewAttrs)
+	selAttrs := make([]string, 0, len(wpAttrs)+2)
+	selAttrs = append(
+		selAttrs,
+		fmt.Sprintf("t1.%s AS item_id", utils.ImportKey(corpusInfo.BibIDAttr)),
 	)
-	rows, err := db.Query(sql, corpusInfo.GroupedName())
-	if err != nil {
+	selAttrs = append(
+		selAttrs,
+		fmt.Sprintf("t1.%s AS item_label", utils.ImportKey(corpusInfo.BibLabelAttr)),
+	)
+	selAttrs = append(selAttrs, "SUM(t1.poscount)")
+	selAttrs = append(selAttrs, wpAttrs...)
+	sqlq, args := buildQuery(selAttrs, corpusInfo, alignedCorpora, filterAttrs)
+	//page.ToSQL(), TODO
+	rows, err := db.Query(sqlq, args...)
+	if err == sql.ErrNoRows {
+		return []*DocumentRow{}, nil
+
+	} else if err != nil {
 		return []*DocumentRow{}, err
 	}
 	if page.MaxItems == 0 {
 		var err error
-		page.MaxItems, err = GetNumOfDocuments(db, corpusInfo)
+		page.MaxItems, err = GetNumOfDocuments(db, corpusInfo, alignedCorpora, filterAttrs)
 		if err != nil {
 			return []*DocumentRow{}, err
 		}
 	}
 	ans := make([]*DocumentRow, 0, page.NumItems())
-	attrVals := make([]string, len(attrs))
-	scanVals := make([]any, 3+len(attrs))
+	attrVals := make([]sql.NullString, len(viewAttrs))
+	scanVals := make([]any, 3+len(viewAttrs))
 
 	i := page.Offset()
 	for rows.Next() {
+		docEntryLabel := sql.NullString{}
 		docEntry := &DocumentRow{Idx: i}
 		docEntry.Attrs = make(map[string]string)
 		scanVals[0] = &docEntry.ID
-		scanVals[1] = &docEntry.Label
+		scanVals[1] = &docEntryLabel
 		scanVals[2] = &docEntry.NumPos
+
+		if docEntryLabel.Valid {
+			docEntry.Label = docEntryLabel.String
+		}
 
 		for i := range attrVals {
 			scanVals[3+i] = &attrVals[i]
@@ -234,8 +338,10 @@ func GetDocuments(
 			return []*DocumentRow{}, err
 		}
 		for i := 3; i < len(scanVals); i++ {
-			if v, ok := scanVals[i].(*string); ok {
-				docEntry.Attrs[attrs[i-3]] = *v
+			if v, ok := scanVals[i].(*sql.NullString); ok {
+				if v.Valid {
+					docEntry.Attrs[viewAttrs[i-3]] = v.String
+				}
 			}
 		}
 		ans = append(ans, docEntry)
