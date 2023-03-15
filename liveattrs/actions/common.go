@@ -28,6 +28,8 @@ import (
 	"masm/v3/liveattrs/request/response"
 	"masm/v3/liveattrs/utils"
 	"reflect"
+
+	"github.com/rs/zerolog/log"
 )
 
 func groupBibItems(data *response.QueryAns, bibLabel string) {
@@ -117,6 +119,7 @@ func (a *Actions) getAttrValues(
 	// {attr_id: {attr_val: num_positions,...},...}
 	tmpAns := make(map[string]map[string]*response.ListedValue)
 	bibID := utils.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
+	nilCol := make(map[string]int)
 	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
 		ans.Poscount += row.Poscount
 		for dbKey, dbVal := range row.Attrs {
@@ -150,6 +153,8 @@ func (a *Actions) getAttrValues(
 				}
 			case int:
 				ans.AttrValues[colKey] = tColVal + row.Poscount
+			case nil:
+				nilCol[dbKey]++
 			default:
 				return fmt.Errorf(
 					"invalid value type for attr %s for data iterator: %s",
@@ -159,6 +164,12 @@ func (a *Actions) getAttrValues(
 		}
 		return nil
 	})
+	for k, num := range nilCol {
+		log.Error().
+			Str("column", k).
+			Int("occurrences", num).
+			Msgf("liveAttributes getAttrValues encountered nil column")
+	}
 	if err != nil {
 		return &ans, err
 	}
