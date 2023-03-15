@@ -126,7 +126,6 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 			where = append(where, fmt.Sprintf("(%s)", strings.Join(cnfItem, " OR ")))
 		}
 	}
-
 	where = append(where, fmt.Sprintf("%s.corpus_id = ?", itemPrefix))
 	sqlValues = append(sqlValues, corpusID)
 	return strings.Join(where, " AND "), sqlValues

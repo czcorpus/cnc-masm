@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	"github.com/rs/zerolog/log"
 )
 
 func GetBibliography(
@@ -178,6 +179,17 @@ func mkPlaceholder(times int) string {
 	return strings.Join(ans, ", ")
 }
 
+func extractRegexp(v map[string]any) string {
+	v2, ok := v["regexp"]
+	if ok {
+		v3, ok := v2.(string)
+		if ok {
+			return v3
+		}
+	}
+	return ""
+}
+
 func attrsToSQL(attrs query.Attrs) (string, []any) {
 	if len(attrs) == 0 {
 		return "1", []any{}
@@ -185,15 +197,31 @@ func attrsToSQL(attrs query.Attrs) (string, []any) {
 	sql := make([]string, 0, len(attrs))
 	sqlValues := make([]any, 0, len(attrs)*2)
 	for attr, values := range attrs {
-		tValues, ok := values.([]any)
-		if !ok {
-			panic(fmt.Sprintf("cannot process non-list attribute values; found: %s", reflect.TypeOf(values)))
-		}
-		if len(tValues) > 0 {
-			sql = append(sql, fmt.Sprintf(" %s IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))))
-			for _, v := range tValues {
-				sqlValues = append(sqlValues, v)
+		switch tValues := values.(type) {
+		case []any:
+			if len(tValues) > 0 {
+				sql = append(
+					sql,
+					fmt.Sprintf(" %s IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))),
+				)
+				for _, v := range tValues {
+					sqlValues = append(sqlValues, v)
+				}
 			}
+		case map[string]any:
+			v := extractRegexp(tValues)
+			if v != "" {
+				sql = append(
+					sql,
+					fmt.Sprintf("%s REGEXP ?", utils.ImportKey(attr)),
+				)
+				sqlValues = append(sqlValues, v)
+
+			} else {
+				log.Error().Msgf("Incorrect value passed as attribute value filter - map[string]any should contain only 'regexp'")
+			}
+		default:
+			panic(fmt.Sprintf("cannot process non-list attribute values; found: %s", reflect.TypeOf(values)))
 		}
 	}
 	return strings.Join(sql, " AND "), sqlValues
@@ -286,16 +314,21 @@ func GetDocuments(
 		}
 	}
 	ans := make([]*DocumentRow, 0, page.NumItems())
-	attrVals := make([]string, len(viewAttrs))
+	attrVals := make([]sql.NullString, len(viewAttrs))
 	scanVals := make([]any, 3+len(viewAttrs))
 
 	i := page.Offset()
 	for rows.Next() {
+		docEntryLabel := sql.NullString{}
 		docEntry := &DocumentRow{Idx: i}
 		docEntry.Attrs = make(map[string]string)
 		scanVals[0] = &docEntry.ID
-		scanVals[1] = &docEntry.Label
+		scanVals[1] = &docEntryLabel
 		scanVals[2] = &docEntry.NumPos
+
+		if docEntryLabel.Valid {
+			docEntry.Label = docEntryLabel.String
+		}
 
 		for i := range attrVals {
 			scanVals[3+i] = &attrVals[i]
@@ -305,8 +338,10 @@ func GetDocuments(
 			return []*DocumentRow{}, err
 		}
 		for i := 3; i < len(scanVals); i++ {
-			if v, ok := scanVals[i].(*string); ok {
-				docEntry.Attrs[viewAttrs[i-3]] = *v
+			if v, ok := scanVals[i].(*sql.NullString); ok {
+				if v.Valid {
+					docEntry.Attrs[viewAttrs[i-3]] = v.String
+				}
 			}
 		}
 		ans = append(ans, docEntry)
