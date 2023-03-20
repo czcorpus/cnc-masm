@@ -54,6 +54,7 @@ func (a *Actions) createConf(
 	corpusID string,
 	req *http.Request,
 	saveJSONArgs bool,
+	maxNumErr int,
 ) (*vteCnf.VTEConf, *liveattrsJsonArgs, error) {
 	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
 	if err != nil {
@@ -64,7 +65,6 @@ func (a *Actions) createConf(
 		return nil, nil, err
 	}
 	maxNumErrReq := req.URL.Query().Get("maxNumErrors")
-	maxNumErr := 100000
 	if maxNumErrReq != "" {
 		maxNumErr, err = strconv.Atoi(maxNumErrReq)
 		if err != nil {
@@ -112,7 +112,7 @@ func (a *Actions) CreateConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
 	baseErrTpl := fmt.Sprintf("failed to create liveattrs config for %s", corpusID)
-	newConf, _, err := a.createConf(corpusID, req, true)
+	newConf, _, err := a.createConf(corpusID, req, true, a.conf.LiveAttrs.VertMaxNumErrors)
 	if err != nil {
 		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 		return
