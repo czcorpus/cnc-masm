@@ -33,6 +33,7 @@ const (
 	dfltServerWriteTimeoutSecs = 10
 	dfltLanguage               = "en"
 	dfltMaxNumConcurrentJobs   = 4
+	dfltVertMaxNumErrors       = 100
 )
 
 // CorporaDataPaths describes three
@@ -85,8 +86,9 @@ type databaseSetup struct {
 }
 
 type LiveAttrsConf struct {
-	DB          *vtedb.Conf `json:"db"`
-	ConfDirPath string      `json:"confDirPath"`
+	DB               *vtedb.Conf `json:"db"`
+	ConfDirPath      string      `json:"confDirPath"`
+	VertMaxNumErrors int         `json:"vertMaxNumErrors"`
 }
 
 type NgramDB struct {
@@ -134,6 +136,13 @@ func ApplyDefaults(conf *Conf) {
 		log.Warn().Msgf(
 			"serverWriteTimeoutSecs not specified, using default: %d",
 			dfltServerWriteTimeoutSecs,
+		)
+	}
+	if conf.LiveAttrs.VertMaxNumErrors == 0 {
+		conf.LiveAttrs.VertMaxNumErrors = dfltVertMaxNumErrors
+		log.Warn().Msgf(
+			"liveAttrs.vertMaxNumErrors not specified, using default: %d",
+			dfltVertMaxNumErrors,
 		)
 	}
 	if conf.Language == "" {

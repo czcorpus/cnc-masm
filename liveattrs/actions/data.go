@@ -62,7 +62,7 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	if conf == nil {
 		var newConf *vteCnf.VTEConf
 		var err error
-		newConf, jsonArgs, err = a.createConf(corpusID, req, false)
+		newConf, jsonArgs, err = a.createConf(corpusID, req, false, a.conf.LiveAttrs.VertMaxNumErrors)
 		if err != nil {
 			api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
 			return

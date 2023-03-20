@@ -33,7 +33,8 @@
             "user": "liveattrs",
             "password": "********"
         },
-        "confDirPath": "/a/dir/path/where/liveattrs/config/will/be/stored"
+        "confDirPath": "/a/dir/path/where/liveattrs/config/will/be/stored",
+        "vertMaxNumErrors": 100
     },
     "jobs": {
         "statusDataPath": "/a/path/where/masm/status/will/be/stored.bin",
