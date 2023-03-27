@@ -26,6 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// createTestingCache create a testing cache with an entry
+// for corpus 'corp1' and aligned corpora 'corp2', 'corp3'
 func createTestingCache() (*EmptyQueryCache, query.Payload, response.QueryAns) {
 	qcache := NewEmptyQueryCache()
 	qry := query.Payload{
@@ -42,13 +44,28 @@ func createTestingCache() (*EmptyQueryCache, query.Payload, response.QueryAns) {
 	return qcache, qry, value
 }
 
-func TestCacheSet(t *testing.T) {
+func TestCacheGet(t *testing.T) {
 	qcache, qry, value := createTestingCache()
 	v := qcache.Get("corp1", qry)
 	assert.Equal(t, *v, value)
-	assert.Contains(t, qcache.corpInvolvements, "corp1")
-	assert.Contains(t, qcache.corpInvolvements, "corp2")
-	assert.Contains(t, qcache.corpInvolvements, "corp3")
+	assert.Contains(t, qcache.corpKeyDeps, "corp1")
+	assert.Contains(t, qcache.corpKeyDeps, "corp2")
+	assert.Contains(t, qcache.corpKeyDeps, "corp3")
+}
+
+func TestCacheSet(t *testing.T) {
+	qcache, _, _ := createTestingCache()
+	qry2 := query.Payload{
+		Aligned: []string{"corp1"},
+	}
+	value := response.QueryAns{
+		AlignedCorpora: []string{"corp1"},
+		AttrValues: map[string]any{
+			"attrA": []string{"valA1", "valA2"},
+		},
+	}
+	qcache.Set("corpX", qry2, &value)
+	assert.Equal(t, &value, qcache.Get("corpX", qry2))
 }
 
 func TestCacheDel(t *testing.T) {
@@ -66,9 +83,9 @@ func TestCacheDel(t *testing.T) {
 
 	qcache.Del("corp1")
 	assert.Nil(t, qcache.Get("corp1", qry))
-	assert.NotContains(t, qcache.corpInvolvements, "corp1")
-	assert.Contains(t, qcache.corpInvolvements, "corp2")
-	assert.Contains(t, qcache.corpInvolvements, "corp3")
+	assert.NotContains(t, qcache.corpKeyDeps, "corp1")
+	assert.Len(t, qcache.corpKeyDeps["corp2"], 0)
+	assert.NotContains(t, qcache.corpKeyDeps["corp3"], 0)
 	assert.Equal(t, 0, len(qcache.data))
 }
 
@@ -78,5 +95,5 @@ func TestCacheDelAligned(t *testing.T) {
 	qcache.Del("corp2")
 	qcache.Del("corp3")
 	assert.Equal(t, 0, len(qcache.data))
-	assert.Equal(t, 0, len(qcache.corpInvolvements))
+	assert.Equal(t, 0, len(qcache.corpKeyDeps))
 }
