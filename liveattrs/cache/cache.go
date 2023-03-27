@@ -23,6 +23,8 @@ import (
 	"masm/v3/liveattrs/request/response"
 	"strings"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 )
 
 func mkKey(corpusID string, aligned []string) string {
@@ -33,9 +35,16 @@ func mkKey(corpusID string, aligned []string) string {
 // It is perfectly OK to Get/Set any query but only the ones with attributes
 // empty will be actually stored. For other ones, nil is always returned by Get.
 type EmptyQueryCache struct {
-	data             map[string]*response.QueryAns
-	corpInvolvements map[string][]string
-	lock             sync.Mutex
+
+	// data contains cached results for initial corpus+aligned corpora text types listings
+	data map[string]*response.QueryAns
+
+	// corpKeyDeps maps corpus ID to cache keys it is involved in.
+	// This allows us removing all the affected results once a single corpus
+	// changes
+	corpKeyDeps map[string][]string
+
+	lock sync.Mutex
 }
 
 // Get returns a cached result based on provided corpus (and possible aligned corpora)
@@ -47,10 +56,11 @@ func (qc *EmptyQueryCache) Get(corpusID string, qry query.Payload) *response.Que
 	return qc.data[mkKey(corpusID, qry.Aligned)]
 }
 
-func (qc *EmptyQueryCache) linkCorpusToKey(corpusID, key string) {
-	keys, ok := qc.corpInvolvements[corpusID]
+// setKeyCorpusDependency create a dependency between corpus and cache key
+func (qc *EmptyQueryCache) setKeyCorpusDependency(corpusID, key string) {
+	keys, ok := qc.corpKeyDeps[corpusID]
 	if !ok {
-		qc.corpInvolvements[corpusID] = []string{key}
+		qc.corpKeyDeps[corpusID] = []string{key}
 
 	} else {
 		for _, k := range keys {
@@ -58,7 +68,7 @@ func (qc *EmptyQueryCache) linkCorpusToKey(corpusID, key string) {
 				return // already linked
 			}
 		}
-		qc.corpInvolvements[corpusID] = append(qc.corpInvolvements[corpusID], key)
+		qc.corpKeyDeps[corpusID] = append(qc.corpKeyDeps[corpusID], key)
 	}
 }
 
@@ -69,26 +79,52 @@ func (qc *EmptyQueryCache) Set(corpusID string, qry query.Payload, value *respon
 	qc.lock.Lock()
 	cKey := mkKey(corpusID, qry.Aligned)
 	qc.data[cKey] = value
-	qc.linkCorpusToKey(corpusID, cKey)
+	qc.setKeyCorpusDependency(corpusID, cKey)
 	for _, alignedCorpusID := range qry.Aligned {
-		qc.linkCorpusToKey(alignedCorpusID, cKey)
+		qc.setKeyCorpusDependency(alignedCorpusID, cKey)
 	}
 	qc.lock.Unlock()
 }
 
+// pruneKeyInDeps in corpus key dependency mapping, remove all
+// the values of "key". Return number of removed occurrences.
+func (qc *EmptyQueryCache) pruneKeyInDeps(key string) int {
+	var totalRemoved int
+	for corpID, keys := range qc.corpKeyDeps {
+		newKeys := make([]string, 0, len(keys))
+		for _, k := range keys {
+			if k != key {
+				newKeys = append(newKeys, k)
+
+			} else {
+				totalRemoved++
+			}
+		}
+		qc.corpKeyDeps[corpID] = newKeys
+	}
+	return totalRemoved
+}
+
 func (qc *EmptyQueryCache) Del(corpusID string) {
 	qc.lock.Lock()
-	cInv := qc.corpInvolvements[corpusID]
+	cInv := qc.corpKeyDeps[corpusID]
+	var totalPruned int
 	for _, key := range cInv {
 		delete(qc.data, key)
+		totalPruned += qc.pruneKeyInDeps(key)
 	}
-	delete(qc.corpInvolvements, corpusID)
+	delete(qc.corpKeyDeps, corpusID)
+	log.Info().
+		Strs("keys", cInv).
+		Str("corpusId", corpusID).
+		Int("prunedKeyDeps", totalPruned).
+		Msg("Deleting liveattrs cache keys")
 	qc.lock.Unlock()
 }
 
 func NewEmptyQueryCache() *EmptyQueryCache {
 	return &EmptyQueryCache{
-		data:             make(map[string]*response.QueryAns),
-		corpInvolvements: make(map[string][]string),
+		data:        make(map[string]*response.QueryAns),
+		corpKeyDeps: make(map[string][]string),
 	}
 }

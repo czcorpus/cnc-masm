@@ -167,7 +167,10 @@ func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobI
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		a.vteExitEvents[initialStatus.ID] = make(chan os.Signal)
 		procStatus, err := vteLib.ExtractData(
-			&initialStatus.Args.VteConf, initialStatus.Args.Append, a.vteExitEvents[initialStatus.ID])
+			&initialStatus.Args.VteConf,
+			initialStatus.Args.Append,
+			a.vteExitEvents[initialStatus.ID],
+		)
 		if err != nil {
 			updateJobChan <- initialStatus.WithError(
 				fmt.Errorf("failed to start vert-tagextract: %s", err)).AsFinished()
