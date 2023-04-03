@@ -53,7 +53,9 @@ func GetSubcSize(db *sql.DB, groupedName string, corpora []string, attrMap map[s
 		joinSQL = append(
 			joinSQL,
 			fmt.Sprintf(
-				"JOIN item AS t%d ON t1.item_id = t%d.item_id", iOffs, iOffs),
+				"JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id",
+				groupedName, iOffs, iOffs,
+			),
 		)
 		whereSQL = append(
 			whereSQL,
