@@ -107,7 +107,7 @@ type Conf struct {
 	CNCDB                  *databaseSetup `json:"cncDb"`
 	LiveAttrs              *LiveAttrsConf `json:"liveAttrs"`
 	Jobs                   *jobs.Conf     `json:"jobs"`
-	KontextSoftResetURL    string         `json:"kontextSoftResetURL"`
+	KontextSoftResetURL    []string       `json:"kontextSoftResetURL"`
 	NgramDB                NgramDB        `json:"ngramDb"`
 	DebugMode              bool           `json:"debugMode"`
 	Language               string         `json:"language"`

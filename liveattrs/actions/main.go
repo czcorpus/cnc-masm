@@ -147,16 +147,18 @@ type liveattrsJsonArgs struct {
 }
 
 func (a *Actions) setSoftResetToKontext() error {
-	if a.conf.KontextSoftResetURL == "" {
+	if len(a.conf.KontextSoftResetURL) == 0 {
 		log.Warn().Msgf("The kontextSoftResetURL configuration not set - ignoring the action")
 		return nil
 	}
-	resp, err := http.Post(a.conf.KontextSoftResetURL, "application/json", nil)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("kontext soft reset failed - unexpected status code %d", resp.StatusCode)
+	for _, instance := range a.conf.KontextSoftResetURL {
+		resp, err := http.Post(instance, "application/json", nil)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode >= 300 {
+			return fmt.Errorf("kontext instance `%s` soft reset failed - unexpected status code %d", instance, resp.StatusCode)
+		}
 	}
 	return nil
 }
