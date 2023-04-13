@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
+# A simple script wrapping Pulp linear programming solver.
+# In case the library is not installed, return code 3 is returned.
+
 import json
 import sys
 from typing import TypedDict, List
-import pulp
+try:
+    import pulp
+except:
+    sys.exit(3)
 
 class SolveData(TypedDict):
     A: List[List[float]]
