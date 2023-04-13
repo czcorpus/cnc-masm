@@ -19,6 +19,8 @@
 package subcmixer
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -32,8 +34,13 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	pulpSolverTimeoutSecs = 60
 )
 
 type CategorySize struct {
@@ -227,7 +234,16 @@ func (mm *MetadataModel) getAssembledSize(results []float64) float64 {
 	return ans
 }
 
+// Solve calculates a task of mixing texts with
+// defined type ratios. The core LP logic is
+// in the scripts/subcmixer_solve.py file
+// (based on the Pulp library). Please note that
+// the current implementation forces a hardcoded
+// timeout specified with the constant [pulpSolverTimeoutSecs].
 func (mm *MetadataModel) Solve() *CorpusComposition {
+	ctx, cancel := context.WithTimeout(context.Background(), pulpSolverTimeoutSecs*time.Second)
+	defer cancel()
+
 	if mm.isZeroVector(mm.b) {
 		return &CorpusComposition{}
 	}
@@ -242,28 +258,40 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 		"b": mm.b,
 	})
 	if err != nil {
-		log.Fatal().Err(err)
+		return &CorpusComposition{Error: err.Error()}
 	}
 
 	_, currPath, _, _ := runtime.Caller(0)
 	currPath = filepath.Dir(currPath)
-	cmd := exec.Command(path.Join(currPath, "..", "..", "scripts/subcmixer_solve.py"))
+	cmd := exec.CommandContext(ctx, path.Join(currPath, "..", "..", "scripts/subcmixer_solve.py"))
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		log.Err(err)
+		return &CorpusComposition{Error: err.Error()}
 	}
-	go func() {
-		defer stdin.Close()
-		io.WriteString(stdin, string(json_data))
-	}()
 
-	// output from python script
-	out, err := cmd.Output()
+	err = cmd.Start()
 	if err != nil {
-		log.Err(err).Msg("")
+		return &CorpusComposition{Error: err.Error()}
 	}
+
+	io.WriteString(stdin, string(json_data))
+	stdin.Close()
+
+	err = cmd.Wait()
+	if err == context.DeadlineExceeded {
+		return &CorpusComposition{
+			Error: fmt.Sprintf("Pulp LP solver timeout after %ds", pulpSolverTimeoutSecs),
+		}
+
+	} else if err != nil {
+		return &CorpusComposition{Error: err.Error()}
+	}
+
 	variables := []float64{}
-	err = json.Unmarshal(out, &variables)
+	err = json.Unmarshal(out.Bytes(), &variables)
 	if err != nil {
 		log.Err(err).Msg("")
 	}
@@ -275,6 +303,7 @@ func (mm *MetadataModel) Solve() *CorpusComposition {
 		func(v float64, i int) float64 { return math.RoundToEven(v) },
 	)
 	categorySizes := make([]float64, mm.cTree.NumCategories()-1)
+
 	for c := 0; c < mm.cTree.NumCategories()-1; c++ {
 		catSize, err := mm.getCategorySize(selections, c)
 		if err != nil {
