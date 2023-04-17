@@ -20,7 +20,6 @@ package jobs
 
 import (
 	"fmt"
-	"masm/v3/api"
 	"masm/v3/fsops"
 	"net/http"
 	"os"
@@ -33,6 +32,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/text/message"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
 )
 
@@ -171,7 +171,7 @@ func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 		sort.Sort(sort.Reverse(ans))
-		api.WriteJSONResponse(w, ans)
+		uniresp.WriteJSONResponse(w, ans)
 
 	} else {
 		tmp := a.createJobList(unOnly)
@@ -180,7 +180,7 @@ func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 		for i, item := range tmp {
 			ans[i] = item.FullInfo()
 		}
-		api.WriteJSONResponse(w, ans)
+		uniresp.WriteJSONResponse(w, ans)
 	}
 }
 
@@ -190,14 +190,14 @@ func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
 	job := FindJob(a.jobList, vars["jobId"])
 	if job != nil {
 		if req.URL.Query().Get("compact") == "1" {
-			api.WriteJSONResponse(w, job.CompactVersion())
+			uniresp.WriteJSONResponse(w, job.CompactVersion())
 
 		} else {
-			api.WriteJSONResponse(w, job.FullInfo())
+			uniresp.WriteJSONResponse(w, job.FullInfo())
 		}
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -206,10 +206,10 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 	job := FindJob(a.jobList, vars["jobId"])
 	if job != nil {
 		a.jobStop <- job.GetID()
-		api.WriteJSONResponse(w, job)
+		uniresp.WriteJSONResponse(w, job)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -217,10 +217,10 @@ func (a *Actions) ClearIfFinished(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	job, removed := ClearFinishedJob(a.jobList, vars["jobId"])
 	if job != nil {
-		api.WriteJSONResponse(w, map[string]any{"removed": removed, "jobInfo": job})
+		uniresp.WriteJSONResponse(w, map[string]any{"removed": removed, "jobInfo": job})
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job does not exist or did not finish yet"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job does not exist or did not finish yet"), http.StatusNotFound)
 	}
 }
 
@@ -310,10 +310,10 @@ func (a *Actions) AddNotification(w http.ResponseWriter, req *http.Request) {
 		}{
 			Registered: true,
 		}
-		api.WriteJSONResponse(w, resp)
+		uniresp.WriteJSONResponse(w, resp)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -331,10 +331,10 @@ func (a *Actions) GetNotifications(w http.ResponseWriter, req *http.Request) {
 		if ok {
 			resp.Recipients = recipients
 		}
-		api.WriteJSONResponse(w, resp)
+		uniresp.WriteJSONResponse(w, resp)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -361,13 +361,13 @@ func (a *Actions) CheckNotification(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if registered {
-			api.WriteJSONResponse(w, resp)
+			uniresp.WriteJSONResponse(w, resp)
 		} else {
-			api.WriteJSONResponseWithStatus(w, http.StatusNotFound, resp)
+			uniresp.WriteJSONResponseWithStatus(w, http.StatusNotFound, resp)
 		}
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -392,10 +392,10 @@ func (a *Actions) RemoveNotification(w http.ResponseWriter, req *http.Request) {
 		}{
 			Registered: false,
 		}
-		api.WriteJSONResponse(w, resp)
+		uniresp.WriteJSONResponse(w, resp)
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
@@ -407,7 +407,7 @@ func (a *Actions) Utilization(w http.ResponseWriter, req *http.Request) {
 		"utilization":          float32(numUnfinished) / float32(a.conf.MaxNumConcurrentJobs),
 		"jobQueueLength":       a.jobQueue.Size(),
 	}
-	api.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(w, ans)
 }
 
 // NewActions is the default factory

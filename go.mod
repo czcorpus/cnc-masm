@@ -3,6 +3,7 @@ module masm/v3
 go 1.18
 
 require (
+	github.com/czcorpus/cnc-gokit v0.0.8
 	github.com/czcorpus/vert-tagextract/v2 v2.3.11
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.1.1
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/czcorpus/cnc-gokit v0.0.8 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

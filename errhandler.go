@@ -19,22 +19,23 @@
 package main
 
 import (
-	"masm/v3/api"
 	"net/http"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 type NotFoundHandler struct {
 }
 
 func (handler NotFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	api.WriteJSONErrorResponse(
-		w, api.NewActionError("action not found"), http.StatusNotFound)
+	uniresp.WriteJSONErrorResponse(
+		w, uniresp.NewActionError("action not found"), http.StatusNotFound)
 }
 
 type NotAllowedHandler struct {
 }
 
 func (handler NotAllowedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	api.WriteJSONErrorResponse(
-		w, api.NewActionError("method not allowed"), http.StatusMethodNotAllowed)
+	uniresp.WriteJSONErrorResponse(
+		w, uniresp.NewActionError("method not allowed"), http.StatusMethodNotAllowed)
 }
