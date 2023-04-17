@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"masm/v3/api"
 	"masm/v3/fsops"
-	"masm/v3/mail"
 	"net/http"
 	"os"
 	"reflect"
@@ -30,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	cncmail "github.com/czcorpus/cnc-gokit/mail"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/text/message"
 
@@ -550,16 +550,23 @@ func NewActions(
 					} else {
 						sign = conf.EmailNotification.DefaultSignature(lang)
 					}
-					body := []string{
-						subject,
-						ans.msgPrinter.Sprintf("Job ID: %s", upd.itemID),
-						localizedStatus(ans.msgPrinter, upd.data),
-						"",
-						"",
-						sign,
-					}
-					err := mail.SendNotification(
-						&conf.EmailNotification, recipients, subject, body...)
+
+					notificationConf := conf.EmailNotification.WithRecipients(recipients...)
+					err := cncmail.SendNotification(
+						&notificationConf,
+						time.Now().Location(),
+						cncmail.Notification{
+							Subject: subject,
+							Paragraphs: []string{
+								subject,
+								ans.msgPrinter.Sprintf("Job ID: %s", upd.itemID),
+								localizedStatus(ans.msgPrinter, upd.data),
+								"",
+								"",
+								sign,
+							},
+						},
+					)
 					if err != nil {
 						log.Error().Err(err).
 							Str("mailSubject", subject).
