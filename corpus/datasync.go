@@ -21,13 +21,13 @@ package corpus
 import (
 	"bytes"
 	"fmt"
-	"masm/v3/fsops"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
 
@@ -53,8 +53,9 @@ func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncRespon
 	var ageKontext time.Time
 	var numCNC, numKontext int
 
-	if fsops.IsDir(pathCNC) {
-		files1, err := fsops.ListFilesInDir(pathCNC, true)
+	isDir, _ := fs.IsDir(pathCNC)
+	if isDir {
+		files1, err := fs.ListFilesInDir(pathCNC, true)
 		if err != nil {
 			return syncResponse{}, err
 		}
@@ -63,8 +64,9 @@ func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncRespon
 		}
 	}
 
-	if fsops.IsDir(pathKontext) {
-		files2, err := fsops.ListFilesInDir(pathKontext, true)
+	isDir, _ = fs.IsDir(pathKontext)
+	if isDir {
+		files2, err := fs.ListFilesInDir(pathKontext, true)
 		if err != nil {
 			return syncResponse{}, err
 		}

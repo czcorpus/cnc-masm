@@ -35,8 +35,8 @@ github.com/stretchr/testify v1.8.2 h1:+h33VjcLVPDHtOdpUCuF+7gSuG3yGIftsP1YvFihtJ
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/tomachalek/vertigo/v5 v5.1.0 h1:WHoLSO92JHRZasrqiZ/TDWFW6uPyhkm2TlOFdUL6zgM=
 github.com/tomachalek/vertigo/v5 v5.1.0/go.mod h1:Kr4P4+S5guPcvro1gzKwjyJSPMLNSaXdCTv5had1xIc=
-golang.org/x/exp v0.0.0-20220608143224-64259d1afd70 h1:8uGxpY2cLF9H/NSHUiEWUIBZqIcsMzMWIMPCCUkyYgc=
-golang.org/x/exp v0.0.0-20220608143224-64259d1afd70/go.mod h1:yh0Ynu2b5ZUe3MQfp2nM0ecK7wsgouWTDN0FNeJuIys=
+golang.org/x/exp v0.0.0-20230321023759-10a507213a29 h1:ooxPy7fPvB4kwsA2h+iBNHkAbp/4JxTSwCmvdjEYmug=
+golang.org/x/exp v0.0.0-20230321023759-10a507213a29/go.mod h1:CxIveKay+FTh1D0yPZemJVgC/95VzuuOLq5Qi4xnoYc=
 golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.2.0 h1:ljd4t30dBnAvMZaQCevtY0xLLD0A+bRZXbgLMLU1F/A=

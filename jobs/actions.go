@@ -20,7 +20,6 @@ package jobs
 
 import (
 	"fmt"
-	"masm/v3/fsops"
 	"net/http"
 	"os"
 	"reflect"
@@ -32,6 +31,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/text/message"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
 )
@@ -428,7 +428,8 @@ func NewActions(
 		jobQueue:               &JobQueue{},
 		jobDeps:                make(JobsDeps),
 	}
-	if fsops.IsFile(conf.StatusDataPath) {
+	isFile, _ := fs.IsFile(conf.StatusDataPath)
+	if isFile {
 		log.Info().Msgf("found status data in %s - loading...", conf.StatusDataPath)
 		jobs, err := LoadJobList(conf.StatusDataPath)
 		if err != nil {
