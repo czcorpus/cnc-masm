@@ -22,7 +22,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"masm/v3/api"
 	"masm/v3/cncdb"
 	"masm/v3/corpus"
 	"masm/v3/general"
@@ -49,6 +48,8 @@ import (
 	vteProc "github.com/czcorpus/vert-tagextract/v2/proc"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 const (
@@ -267,16 +268,16 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now()
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to query liveattrs in corpus %s", corpusID)
+	baseErrTpl := "failed to query liveattrs in corpus %s: %w"
 	var qry query.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	usageEntry := db.RequestData{
@@ -287,7 +288,7 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 
 	ans := a.eqCache.Get(corpusID, qry)
 	if ans != nil {
-		api.WriteJSONResponse(w, &ans)
+		uniresp.WriteJSONResponse(w, &ans)
 		usageEntry.IsCached = true
 		usageEntry.ProcTime = time.Since(t0)
 		a.usageData <- usageEntry
@@ -296,95 +297,95 @@ func (a *Actions) Query(w http.ResponseWriter, req *http.Request) {
 	ans, err = a.getAttrValues(corpInfo, qry)
 	if err == laconf.ErrorNoSuchConfig {
 		log.Error().Err(err).Msgf("configuration not found for %s", corpusID)
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
 		log.Error().Err(err).Msg("")
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	usageEntry.ProcTime = time.Since(t0)
 	a.usageData <- usageEntry
 	a.eqCache.Set(corpusID, qry, ans)
-	api.WriteJSONResponse(w, &ans)
+	uniresp.WriteJSONResponse(w, &ans)
 }
 
 func (a *Actions) FillAttrs(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to fill attributes for corpus %s", corpusID)
+	baseErrTpl := "failed to fill attributes for corpus %s: %w"
 
 	var qry fillattrs.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.FillAttrs(a.laDB, corpusDBInfo, qry)
 	if err == db.ErrorEmptyResult {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, &ans)
+	uniresp.WriteJSONResponse(w, &ans)
 }
 
 func (a *Actions) GetAdhocSubcSize(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to get ad-hoc subcorpus of corpus %s", corpusID)
+	baseErrTpl := "failed to get ad-hoc subcorpus of corpus %s: %w"
 
 	var qry equery.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	corpora := append([]string{corpusID}, qry.Aligned...)
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	size, err := db.GetSubcSize(a.laDB, corpusDBInfo.GroupedName(), corpora, qry.Attrs)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, response.GetSubcSize{Total: size})
+	uniresp.WriteJSONResponse(w, response.GetSubcSize{Total: size})
 }
 
 func (a *Actions) AttrValAutocomplete(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to find autocomplete suggestions in corpus %s", corpusID)
+	baseErrTpl := "failed to find autocomplete suggestions in corpus %s: %w"
 
 	var qry query.Payload
 	err := json.NewDecoder(req.Body).Decode(&qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := a.getAttrValues(corpInfo, qry)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, &ans)
+	uniresp.WriteJSONResponse(w, &ans)
 }
 
 func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
@@ -392,11 +393,11 @@ func (a *Actions) Stats(w http.ResponseWriter, req *http.Request) {
 	corpusID := vars["corpusId"]
 	ans, err := db.LoadUsage(a.laDB, corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(fmt.Sprintf("failed to get stats for corpus %s", corpusID), err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("failed to get stats for corpus %s: %w", corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, &ans)
+	uniresp.WriteJSONResponse(w, &ans)
 }
 
 func (a *Actions) updateIndexesFromJobStatus(status *liveattrs.IdxUpdateJobInfo) {
@@ -425,19 +426,19 @@ func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 	corpusID := vars["corpusId"]
 	maxColumnsArg := req.URL.Query().Get("maxColumns")
 	if maxColumnsArg == "" {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionError("missing maxColumns argument"), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("missing maxColumns argument"), http.StatusBadRequest)
 		return
 	}
 	maxColumns, err := strconv.Atoi(maxColumnsArg)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("failed to update indexes", err), http.StatusUnprocessableEntity)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("failed to update indexes: %w", err), http.StatusUnprocessableEntity)
 		return
 	}
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start 'update indexes' job for '%s'", corpusID), http.StatusUnauthorized)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Failed to start 'update indexes' job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 	newStatus := liveattrs.IdxUpdateJobInfo{
@@ -450,7 +451,7 @@ func (a *Actions) UpdateIndexes(w http.ResponseWriter, req *http.Request) {
 		Args:     liveattrs.IdxJobInfoArgs{MaxColumns: maxColumns},
 	}
 	a.updateIndexesFromJobStatus(&newStatus)
-	api.WriteJSONResponseWithStatus(w, http.StatusCreated, &newStatus)
+	uniresp.WriteJSONResponseWithStatus(w, http.StatusCreated, &newStatus)
 }
 
 func (a *Actions) RestartLiveAttrsJob(jinfo *liveattrs.LiveAttrsJobInfo) error {
@@ -475,8 +476,8 @@ func (a *Actions) InferredAtomStructure(w http.ResponseWriter, req *http.Request
 
 	conf, err := a.laConfCache.Get(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("failed to get inferred atom structure", err),
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("failed to get inferred atom structure: %w", err),
 			http.StatusInternalServerError,
 		)
 		return
@@ -489,7 +490,7 @@ func (a *Actions) InferredAtomStructure(w http.ResponseWriter, req *http.Request
 			break
 		}
 	}
-	api.WriteJSONResponse(w, &ans)
+	uniresp.WriteJSONResponse(w, &ans)
 }
 
 // NewActions is the default factory for Actions

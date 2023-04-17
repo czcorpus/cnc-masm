@@ -21,9 +21,10 @@ package root
 
 import (
 	"encoding/json"
-	"masm/v3/api"
 	"masm/v3/general"
 	"net/http"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 type Actions struct {
@@ -39,8 +40,8 @@ func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
 	ans["data"] = a.Version
 	resp, err := json.Marshal(ans)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("failed to run the root action", err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("failed to run the root action: %w", err), http.StatusInternalServerError)
 	}
 	w.Write(resp)
 }

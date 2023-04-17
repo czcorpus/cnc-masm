@@ -19,11 +19,10 @@
 package registry
 
 import (
-	"fmt"
-	"masm/v3/api"
 	"masm/v3/corpus"
 	"net/http"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
 )
 
@@ -42,7 +41,7 @@ func (a *Actions) DynamicFunctions(w http.ResponseWriter, req *http.Request) {
 		Description: "Separate a string by \"|\" and return all the pos-th elements from respective items",
 		Dynlib:      a.conf.CorporaSetup.ManateeDynlibPath,
 	})
-	api.WriteCacheableJSONResponse(w, req, fullList)
+	uniresp.WriteCacheableJSONResponse(w, req, fullList)
 }
 
 func (a *Actions) PosSets(w http.ResponseWriter, req *http.Request) {
@@ -50,7 +49,7 @@ func (a *Actions) PosSets(w http.ResponseWriter, req *http.Request) {
 	for i, v := range posList {
 		ans[i] = v
 	}
-	api.WriteCacheableJSONResponse(w, req, ans)
+	uniresp.WriteCacheableJSONResponse(w, req, ans)
 }
 
 func (a *Actions) GetPosSetInfo(w http.ResponseWriter, req *http.Request) {
@@ -63,22 +62,22 @@ func (a *Actions) GetPosSetInfo(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	if srch.ID == "" {
-		api.WriteJSONErrorResponse(w, api.NewActionError(fmt.Sprintf("Tagset %s not found", posID)), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Tagset %s not found", posID), http.StatusInternalServerError)
 
 	} else {
-		api.WriteJSONResponse(w, srch)
+		uniresp.WriteJSONResponse(w, srch)
 	}
 }
 
 func (a *Actions) GetAttrMultivalueDefaults(w http.ResponseWriter, req *http.Request) {
-	api.WriteJSONResponse(w, availBoolValues)
+	uniresp.WriteJSONResponse(w, availBoolValues)
 }
 
 func (a *Actions) GetAttrMultisepDefaults(w http.ResponseWriter, req *http.Request) {
 	ans := []multisep{
 		{Value: "|", Description: "A default value used within the CNC"},
 	}
-	api.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(w, ans)
 }
 
 func (a *Actions) GetAttrDynlibDefaults(w http.ResponseWriter, req *http.Request) {
@@ -86,22 +85,22 @@ func (a *Actions) GetAttrDynlibDefaults(w http.ResponseWriter, req *http.Request
 		{Value: "internal", Description: "Functions provided by Manatee"},
 		{Value: a.conf.CorporaSetup.ManateeDynlibPath, Description: "Custom functions provided by the CNC"},
 	}
-	api.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(w, ans)
 }
 
 func (a *Actions) GetAttrTransqueryDefaults(w http.ResponseWriter, req *http.Request) {
-	api.WriteJSONResponse(w, availBoolValues)
+	uniresp.WriteJSONResponse(w, availBoolValues)
 }
 
 func (a *Actions) GetStructMultivalueDefaults(w http.ResponseWriter, req *http.Request) {
-	api.WriteJSONResponse(w, availBoolValues)
+	uniresp.WriteJSONResponse(w, availBoolValues)
 }
 
 func (a *Actions) GetStructMultisepDefaults(w http.ResponseWriter, req *http.Request) {
 	ans := []multisep{
 		{Value: "|", Description: "A default value used within the CNC"},
 	}
-	api.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(w, ans)
 }
 
 // NewActions is the default factory for Actions

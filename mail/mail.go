@@ -18,12 +18,10 @@
 package mail
 
 import (
-	"bytes"
-	"crypto/tls"
 	"fmt"
-	"net"
-	"net/smtp"
 	"strings"
+
+	cncmail "github.com/czcorpus/cnc-gokit/mail"
 )
 
 var (
@@ -31,12 +29,7 @@ var (
 )
 
 type EmailNotification struct {
-	Sender       string `json:"sender"`
-	SMTPServer   string `json:"smtpServer"`
-	SMTPUsername string `json:"smtpUsername"`
-	SMTPPassword string `json:"smtpPassword"`
-	// Signature defines multi-language signature for notification e-mails
-	Signature map[string]string `json:"signature"`
+	cncmail.NotificationConf
 }
 
 // LocalizedSignature returns a mail signature based on configuration
@@ -66,82 +59,4 @@ func (enConf EmailNotification) DefaultSignature(lang string) string {
 		return "Váš CNC-MASM"
 	}
 	return "Your CNC-MASM"
-}
-
-func dialSmtpServer(conf *EmailNotification) (*smtp.Client, error) {
-	host, port, err := net.SplitHostPort(conf.SMTPServer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse SMTP server info: %w", err)
-	}
-	if port == "25" {
-		ans, err := smtp.Dial(conf.SMTPServer)
-		if err != nil {
-			return nil, fmt.Errorf("failed to dial: %w", err)
-		}
-		return ans, err
-	}
-	auth := smtp.PlainAuth("", conf.SMTPUsername, conf.SMTPPassword, host)
-	client, err := smtp.Dial(conf.SMTPServer)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial: %w", err)
-	}
-	client.StartTLS(&tls.Config{
-		InsecureSkipVerify: true,
-		ServerName:         host,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to StartTLS: %w", err)
-	}
-	err = client.Auth(auth)
-	if err != nil {
-		return nil, fmt.Errorf("failed to authenticate client: %w", err)
-	}
-	return client, nil
-}
-
-// SendNotification sends a general e-mail notification based on
-// a respective monitoring configuration. The 'alarmToken' argument
-// can be nil - in such case the 'turn of the alarm' text won't be
-// part of the message.
-func SendNotification(
-	conf *EmailNotification,
-	receivers []string,
-	subject string,
-	msgParagraphs ...string,
-) error {
-	client, err := dialSmtpServer(conf)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
-	client.Mail(conf.Sender)
-	for _, rcpt := range receivers {
-		client.Rcpt(rcpt)
-	}
-
-	wc, err := client.Data()
-	if err != nil {
-		return err
-	}
-	defer wc.Close()
-
-	headers := make(map[string]string)
-	headers["From"] = conf.Sender
-	headers["To"] = strings.Join(receivers, ",")
-	headers["Subject"] = subject
-	headers["MIME-Version"] = "1.0"
-	headers["Content-Type"] = "text/html; charset=UTF-8"
-
-	body := ""
-	for k, v := range headers {
-		body += fmt.Sprintf("%s: %s\r\n", k, v)
-	}
-	for _, par := range msgParagraphs {
-		body += "<p>" + par + "</p>\r\n\r\n"
-	}
-
-	buf := bytes.NewBufferString(body)
-	_, err = buf.WriteTo(wc)
-	return err
 }

@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"masm/v3/corpus"
-	"masm/v3/fsops"
 	"masm/v3/general/collections"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs/utils"
@@ -34,6 +33,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
@@ -184,7 +184,8 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 		return v, nil
 	}
 	confPath := path.Join(lcache.confDirPath, corpname+".json")
-	if fsops.IsFile(confPath) {
+	isFile, _ := fs.IsFile(confPath)
+	if isFile {
 		v, err := LoadConf(confPath)
 		if err != nil {
 			return nil, err
@@ -231,7 +232,8 @@ func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 func (lcache *LiveAttrsBuildConfProvider) Clear(corpusID string) error {
 	delete(lcache.data, corpusID)
 	confPath := path.Join(lcache.confDirPath, corpusID+".json")
-	if fsops.IsFile(confPath) {
+	isFile, _ := fs.IsFile(confPath)
+	if isFile {
 		return os.Remove(confPath)
 	}
 	return nil

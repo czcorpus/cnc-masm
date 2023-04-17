@@ -19,12 +19,13 @@
 package corpdata
 
 import (
-	"masm/v3/api"
 	"masm/v3/corpus"
-	"masm/v3/fsops"
 	"masm/v3/general"
 	"net/http"
 	"os"
+
+	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 type registrySubdir struct {
@@ -63,10 +64,10 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 	subdirs := make(map[string]bool) // path => readonly
 
 	for _, regPathRoot := range a.conf.CorporaSetup.RegistryDirPaths {
-		regPaths, err := fsops.ListDirsInDir(regPathRoot, false)
+		regPaths, err := fs.ListDirsInDir(regPathRoot, false)
 		if err != nil {
-			api.WriteJSONErrorResponse(
-				w, api.NewActionErrorFrom("failed to get data locations", err), http.StatusInternalServerError)
+			uniresp.WriteJSONErrorResponse(
+				w, uniresp.NewActionError("failed to get data locations: %w", err), http.StatusInternalServerError)
 			return
 		}
 		regPaths.ForEach(func(info os.FileInfo, idx int) bool {
@@ -80,7 +81,7 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 			location.Registry.SubDirs,
 			registrySubdir{Name: name, ReadOnly: readonly})
 	}
-	api.WriteJSONResponse(w, location)
+	uniresp.WriteJSONResponse(w, location)
 }
 
 // NewActions is the default factory

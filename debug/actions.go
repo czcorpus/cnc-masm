@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"masm/v3/api"
 	"masm/v3/jobs"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
@@ -44,8 +44,8 @@ type Actions struct {
 func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionError("failed to create dummy job"), http.StatusUnauthorized)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("failed to create dummy job"), http.StatusUnauthorized)
 		return
 	}
 
@@ -67,7 +67,7 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 	}
 	a.jobActions.EnqueueJob(&fn, jobInfo)
 	a.finishSignals[jobID.String()] = finishSignal
-	api.WriteJSONResponse(w, jobInfo)
+	uniresp.WriteJSONResponse(w, jobInfo)
 }
 
 func (a *Actions) FinishDummyJob(w http.ResponseWriter, req *http.Request) {
@@ -81,14 +81,14 @@ func (a *Actions) FinishDummyJob(w http.ResponseWriter, req *http.Request) {
 			// TODO please note that here we typically won't see the
 			// final storedJob value (updated elsewhere in a different
 			// goroutine). So it may be a bit confusing.
-			api.WriteJSONResponse(w, storedJob.FullInfo())
+			uniresp.WriteJSONResponse(w, storedJob.FullInfo())
 
 		} else {
-			api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 		}
 
 	} else {
-		api.WriteJSONErrorResponse(w, api.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 

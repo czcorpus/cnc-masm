@@ -26,9 +26,9 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"masm/v3/api"
-
 	"github.com/gorilla/mux"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 // DataHandler describes functions expected from
@@ -66,16 +66,16 @@ func NewActions(conf *corpus.Conf, db DataHandler) *Actions {
 func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to update info for corpus %s", corpusID)
+	baseErrTpl := "failed to update info for corpus %s: %w"
 	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	if !corpusInfo.IndexedData.Path.FileExists {
 		err := fmt.Errorf("data not found for corpus %s", corpusID)
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 	}
 	transact, err := a.db.StartTx()
@@ -85,8 +85,8 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 		if err2 != nil {
 			log.Error().Err(err2).Msg("failed to rollback transaction")
 		}
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -101,10 +101,10 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 
 	err = a.db.CommitTx(transact)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 	}
-	api.WriteJSONResponse(w, updateSizeResp{OK: true})
+	uniresp.WriteJSONResponse(w, updateSizeResp{OK: true})
 }
 
 func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request) {
@@ -113,8 +113,8 @@ func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request)
 
 	defaultViewAttrs, err := a.db.GetSimpleQueryDefaultAttrs(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("Failed to get simple query default attrs", err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("Failed to get simple query default attrs: %w", err), http.StatusInternalServerError)
 		return
 	}
 	defaultViewOpts := DefaultViewOpts{
@@ -124,8 +124,8 @@ func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request)
 	if len(defaultViewOpts.Attrs) == 0 {
 		corpusAttrs, err := corpus.GetCorpusAttrs(corpusID, a.conf.CorporaSetup)
 		if err != nil {
-			api.WriteJSONErrorResponse(
-				w, api.NewActionErrorFrom("Failed to get corpus attrs", err), http.StatusInternalServerError)
+			uniresp.WriteJSONErrorResponse(
+				w, uniresp.NewActionError("Failed to get corpus attrs: %w", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -140,26 +140,26 @@ func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request)
 
 	tagsetAttrs, err := a.db.GetCorpusTagsetAttrs(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("Failed to get corpus tagset attrs", err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("Failed to get corpus tagset attrs: %w", err), http.StatusInternalServerError)
 		return
 	}
 	defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, tagsetAttrs...)
 
 	tx, err := a.db.StartTx()
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("Failed to start database transaction", err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("Failed to start database transaction: %w", err), http.StatusInternalServerError)
 		return
 	}
 	err = a.db.UpdateDefaultViewOpts(tx, corpusID, defaultViewOpts)
 	if err != nil {
 		tx.Rollback()
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom("Failed to update `default_view_opts`", err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("Failed to update `default_view_opts`: %w", err), http.StatusInternalServerError)
 		return
 	}
 	tx.Commit()
 
-	api.WriteJSONResponse(w, defaultViewOpts)
+	uniresp.WriteJSONResponse(w, defaultViewOpts)
 }

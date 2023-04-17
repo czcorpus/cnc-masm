@@ -20,8 +20,6 @@ package actions
 
 import (
 	"errors"
-	"fmt"
-	"masm/v3/api"
 	"masm/v3/liveattrs/db/freqdb"
 	"masm/v3/liveattrs/laconf"
 	"masm/v3/liveattrs/qs"
@@ -31,6 +29,8 @@ import (
 	"github.com/czcorpus/vert-tagextract/v2/cnf"
 	"github.com/czcorpus/vert-tagextract/v2/ptcount/modders"
 	"github.com/gorilla/mux"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 var (
@@ -75,7 +75,7 @@ func applyPosProperties(
 func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to generate n-grams for %s", corpusID)
+	baseErrTpl := "failed to generate n-grams for %s: %w"
 	// PosColumnIdx defines a vertical column number (starting from zero)
 	// where PoS can be extracted. In case no direct "pos" tag exists,
 	// a "tag" can be used along with a proper "transformFn" defined
@@ -84,36 +84,36 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	// otherwise, the action produces an error
 	posColumnIdx, err := strconv.Atoi(req.URL.Query().Get("posColIdx"))
 	if err != nil {
-		api.WriteJSONErrorResponse(
+		uniresp.WriteJSONErrorResponse(
 			w,
-			api.NewActionErrorFrom("invalid value for posColIdx", err),
+			uniresp.NewActionError("invalid value for posColIdx: %w", err),
 			http.StatusBadRequest)
 		return
 	}
 
 	posTagset := req.URL.Query().Get("posTagset")
 	if posTagset == "" {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionError("missing URL argument posTagset"), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError("missing URL argument posTagset"), http.StatusBadRequest)
 		return
 	}
 
 	laConf, err := a.laConfCache.Get(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	posFn, err := applyPosProperties(laConf, posColumnIdx, posTagset)
 
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 
@@ -126,23 +126,23 @@ func (a *Actions) GenerateNgrams(w http.ResponseWriter, req *http.Request) {
 	)
 	jobInfo, err := generator.GenerateAfter(corpusID, req.URL.Query().Get("parentJobId"))
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, jobInfo.FullInfo())
+	uniresp.WriteJSONResponse(w, jobInfo.FullInfo())
 }
 
 func (a *Actions) CreateQuerySuggestions(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to generate query suggestions for %s", corpusID)
+	baseErrTpl := "failed to generate query suggestions for %s: %w"
 	multiValuesEnabled := req.URL.Query().Get("multiValuesEnabled") == "1"
 
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	exporter := qs.NewExporter(
@@ -155,9 +155,9 @@ func (a *Actions) CreateQuerySuggestions(w http.ResponseWriter, req *http.Reques
 	)
 	jobInfo, err := exporter.EnqueueExportJob(req.URL.Query().Get("parentJobId"))
 	if err != nil {
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	api.WriteJSONResponse(w, jobInfo)
+	uniresp.WriteJSONResponse(w, jobInfo)
 }

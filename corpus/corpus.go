@@ -20,11 +20,11 @@ package corpus
 
 import (
 	"fmt"
-	"masm/v3/fsops"
 	"masm/v3/mango"
 	"path/filepath"
 	"strings"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
 
@@ -92,18 +92,27 @@ type InfoError struct {
 // using 'value' argument. Then it tests whether the
 // 'path' exists and if so then it sets related properties
 // (FileExists, LastModified, Size) to proper values
-func bindValueToPath(value, path string) FileMappedValue {
+func bindValueToPath(value, path string) (FileMappedValue, error) {
 	ans := FileMappedValue{Value: value}
-	if fsops.IsFile(path) {
-		mTime := fsops.GetFileMtime(path)
+	isFile, _ := fs.IsFile(path)
+	if isFile {
+		mTime, err := fs.GetFileMtime(path)
+		if err != nil {
+			return ans, err
+		}
+		mTimeString := mTime.Format("2006-01-02T15:04:05-0700")
+		size, err := fs.FileSize(path)
+		if err != nil {
+			return ans, err
+		}
 		ans.FileExists = true
-		ans.LastModified = &mTime
-		ans.Size = fsops.FileSize(path)
+		ans.LastModified = &mTimeString
+		ans.Size = size
 	}
-	return ans
+	return ans, nil
 }
 
-func findVerticalFile(basePath, corpusID string) FileMappedValue {
+func findVerticalFile(basePath, corpusID string) (FileMappedValue, error) {
 	suffixes := []string{".tar.gz", ".tar.bz2", ".tgz", ".tbz2", ".7z", ".gz", ".zip", ".tar", ".rar", ""}
 	var verticalPath string
 	if IsIntercorpFilename(corpusID) {
@@ -116,37 +125,63 @@ func findVerticalFile(basePath, corpusID string) FileMappedValue {
 	ans := FileMappedValue{Value: verticalPath}
 	for _, suff := range suffixes {
 		fullPath := verticalPath + suff
-		if fsops.PathExists(fullPath) { // on some systems fsops.IsFile returned False?!
-			mTime := fsops.GetFileMtime(fullPath)
-			ans.LastModified = &mTime
+		if fs.PathExists(fullPath) { // on some systems fsops.IsFile returned False?!
+			mTime, err := fs.GetFileMtime(fullPath)
+			if err != nil {
+				return ans, err
+			}
+			mTimeString := mTime.Format("2006-01-02T15:04:05-0700")
+			size, err := fs.FileSize(fullPath)
+			if err != nil {
+				return ans, err
+			}
+			ans.LastModified = &mTimeString
 			ans.Value = fullPath
 			ans.Path = fullPath
 			ans.FileExists = true
-			ans.Size = fsops.FileSize(fullPath)
-			return ans
+			ans.Size = size
+			return ans, nil
 		}
 	}
-	return ans
+	return ans, nil
 }
 
-func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup, result *Info) {
+func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup, result *Info) error {
 	tmp := GenWSDefFilename(conf.WordSketchDefDirPath, corpusID)
+	value, err := bindValueToPath(tmp, tmp)
+	if err != nil {
+		return err
+	}
 	result.RegistryConf.WordSketches = WordSketchConf{
-		WSDef: bindValueToPath(tmp, tmp),
+		WSDef: value,
 	}
 
 	wsBaseFile, wsBaseVal := GenWSBaseFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
-	result.RegistryConf.WordSketches.WSBase = bindValueToPath(wsBaseVal, wsBaseFile)
+	value, err = bindValueToPath(wsBaseVal, wsBaseFile)
+	if err != nil {
+		return err
+	}
+	result.RegistryConf.WordSketches.WSBase = value
 
 	wsThesFile, wsThesVal := GenWSThesFilename(conf.CorpusDataPath.Abstract, corpusID, wsattr)
-	result.RegistryConf.WordSketches.WSThes = bindValueToPath(wsThesVal, wsThesFile)
+	value, err = bindValueToPath(wsThesVal, wsThesFile)
+	if err != nil {
+		return err
+	}
+	result.RegistryConf.WordSketches.WSThes = value
+	return nil
 }
 
-func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) {
+func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) error {
 	dbFileName := GenCorpusGroupName(corpusID) + ".db"
 	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
 	result.TextTypesDB = TTDBRecord{}
-	result.TextTypesDB.Path = bindValueToPath(absPath, absPath)
+	value, err := bindValueToPath(absPath, absPath)
+	if err != nil {
+		return err
+	}
+	result.TextTypesDB.Path = value
+	return nil
 }
 
 // GetCorpusInfo provides miscellaneous corpus installation information mostly
@@ -157,7 +192,11 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	ans := &Info{ID: corpusID}
 	ans.IndexedData = Data{}
 	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
-	ans.RegistryConf.Vertical = findVerticalFile(setup.VerticalFilesDirPath, corpusID)
+	vertical, err := findVerticalFile(setup.VerticalFilesDirPath, corpusID)
+	if err != nil {
+		return nil, err
+	}
+	ans.RegistryConf.Vertical = vertical
 	ans.RegistryConf.SubcorpAttrs = make(map[string][]string)
 	procCorpora := make(map[string]bool)
 
@@ -167,8 +206,13 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			continue
 		}
 		regPath := filepath.Join(regPathRoot, corpusID)
-		if fsops.IsFile(regPath) {
-			ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, bindValueToPath(regPath, regPath))
+		isFile, _ := fs.IsFile(regPath)
+		if isFile {
+			value, err := bindValueToPath(regPath, regPath)
+			if err != nil {
+				return nil, InfoError{err}
+			}
+			ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, value)
 			corp, err := mango.OpenCorpus(regPath)
 			if err != nil {
 				if strings.Contains(err.Error(), "CorpInfoNotFound") {
@@ -192,16 +236,18 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 				return nil, InfoError{err}
 			}
 			dataDirPath := filepath.Clean(corpDataPath)
-			dataDirMtime := fsops.GetFileMtime(dataDirPath)
-			var dataDirMtimeR *string
-			if dataDirMtime != "" {
-				dataDirMtimeR = &dataDirMtime
+			dataDirMtime, err := fs.GetFileMtime(dataDirPath)
+			if err != nil {
+				return nil, InfoError{err}
 			}
+			dataDirMtimeR := dataDirMtime.Format("2006-01-02T15:04:05-0700")
+			isDir, _ := fs.IsDir(dataDirPath)
+			size, _ := fs.FileSize(dataDirPath)
 			ans.IndexedData.Path = FileMappedValue{
 				Value:        dataDirPath,
-				LastModified: dataDirMtimeR,
-				FileExists:   fsops.IsDir(dataDirPath),
-				Size:         fsops.FileSize(dataDirPath),
+				LastModified: &dataDirMtimeR,
+				FileExists:   isDir,
+				Size:         size,
 			}
 
 			// get encoding
@@ -264,23 +310,30 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 
 		} else {
 			dataDirPath := filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID))
-			dataDirMtime := fsops.GetFileMtime(dataDirPath)
-			var dataDirMtimeR *string
-			if dataDirMtime != "" {
-				dataDirMtimeR = &dataDirMtime
+			dataDirMtime, err := fs.GetFileMtime(dataDirPath)
+			if err != nil {
+				return nil, InfoError{err}
 			}
+			dataDirMtimeR := dataDirMtime.Format("2006-01-02T15:04:05-0700")
+			isDir, _ := fs.IsDir(dataDirPath)
 			ans.IndexedData.Size = 0
 			ans.IndexedData.Path = FileMappedValue{
 				Value:        dataDirPath,
-				LastModified: dataDirMtimeR,
-				FileExists:   fsops.IsDir(dataDirPath),
+				LastModified: &dataDirMtimeR,
+				FileExists:   isDir,
 				Path:         dataDirPath,
 			}
 		}
 		procCorpora[corpusID] = true
 	}
-	attachWordSketchConfInfo(corpusID, wsattr, setup, ans)
-	attachTextTypeDbInfo(corpusID, setup, ans)
+	err = attachWordSketchConfInfo(corpusID, wsattr, setup, ans)
+	if err != nil {
+		return nil, InfoError{err}
+	}
+	err = attachTextTypeDbInfo(corpusID, setup, ans)
+	if err != nil {
+		return nil, InfoError{err}
+	}
 	return ans, nil
 }
 
@@ -293,7 +346,8 @@ func GetCorpusAttrs(corpusID string, setup *CorporaSetup) ([]string, error) {
 			continue
 		}
 		regPath := filepath.Join(regPathRoot, corpusID)
-		if fsops.IsFile(regPath) {
+		isFile, _ := fs.IsFile(regPath)
+		if isFile {
 			corp, err := mango.OpenCorpus(regPath)
 			if err != nil {
 				if strings.Contains(err.Error(), "CorpInfoNotFound") {

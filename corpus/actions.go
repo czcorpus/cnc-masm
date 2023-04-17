@@ -20,13 +20,13 @@ package corpus
 
 import (
 	"fmt"
-	"masm/v3/api"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
@@ -55,7 +55,7 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	if subdir != "" {
 		corpusID = filepath.Join(subdir, corpusID)
 	}
-	baseErrTpl := fmt.Sprintf("failed to get corpus info for %s", corpusID)
+	baseErrTpl := "failed to get corpus info for %s: %w"
 	wsattr := req.URL.Query().Get("wsattr")
 	if wsattr == "" {
 		wsattr = "lemma"
@@ -64,15 +64,15 @@ func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
 	switch err.(type) {
 	case NotFound:
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		log.Error().Err(err)
 	case InfoError:
-		api.WriteJSONErrorResponse(
-			w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		log.Error().Err(err)
 	case nil:
-		api.WriteJSONResponse(w, ans)
+		uniresp.WriteJSONResponse(w, ans)
 	}
 }
 
@@ -112,18 +112,18 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 		corpusID = filepath.Join(subdir, corpusID)
 	}
 	if !a.conf.CorporaSetup.AllowsSyncForCorpus(corpusID) {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, jobTypeSyncCNK); ok {
-		api.WriteJSONErrorResponse(w, api.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
 		return
 	}
 
@@ -147,7 +147,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	}
 	a.jobActions.EnqueueJob(&fn, jobRec)
 
-	api.WriteJSONResponse(w, jobRec.FullInfo())
+	uniresp.WriteJSONResponse(w, jobRec.FullInfo())
 }
 
 // NewActions is the default factory

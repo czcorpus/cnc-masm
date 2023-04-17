@@ -20,14 +20,13 @@ package actions
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
-	"masm/v3/api"
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/laconf"
 	"net/http"
 	"strconv"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	"github.com/gorilla/mux"
 )
@@ -96,36 +95,36 @@ func (a *Actions) createConf(
 func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to get liveattrs conf for %s", corpusID)
+	baseErrTpl := "failed to get liveattrs conf for %s: %w"
 	conf, err := a.laConfCache.GetWithoutPasswords(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 
 	} else if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
-	api.WriteJSONResponse(w, conf)
+	uniresp.WriteJSONResponse(w, conf)
 }
 
 func (a *Actions) CreateConf(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	corpusID := vars["corpusId"]
-	baseErrTpl := fmt.Sprintf("failed to create liveattrs config for %s", corpusID)
+	baseErrTpl := "failed to create liveattrs config for %s: %w"
 	newConf, _, err := a.createConf(corpusID, req, true, a.conf.LiveAttrs.VertMaxNumErrors)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Clear(corpusID)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Save(newConf)
 	if err != nil {
-		api.WriteJSONErrorResponse(w, api.NewActionErrorFrom(baseErrTpl, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
-	api.WriteJSONResponse(w, newConf)
+	uniresp.WriteJSONResponse(w, newConf)
 }
