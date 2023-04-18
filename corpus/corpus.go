@@ -94,7 +94,10 @@ type InfoError struct {
 // (FileExists, LastModified, Size) to proper values
 func bindValueToPath(value, path string) (FileMappedValue, error) {
 	ans := FileMappedValue{Value: value}
-	isFile, _ := fs.IsFile(path)
+	isFile, err := fs.IsFile(path)
+	if err != nil {
+		return ans, err
+	}
 	if isFile {
 		mTime, err := fs.GetFileMtime(path)
 		if err != nil {
@@ -206,7 +209,10 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			continue
 		}
 		regPath := filepath.Join(regPathRoot, corpusID)
-		isFile, _ := fs.IsFile(regPath)
+		isFile, err := fs.IsFile(regPath)
+		if err != nil {
+			return nil, InfoError{err}
+		}
 		if isFile {
 			value, err := bindValueToPath(regPath, regPath)
 			if err != nil {
@@ -241,8 +247,14 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 				return nil, InfoError{err}
 			}
 			dataDirMtimeR := dataDirMtime.Format("2006-01-02T15:04:05-0700")
-			isDir, _ := fs.IsDir(dataDirPath)
-			size, _ := fs.FileSize(dataDirPath)
+			isDir, err := fs.IsDir(dataDirPath)
+			if err != nil {
+				return nil, InfoError{err}
+			}
+			size, err := fs.FileSize(dataDirPath)
+			if err != nil {
+				return nil, InfoError{err}
+			}
 			ans.IndexedData.Path = FileMappedValue{
 				Value:        dataDirPath,
 				LastModified: &dataDirMtimeR,
@@ -315,7 +327,10 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 				return nil, InfoError{err}
 			}
 			dataDirMtimeR := dataDirMtime.Format("2006-01-02T15:04:05-0700")
-			isDir, _ := fs.IsDir(dataDirPath)
+			isDir, err := fs.IsDir(dataDirPath)
+			if err != nil {
+				return nil, InfoError{err}
+			}
 			ans.IndexedData.Size = 0
 			ans.IndexedData.Path = FileMappedValue{
 				Value:        dataDirPath,
@@ -346,7 +361,10 @@ func GetCorpusAttrs(corpusID string, setup *CorporaSetup) ([]string, error) {
 			continue
 		}
 		regPath := filepath.Join(regPathRoot, corpusID)
-		isFile, _ := fs.IsFile(regPath)
+		isFile, err := fs.IsFile(regPath)
+		if err != nil {
+			return nil, InfoError{err}
+		}
 		if isFile {
 			corp, err := mango.OpenCorpus(regPath)
 			if err != nil {

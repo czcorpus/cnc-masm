@@ -428,7 +428,10 @@ func NewActions(
 		jobQueue:               &JobQueue{},
 		jobDeps:                make(JobsDeps),
 	}
-	isFile, _ := fs.IsFile(conf.StatusDataPath)
+	isFile, err := fs.IsFile(conf.StatusDataPath)
+	if err != nil {
+		log.Error().Err(err)
+	}
 	if isFile {
 		log.Info().Msgf("found status data in %s - loading...", conf.StatusDataPath)
 		jobs, err := LoadJobList(conf.StatusDataPath)

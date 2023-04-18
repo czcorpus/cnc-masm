@@ -53,7 +53,10 @@ func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncRespon
 	var ageKontext time.Time
 	var numCNC, numKontext int
 
-	isDir, _ := fs.IsDir(pathCNC)
+	isDir, err := fs.IsDir(pathCNC)
+	if err != nil {
+		return syncResponse{}, err
+	}
 	if isDir {
 		files1, err := fs.ListFilesInDir(pathCNC, true)
 		if err != nil {
@@ -64,7 +67,10 @@ func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncRespon
 		}
 	}
 
-	isDir, _ = fs.IsDir(pathKontext)
+	isDir, err = fs.IsDir(pathKontext)
+	if err != nil {
+		return syncResponse{}, err
+	}
 	if isDir {
 		files2, err := fs.ListFilesInDir(pathKontext, true)
 		if err != nil {
