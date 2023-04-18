@@ -184,7 +184,10 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 		return v, nil
 	}
 	confPath := path.Join(lcache.confDirPath, corpname+".json")
-	isFile, _ := fs.IsFile(confPath)
+	isFile, err := fs.IsFile(confPath)
+	if err != nil {
+		return nil, err
+	}
 	if isFile {
 		v, err := LoadConf(confPath)
 		if err != nil {
@@ -232,7 +235,10 @@ func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 func (lcache *LiveAttrsBuildConfProvider) Clear(corpusID string) error {
 	delete(lcache.data, corpusID)
 	confPath := path.Join(lcache.confDirPath, corpusID+".json")
-	isFile, _ := fs.IsFile(confPath)
+	isFile, err := fs.IsFile(confPath)
+	if err != nil {
+		return err
+	}
 	if isFile {
 		return os.Remove(confPath)
 	}
