@@ -1,6 +1,6 @@
 github.com/coreos/go-systemd/v22 v22.3.3-0.20220203105225-a9a7ef127534/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/czcorpus/cnc-gokit v0.0.8 h1:N2s4TTcoLD0A397ksfIx3PXhAFnCtTkGz5t6Ro0Q3F8=
-github.com/czcorpus/cnc-gokit v0.0.8/go.mod h1:hcijFvx0B2aC5c5fSDPBQ+XoFd6pkOJf40DIxs4cOUU=
+github.com/czcorpus/cnc-gokit v0.0.9 h1:d+lk6YTobM1EOIu0B7l+rdUu2cuX29V7nb0LQ1kCAGw=
+github.com/czcorpus/cnc-gokit v0.0.9/go.mod h1:4C/yjx2ZRlXdcRZ6uXpPaC3AmdEcq0IFgyEkVfBD3M4=
 github.com/czcorpus/vert-tagextract/v2 v2.3.11 h1:HlRxfGbgn9cZc9oT3LyUKGkwO766PXbYGnZINFmQHjQ=
 github.com/czcorpus/vert-tagextract/v2 v2.3.11/go.mod h1:6+aX/obFtNWbNR+9apYLEdl0rfZZ0DBGW2mVcU3Z+e8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
