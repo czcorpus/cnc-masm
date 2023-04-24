@@ -114,7 +114,7 @@ func synchronizeCorpusData(paths *CorporaDataPaths, corpname string) (syncRespon
 	var stdOut, errOut bytes.Buffer
 	cmd.Stdout = &stdOut
 	cmd.Stderr = &errOut
-	err := cmd.Run()
+	err = cmd.Run()
 
 	ans := syncResponse{
 		OK: err == nil,
