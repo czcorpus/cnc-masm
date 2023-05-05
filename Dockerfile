@@ -1,8 +1,9 @@
 FROM czcorpus/kontext-manatee:2.214.1-jammy
 
-RUN apt-get update && apt-get install wget tar python3-dev curl git -y \
+RUN apt-get update && apt-get install wget tar python3-dev python3-pip curl git -y \
     && wget https://go.dev/dl/go1.18.3.linux-amd64.tar.gz \
-    && tar -C /usr/local -xzf go1.18.3.linux-amd64.tar.gz
+    && tar -C /usr/local -xzf go1.18.3.linux-amd64.tar.gz \
+    && pip install pulp numpy
 
 COPY . /opt/masm
 WORKDIR /opt/masm
