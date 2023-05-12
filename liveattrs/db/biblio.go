@@ -83,6 +83,9 @@ func FindBibTitles(
 	laConf *vteconf.VTEConf,
 	qry biblio.PayloadList,
 ) (map[string]string, error) {
+	if corpusInfo.BibIDAttr == "" || corpusInfo.BibLabelAttr == "" {
+		return map[string]string{}, fmt.Errorf("no bib.id/bib.label attribute defined for %s", corpusInfo.Name)
+	}
 	subcorpAttrs := laconf.GetSubcorpAttrs(laConf)
 	selAttrs := make([]string, len(subcorpAttrs))
 	for i, attr := range subcorpAttrs {
