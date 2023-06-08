@@ -231,6 +231,7 @@ func (exp *Exporter) exportValuesToCouchDBSync(statusChan chan<- exporterStatus)
 			"FROM %s_word AS w "+
 			"JOIN %s_sublemma AS s ON s.value = w.sublemma AND s.lemma = w.lemma AND s.pos = w.pos "+
 			"JOIN %s_lemma AS m ON m.value = s.lemma AND m.pos = s.pos "+
+			"WHERE m.pos != 'X' "+
 			"ORDER BY w.lemma, w.pos, w.value", exp.groupedName, exp.groupedName, exp.groupedName))
 	if err != nil {
 		status.Error = err
