@@ -24,11 +24,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 
 	"masm/v3/jobs"
 )
@@ -47,32 +47,32 @@ type Actions struct {
 func (a *Actions) OnExit() {}
 
 // GetCorpusInfo provides some basic information about stored data
-func (a *Actions) GetCorpusInfo(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 	var err error
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
-	subdir := vars["subdir"]
+	corpusID := ctx.Param("corpusId")
+	// mostly, 'subdir' should not be needed as all CNC corpora registry have at
+	// least a symbolic link to an actual registry file in a single directory.
+	subdir := ctx.Request.URL.Query().Get("subdir")
 	if subdir != "" {
 		corpusID = filepath.Join(subdir, corpusID)
 	}
 	baseErrTpl := "failed to get corpus info for %s: %w"
-	wsattr := req.URL.Query().Get("wsattr")
+	wsattr := ctx.Request.URL.Query().Get("wsattr")
 	if wsattr == "" {
 		wsattr = "lemma"
 	}
-	log.Info().Msgf("request[corpusID: %s, wsattr: %s]", corpusID, wsattr)
 	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
 	switch err.(type) {
 	case NotFound:
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		log.Error().Err(err)
 	case InfoError:
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		log.Error().Err(err)
 	case nil:
-		uniresp.WriteJSONResponse(w, ans)
+		uniresp.WriteJSONResponse(ctx.Writer, ans)
 	}
 }
 
@@ -104,26 +104,25 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 
 // SynchronizeCorpusData synchronizes data between CNC corpora data and KonText data
 // for a specified corpus (the corpus must be explicitly allowed in the configuration).
-func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
-	subdir := vars["subdir"]
+func (a *Actions) SynchronizeCorpusData(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
+	subdir := ctx.Param("subdir")
 	if subdir != "" {
 		corpusID = filepath.Join(subdir, corpusID)
 	}
 	if !a.conf.CorporaSetup.AllowsSyncForCorpus(corpusID) {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("Failed to start synchronization job for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
 
 	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, jobTypeSyncCNK); ok {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("Cannot run synchronization - the previous job '%s' have not finished yet", prevRunning), http.StatusConflict)
 		return
 	}
 
@@ -147,7 +146,7 @@ func (a *Actions) SynchronizeCorpusData(w http.ResponseWriter, req *http.Request
 	}
 	a.jobActions.EnqueueJob(&fn, jobRec)
 
-	uniresp.WriteJSONResponse(w, jobRec.FullInfo())
+	uniresp.WriteJSONResponse(ctx.Writer, jobRec.FullInfo())
 }
 
 // NewActions is the default factory

@@ -30,91 +30,88 @@ import (
 	"strconv"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 var (
 	attrValidRegex = regexp.MustCompile(`^[a-zA-Z0-9_\.]+$`)
 )
 
-func (a *Actions) GetBibliography(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) GetBibliography(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to get bibliography from corpus %s: %w"
 
 	var qry biblio.Payload
-	err := json.NewDecoder(req.Body).Decode(&qry)
+	err := json.NewDecoder(ctx.Request.Body).Decode(&qry)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	laConf, err := a.laConfCache.Get(corpInfo.Name)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.GetBibliography(a.laDB, corpInfo, laConf, qry)
 	if err == db.ErrorEmptyResult {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	uniresp.WriteJSONResponse(w, &ans)
+	uniresp.WriteJSONResponse(ctx.Writer, &ans)
 }
 
-func (a *Actions) FindBibTitles(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) FindBibTitles(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to find bibliography titles in corpus %s: %w"
 
 	var qry biblio.PayloadList
-	err := json.NewDecoder(req.Body).Decode(&qry)
+	err := json.NewDecoder(ctx.Request.Body).Decode(&qry)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	laConf, err := a.laConfCache.Get(corpInfo.Name)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	ans, err := db.FindBibTitles(a.laDB, corpInfo, laConf, qry)
 	if err == db.ErrorEmptyResult {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 
 	} else if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	uniresp.WriteJSONResponse(w, &ans)
+	uniresp.WriteJSONResponse(ctx.Writer, &ans)
 }
 
 func isValidAttr(a string) bool {
 	return attrValidRegex.MatchString(a)
 }
 
-func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) DocumentList(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to download document list from %s: %w"
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, err),
 			http.StatusInternalServerError,
 		)
@@ -122,13 +119,13 @@ func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
 	}
 	if corpInfo.BibIDAttr == "" {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, fmt.Errorf("bib. ID not defined for %s", corpusID)),
 			http.StatusNotFound,
 		)
 		return
 	}
-	spage := req.URL.Query().Get("page")
+	spage := ctx.Request.URL.Query().Get("page")
 	if spage == "" {
 		spage = "1"
 	}
@@ -136,14 +133,14 @@ func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
-				w,
+				ctx.Writer,
 				uniresp.NewActionError(baseErrTpl, corpusID, err),
 				http.StatusBadRequest,
 			)
 			return
 		}
 	}
-	spageSize := req.URL.Query().Get("pageSize")
+	spageSize := ctx.Request.URL.Query().Get("pageSize")
 	if spageSize == "" {
 		spageSize = "0"
 	}
@@ -151,7 +148,7 @@ func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
-				w,
+				ctx.Writer,
 				uniresp.NewActionError(baseErrTpl, corpusID, err),
 				http.StatusBadRequest,
 			)
@@ -160,7 +157,7 @@ func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
 	}
 	if pageSize == 0 && page != 1 || pageSize < 0 || page < 0 {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(
 				baseErrTpl,
 				corpusID,
@@ -173,10 +170,10 @@ func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
 	pginfo := db.PageInfo{Page: page, PageSize: pageSize}
 
 	var ans []*db.DocumentRow
-	for _, v := range req.URL.Query()["attr"] {
+	for _, v := range ctx.Request.URL.Query()["attr"] {
 		if !isValidAttr(v) {
 			uniresp.WriteJSONErrorResponse(
-				w,
+				ctx.Writer,
 				uniresp.NewActionError(baseErrTpl, corpusID, fmt.Errorf("incorrect attribute %s", v)),
 				http.StatusUnprocessableEntity,
 			)
@@ -185,39 +182,38 @@ func (a *Actions) DocumentList(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var qry query.Payload
-	err = json.NewDecoder(req.Body).Decode(&qry)
+	err = json.NewDecoder(ctx.Request.Body).Decode(&qry)
 	if err != nil && err != io.EOF {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 
 	ans, err = db.GetDocuments(
 		a.laDB,
 		corpInfo,
-		req.URL.Query()["attr"],
+		ctx.Request.URL.Query()["attr"],
 		qry.Aligned,
 		qry.Attrs,
 		pginfo,
 	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, err),
 			http.StatusInternalServerError,
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
-func (a *Actions) NumMatchingDocuments(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) NumMatchingDocuments(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to count number of matching documents in %s: %w"
 	corpInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, err),
 			http.StatusInternalServerError,
 		)
@@ -225,7 +221,7 @@ func (a *Actions) NumMatchingDocuments(w http.ResponseWriter, req *http.Request)
 	}
 	if corpInfo.BibIDAttr == "" {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, fmt.Errorf("bib. ID not defined for %s", corpusID)),
 			http.StatusNotFound,
 		)
@@ -233,9 +229,9 @@ func (a *Actions) NumMatchingDocuments(w http.ResponseWriter, req *http.Request)
 	}
 
 	var qry query.Payload
-	err = json.NewDecoder(req.Body).Decode(&qry)
+	err = json.NewDecoder(ctx.Request.Body).Decode(&qry)
 	if err != nil && err != io.EOF {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 
@@ -247,11 +243,11 @@ func (a *Actions) NumMatchingDocuments(w http.ResponseWriter, req *http.Request)
 	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, err),
 			http.StatusInternalServerError,
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }

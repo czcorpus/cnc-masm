@@ -24,9 +24,8 @@ import (
 	"masm/v3/corpus"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-
-	"github.com/gorilla/mux"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 )
@@ -63,19 +62,18 @@ func NewActions(conf *corpus.Conf, db DataHandler) *Actions {
 	}
 }
 
-func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) UpdateCorpusInfo(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to update info for corpus %s: %w"
 	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	if !corpusInfo.IndexedData.Path.FileExists {
 		err := fmt.Errorf("data not found for corpus %s", corpusID)
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 	}
 	transact, err := a.db.StartTx()
@@ -86,12 +84,12 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 			log.Error().Err(err2).Msg("failed to rollback transaction")
 		}
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 
-	err = a.db.UpdateDescription(transact, corpusID, req.FormValue("description_cs"),
-		req.FormValue("description_en"))
+	err = a.db.UpdateDescription(transact, corpusID, ctx.PostForm("description_cs"),
+		ctx.PostForm("description_en"))
 	if err != nil {
 		err2 := a.db.RollbackTx(transact)
 		if err2 != nil {
@@ -102,19 +100,18 @@ func (a *Actions) UpdateCorpusInfo(w http.ResponseWriter, req *http.Request) {
 	err = a.db.CommitTx(transact)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 	}
-	uniresp.WriteJSONResponse(w, updateSizeResp{OK: true})
+	uniresp.WriteJSONResponse(ctx.Writer, updateSizeResp{OK: true})
 }
 
-func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) InferKontextDefaults(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 
 	defaultViewAttrs, err := a.db.GetSimpleQueryDefaultAttrs(corpusID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError("Failed to get simple query default attrs: %w", err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError("Failed to get simple query default attrs: %w", err), http.StatusInternalServerError)
 		return
 	}
 	defaultViewOpts := DefaultViewOpts{
@@ -125,7 +122,7 @@ func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request)
 		corpusAttrs, err := corpus.GetCorpusAttrs(corpusID, a.conf.CorporaSetup)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
-				w, uniresp.NewActionError("Failed to get corpus attrs: %w", err), http.StatusInternalServerError)
+				ctx.Writer, uniresp.NewActionError("Failed to get corpus attrs: %w", err), http.StatusInternalServerError)
 			return
 		}
 
@@ -141,7 +138,7 @@ func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request)
 	tagsetAttrs, err := a.db.GetCorpusTagsetAttrs(corpusID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError("Failed to get corpus tagset attrs: %w", err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError("Failed to get corpus tagset attrs: %w", err), http.StatusInternalServerError)
 		return
 	}
 	defaultViewOpts.Attrs = append(defaultViewOpts.Attrs, tagsetAttrs...)
@@ -149,17 +146,17 @@ func (a *Actions) InferKontextDefaults(w http.ResponseWriter, req *http.Request)
 	tx, err := a.db.StartTx()
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError("Failed to start database transaction: %w", err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError("Failed to start database transaction: %w", err), http.StatusInternalServerError)
 		return
 	}
 	err = a.db.UpdateDefaultViewOpts(tx, corpusID, defaultViewOpts)
 	if err != nil {
 		tx.Rollback()
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError("Failed to update `default_view_opts`: %w", err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError("Failed to update `default_view_opts`: %w", err), http.StatusInternalServerError)
 		return
 	}
 	tx.Commit()
 
-	uniresp.WriteJSONResponse(w, defaultViewOpts)
+	uniresp.WriteJSONResponse(ctx.Writer, defaultViewOpts)
 }

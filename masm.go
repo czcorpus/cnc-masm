@@ -30,6 +30,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
@@ -46,8 +48,6 @@ import (
 	"masm/v3/root"
 
 	_ "masm/v3/translations"
-
-	"github.com/gorilla/mux"
 )
 
 var (
@@ -85,11 +85,61 @@ func setupLog(path string, debugMode bool) {
 	log.Debug().Msg("Running application in debug mode...")
 }
 
-func coreMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/json")
-		next.ServeHTTP(w, r)
-	})
+func coreMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		c.Writer.Header().Add("Content-Type", "application/json")
+	}
+}
+
+func notFoundHandler(c *gin.Context) {
+	uniresp.WriteJSONErrorResponse(
+		c.Writer, uniresp.NewActionError("action not found"), http.StatusNotFound)
+}
+
+func noMethodHandler(c *gin.Context) {
+	uniresp.WriteJSONErrorResponse(
+		c.Writer, uniresp.NewActionError("method not allowed"), http.StatusMethodNotAllowed)
+}
+
+func legacyHandler(fn func(w http.ResponseWriter, r *http.Request)) func(*gin.Context) {
+	return func(ctx *gin.Context) {
+		fn(ctx.Writer, ctx.Request)
+	}
+}
+
+func GinZerolog() gin.HandlerFunc {
+
+	return func(c *gin.Context) {
+		// Start timer
+		start := time.Now()
+		path := c.Request.URL.Path
+		raw := c.Request.URL.RawQuery
+		if raw != "" {
+			path = path + "?" + raw
+		}
+
+		// Process request
+		c.Next()
+
+		var logEvent *zerolog.Event
+		if c.Writer.Status() >= 500 {
+			logEvent = log.Error()
+
+		} else {
+			logEvent = log.Info()
+		}
+		t0 := time.Now()
+		logEvent.
+			Float64("latency", t0.Sub(start).Seconds()).
+			Str("clientIP", c.ClientIP()).
+			Str("method", c.Request.Method).
+			Int("status", c.Writer.Status()).
+			Str("errorMessage", c.Errors.ByType(gin.ErrorTypePrivate).String()).
+			Int("bodySize", c.Writer.Size()).
+			Str("path", path).
+			Send()
+	}
 }
 
 func init() {
@@ -166,15 +216,20 @@ func main() {
 	}
 	log.Info().Msgf("LiveAttrs SQL database(s): %s", dbInfo)
 
-	router := mux.NewRouter()
-	router.Use(coreMiddleware)
-	router.MethodNotAllowedHandler = NotAllowedHandler{}
-	router.NotFoundHandler = NotFoundHandler{}
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+	engine.Use(GinZerolog())
+	engine.Use(coreMiddleware())
+	engine.NoMethod(noMethodHandler)
+	engine.NoRoute(notFoundHandler)
 
 	rootActions := root.Actions{Version: version}
 
 	corpdataActions := corpdata.NewActions(conf, version)
-	router.HandleFunc("/corpora-storage/available-locations", corpdataActions.AvailableDataLocations).Methods(http.MethodGet)
+	engine.GET(
+		"/corpora-storage/available-locations",
+		legacyHandler(corpdataActions.AvailableDataLocations),
+	)
 
 	jobStopChannel := make(chan string)
 
@@ -212,91 +267,108 @@ func main() {
 		}
 	}
 
-	router.HandleFunc(
-		"/", rootActions.RootAction).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/corpora/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/corpora/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/corpora/{subdir}/{corpusId}", corpusActions.GetCorpusInfo).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/corpora/{subdir}/{corpusId}/_syncData", corpusActions.SynchronizeCorpusData).Methods(http.MethodPost)
+	engine.GET(
+		"/", rootActions.RootAction)
+	engine.GET(
+		"/corpora/:corpusId", corpusActions.GetCorpusInfo)
+	engine.POST(
+		"/corpora/:corpusId/_syncData", corpusActions.SynchronizeCorpusData)
 
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/data", liveattrsActions.Create).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/data", liveattrsActions.Delete).Methods(http.MethodDelete)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/conf", liveattrsActions.ViewConf).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/conf", liveattrsActions.CreateConf).Methods(http.MethodPut)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/query", liveattrsActions.Query).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/fillAttrs", liveattrsActions.FillAttrs).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/selectionSubcSize", liveattrsActions.GetAdhocSubcSize).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/attrValAutocomplete", liveattrsActions.AttrValAutocomplete).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/getBibliography", liveattrsActions.GetBibliography).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/findBibTitles", liveattrsActions.FindBibTitles).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/stats", liveattrsActions.Stats)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/updateIndexes", liveattrsActions.UpdateIndexes).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/mixSubcorpus", liveattrsActions.MixSubcorpus).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/inferredAtomStructure", liveattrsActions.InferredAtomStructure).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/ngrams", liveattrsActions.GenerateNgrams).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/querySuggestions", liveattrsActions.CreateQuerySuggestions).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/documentList", liveattrsActions.DocumentList).Methods(http.MethodPost)
-	router.HandleFunc(
-		"/liveAttributes/{corpusId}/numMatchingDocuments", liveattrsActions.NumMatchingDocuments).Methods(http.MethodPost)
+	engine.POST(
+		"/liveAttributes/:corpusId/data", liveattrsActions.Create)
+	engine.DELETE(
+		"/liveAttributes/:corpusId/data", liveattrsActions.Delete)
+	engine.GET(
+		"/liveAttributes/:corpusId/conf", liveattrsActions.ViewConf)
+	engine.PUT(
+		"/liveAttributes/:corpusId/conf", liveattrsActions.CreateConf)
+	engine.POST(
+		"/liveAttributes/:corpusId/query", liveattrsActions.Query)
+	engine.POST(
+		"/liveAttributes/:corpusId/fillAttrs", liveattrsActions.FillAttrs)
+	engine.POST(
+		"/liveAttributes/:corpusId/selectionSubcSize",
+		liveattrsActions.GetAdhocSubcSize)
+	engine.POST(
+		"/liveAttributes/:corpusId/attrValAutocomplete",
+		liveattrsActions.AttrValAutocomplete)
+	engine.POST(
+		"/liveAttributes/:corpusId/getBibliography",
+		liveattrsActions.GetBibliography)
+	engine.POST(
+		"/liveAttributes/:corpusId/findBibTitles",
+		liveattrsActions.FindBibTitles)
+	engine.GET(
+		"/liveAttributes/:corpusId/stats", liveattrsActions.Stats)
+	engine.POST(
+		"/liveAttributes/:corpusId/updateIndexes",
+		liveattrsActions.UpdateIndexes)
+	engine.POST(
+		"/liveAttributes/:corpusId/mixSubcorpus",
+		liveattrsActions.MixSubcorpus)
+	engine.GET(
+		"/liveAttributes/:corpusId/inferredAtomStructure",
+		liveattrsActions.InferredAtomStructure)
+	engine.POST(
+		"/liveAttributes/:corpusId/ngrams",
+		liveattrsActions.GenerateNgrams)
+	engine.POST(
+		"/liveAttributes/:corpusId/querySuggestions",
+		liveattrsActions.CreateQuerySuggestions)
+	engine.POST(
+		"/liveAttributes/:corpusId/documentList",
+		liveattrsActions.DocumentList)
+	engine.POST(
+		"/liveAttributes/:corpusId/numMatchingDocuments",
+		liveattrsActions.NumMatchingDocuments)
 
-	router.HandleFunc(
-		"/jobs", jobActions.JobList).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/jobs/utilization", jobActions.Utilization).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/jobs/{jobId}", jobActions.JobInfo).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/jobs/{jobId}", jobActions.Delete).Methods(http.MethodDelete)
-	router.HandleFunc(
-		"/jobs/{jobId}/clearIfFinished", jobActions.ClearIfFinished).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/jobs/{jobId}/emailNotification", jobActions.GetNotifications).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/jobs/{jobId}/emailNotification/{address}", jobActions.CheckNotification).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/jobs/{jobId}/emailNotification/{address}", jobActions.AddNotification).Methods(http.MethodPut)
-	router.HandleFunc(
-		"/jobs/{jobId}/emailNotification/{address}", jobActions.RemoveNotification).Methods(http.MethodDelete)
+	engine.GET(
+		"/jobs", jobActions.JobList)
+	engine.GET(
+		"/jobs/utilization", jobActions.Utilization)
+	engine.GET(
+		"/jobs/:jobId", jobActions.JobInfo)
+	engine.DELETE(
+		"/jobs/:jobId", jobActions.Delete)
+	engine.GET(
+		"/jobs/:jobId/clearIfFinished", jobActions.ClearIfFinished)
+	engine.GET(
+		"/jobs/:jobId/emailNotification", jobActions.GetNotifications)
+	engine.GET(
+		"/jobs/:jobId/emailNotification/:address",
+		jobActions.CheckNotification)
+	engine.PUT(
+		"/jobs/:jobId/emailNotification/:address",
+		jobActions.AddNotification)
+	engine.DELETE(
+		"/jobs/:jobId/emailNotification/:address",
+		jobActions.RemoveNotification)
 
-	router.HandleFunc(
-		"/registry/defaults/attribute/dynamic-functions", registryActions.DynamicFunctions).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/wposlist", registryActions.PosSets).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/wposlist/{posId}", registryActions.GetPosSetInfo).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/attribute/multivalue", registryActions.GetAttrMultivalueDefaults).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/attribute/multisep", registryActions.GetAttrMultisepDefaults).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/attribute/dynlib", registryActions.GetAttrDynlibDefaults).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/attribute/transquery", registryActions.GetAttrTransqueryDefaults).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/structure/multivalue", registryActions.GetStructMultivalueDefaults).Methods(http.MethodGet)
-	router.HandleFunc(
-		"/registry/defaults/structure/multisep", registryActions.GetStructMultisepDefaults).Methods(http.MethodGet)
+	engine.GET(
+		"/registry/defaults/attribute/dynamic-functions",
+		registryActions.DynamicFunctions)
+	engine.GET(
+		"/registry/defaults/wposlist", registryActions.PosSets)
+	engine.GET(
+		"/registry/defaults/wposlist/:posId", registryActions.GetPosSetInfo)
+	engine.GET(
+		"/registry/defaults/attribute/multivalue",
+		registryActions.GetAttrMultivalueDefaults)
+	engine.GET(
+		"/registry/defaults/attribute/multisep",
+		registryActions.GetAttrMultisepDefaults)
+	engine.GET(
+		"/registry/defaults/attribute/dynlib",
+		registryActions.GetAttrDynlibDefaults)
+	engine.GET(
+		"/registry/defaults/attribute/transquery",
+		registryActions.GetAttrTransqueryDefaults)
+	engine.GET(
+		"/registry/defaults/structure/multivalue",
+		registryActions.GetStructMultivalueDefaults)
+	engine.GET(
+		"/registry/defaults/structure/multisep",
+		registryActions.GetStructMultisepDefaults)
 
 	go func(exitHandlers []ExitHandler) {
 		select {
@@ -310,18 +382,22 @@ func main() {
 	}([]ExitHandler{corpdataActions, jobActions, corpusActions, liveattrsActions})
 
 	cncdbActions := cncdb.NewActions(conf, cncDB)
-	router.HandleFunc("/corpora-database/{corpusId}/auto-update", cncdbActions.UpdateCorpusInfo).Methods(http.MethodPost)
-	router.HandleFunc("/corpora-database/{corpusId}/kontextDefaults", cncdbActions.InferKontextDefaults).Methods(http.MethodPut)
+	engine.POST(
+		"/corpora-database/:corpusId/auto-update",
+		cncdbActions.UpdateCorpusInfo)
+	engine.PUT(
+		"/corpora-database/:corpusId/kontextDefaults",
+		cncdbActions.InferKontextDefaults)
 
 	if conf.DebugMode {
 		debugActions := debug.NewActions(jobActions)
-		router.HandleFunc("/debug/createJob", debugActions.CreateDummyJob).Methods(http.MethodPost)
-		router.HandleFunc("/debug/finishJob/{jobId}", debugActions.FinishDummyJob).Methods(http.MethodPost)
+		engine.POST("/debug/createJob", debugActions.CreateDummyJob)
+		engine.POST("/debug/finishJob/:jobId", debugActions.FinishDummyJob)
 	}
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{
-		Handler:      router,
+		Handler:      engine,
 		Addr:         fmt.Sprintf("%s:%d", conf.ListenAddress, conf.ListenPort),
 		WriteTimeout: time.Duration(conf.ServerWriteTimeoutSecs) * time.Second,
 		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,

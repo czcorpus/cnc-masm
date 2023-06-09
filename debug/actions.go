@@ -25,8 +25,8 @@ import (
 	"masm/v3/jobs"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 )
 
 type storedDummyJob struct {
@@ -41,11 +41,11 @@ type Actions struct {
 }
 
 // GetCorpusInfo provides some basic information about stored data
-func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) CreateDummyJob(ctx *gin.Context) {
 	jobID, err := uuid.NewUUID()
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError("failed to create dummy job"), http.StatusUnauthorized)
+			ctx.Writer, uniresp.NewActionError("failed to create dummy job"), http.StatusUnauthorized)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 		Start:    jobs.CurrentDatetime(),
 		CorpusID: "dummy",
 	}
-	if req.URL.Query().Get("error") == "1" {
+	if ctx.Request.URL.Query().Get("error") == "1" {
 		jobInfo.Error = fmt.Errorf("dummy error")
 	}
 	finishSignal := make(chan bool)
@@ -67,28 +67,27 @@ func (a *Actions) CreateDummyJob(w http.ResponseWriter, req *http.Request) {
 	}
 	a.jobActions.EnqueueJob(&fn, jobInfo)
 	a.finishSignals[jobID.String()] = finishSignal
-	uniresp.WriteJSONResponse(w, jobInfo)
+	uniresp.WriteJSONResponse(ctx.Writer, jobInfo)
 }
 
-func (a *Actions) FinishDummyJob(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	finish, ok := a.finishSignals[vars["jobId"]]
+func (a *Actions) FinishDummyJob(ctx *gin.Context) {
+	finish, ok := a.finishSignals[ctx.Param("jobId")]
 	if ok {
-		delete(a.finishSignals, vars["jobId"])
+		delete(a.finishSignals, ctx.Param("jobId"))
 		defer close(finish)
 		finish <- true
-		if storedJob, ok := a.jobActions.GetJob(vars["jobId"]); ok {
+		if storedJob, ok := a.jobActions.GetJob(ctx.Param("jobId")); ok {
 			// TODO please note that here we typically won't see the
 			// final storedJob value (updated elsewhere in a different
 			// goroutine). So it may be a bit confusing.
-			uniresp.WriteJSONResponse(w, storedJob.FullInfo())
+			uniresp.WriteJSONResponse(ctx.Writer, storedJob.FullInfo())
 
 		} else {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 		}
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
