@@ -27,28 +27,27 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 )
 
 // Create starts a process of creating fresh liveattrs data for a a specified corpus.
 // URL args:
-// * atomStructure - a minimal structure masm will be able to search for (typically 'doc', 'text')
-// * noCache - if '1' then masm regenerates data extraction configuration based on actual corpus
-//   registry file
-// * bibIdAttr - if defined then masm will create bibliography entries with IDs matching values from
-//   from referred bibIdAttr values
-// * maxNumErrors - limit number of parsing errors for processed vertical file(s)
-// * skipNgrams - if '1' then n-grams won't be generated even if they are (pre)configured
-//   (either via previous PUT /liveAttributes/{corpusId}/conf or by passing JSON args with n-gram
-//   configuration). In case the setting cannot have an effect (= n-grams are not configured),
-//   the setting is silently ignored.
-func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+//   - atomStructure - a minimal structure masm will be able to search for (typically 'doc', 'text')
+//   - noCache - if '1' then masm regenerates data extraction configuration based on actual corpus
+//     registry file
+//   - bibIdAttr - if defined then masm will create bibliography entries with IDs matching values from
+//     from referred bibIdAttr values
+//   - maxNumErrors - limit number of parsing errors for processed vertical file(s)
+//   - skipNgrams - if '1' then n-grams won't be generated even if they are (pre)configured
+//     (either via previous PUT /liveAttributes/{corpusId}/conf or by passing JSON args with n-gram
+//     configuration). In case the setting cannot have an effect (= n-grams are not configured),
+//     the setting is silently ignored.
+func (a *Actions) Create(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to generate liveattrs for %s: %w"
 	noCache := false
-	if req.URL.Query().Get("noCache") == "1" {
+	if ctx.Request.URL.Query().Get("noCache") == "1" {
 		noCache = true
 	}
 
@@ -62,28 +61,28 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 	if conf == nil {
 		var newConf *vteCnf.VTEConf
 		var err error
-		newConf, jsonArgs, err = a.createConf(corpusID, req, false, a.conf.LiveAttrs.VertMaxNumErrors)
+		newConf, jsonArgs, err = a.createConf(corpusID, ctx.Request, false, a.conf.LiveAttrs.VertMaxNumErrors)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 			return
 		}
 
 		err = a.laConfCache.Save(newConf)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 			return
 		}
 
 		conf, err = a.laConfCache.Get(corpusID)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 			return
 		}
 
 	} else {
-		jsonArgs, err = a.getJsonArgs(req)
+		jsonArgs, err = a.getJsonArgs(ctx.Request)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 			return
 		}
 	}
@@ -93,29 +92,29 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		runtimeConf.VerticalFile = ""
 		runtimeConf.VerticalFiles = jsonArgs.VerticalFiles
 	}
-	if jsonArgs.Ngrams.NgramSize > 0 && req.URL.Query().Get("skipNgrams") == "1" {
+	if jsonArgs.Ngrams.NgramSize > 0 && ctx.Request.URL.Query().Get("skipNgrams") == "1" {
 		runtimeConf.Ngrams = vteCnf.NgramConf{}
 	}
 
 	// TODO search collisions only in liveattrs type jobs
 	jobID, err := uuid.NewUUID()
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusUnauthorized)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusUnauthorized)
 		return
 	}
 
 	if prevRunning, ok := a.jobActions.LastUnfinishedJobOfType(corpusID, liveattrs.JobType); ok {
 		err := fmt.Errorf("the previous job %s not finished yet", prevRunning.GetID())
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, err),
 			http.StatusConflict,
 		)
 		return
 	}
 
-	append := req.URL.Query().Get("append")
-	noCorpusUpdate := req.URL.Query().Get("noCorpusUpdate")
+	append := ctx.Request.URL.Query().Get("append")
+	noCorpusUpdate := ctx.Request.URL.Query().Get("noCorpusUpdate")
 	status := &liveattrs.LiveAttrsJobInfo{
 		ID:       jobID.String(),
 		CorpusID: corpusID,
@@ -127,18 +126,17 @@ func (a *Actions) Create(w http.ResponseWriter, req *http.Request) {
 		},
 	}
 	a.createDataFromJobStatus(status)
-	uniresp.WriteJSONResponseWithStatus(w, http.StatusCreated, status.FullInfo())
+	uniresp.WriteJSONResponseWithStatus(ctx.Writer, http.StatusCreated, status.FullInfo())
 }
 
 // Delete removes all the live attributes data for a corpus
-func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) Delete(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to delete configuration for %s"
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	tx0, err := a.laDB.Begin()
@@ -149,21 +147,21 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		tx0.Rollback()
 		return
 	}
 	tx1, err := a.cncDB.StartTx()
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	err = a.cncDB.UnsetLiveAttrs(tx1, corpusID)
 	if err != nil {
 		tx1.Rollback()
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	// Now we commit tx0 and tx1 deliberately before soft reset below as a failed operation of
@@ -175,20 +173,20 @@ func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		tx1.Rollback()
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	err = tx1.Commit() // in case this fails we're screwed as tx0 is already commited
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(
 			baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
 	err = a.setSoftResetToKontext()
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	uniresp.WriteJSONResponse(w, map[string]any{"ok": true})
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"ok": true})
 }

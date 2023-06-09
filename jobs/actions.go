@@ -28,12 +28,12 @@ import (
 	"time"
 
 	cncmail "github.com/czcorpus/cnc-gokit/mail"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/text/message"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gorilla/mux"
 )
 
 const (
@@ -160,9 +160,9 @@ func (a *Actions) addJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 
 // JobList returns a list of corpus data synchronization jobs
 // (i.e. syncing between /cnk/run/manatee/data and /cnk/local/ssd/run/manatee/data)
-func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
-	unOnly := req.URL.Query().Get("unfinishedOnly") == "1"
-	if req.URL.Query().Get("compact") == "1" {
+func (a *Actions) JobList(ctx *gin.Context) {
+	unOnly := ctx.Request.URL.Query().Get("unfinishedOnly") == "1"
+	if ctx.Request.URL.Query().Get("compact") == "1" {
 		ans := make(JobInfoListCompact, 0, len(a.jobList))
 		for _, v := range a.jobList {
 			if !unOnly || !v.IsFinished() {
@@ -171,7 +171,7 @@ func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 		sort.Sort(sort.Reverse(ans))
-		uniresp.WriteJSONResponse(w, ans)
+		uniresp.WriteJSONResponse(ctx.Writer, ans)
 
 	} else {
 		tmp := a.createJobList(unOnly)
@@ -180,47 +180,44 @@ func (a *Actions) JobList(w http.ResponseWriter, req *http.Request) {
 		for i, item := range tmp {
 			ans[i] = item.FullInfo()
 		}
-		uniresp.WriteJSONResponse(w, ans)
+		uniresp.WriteJSONResponse(ctx.Writer, ans)
 	}
 }
 
 // JobInfo gives an information about a specific data sync job
-func (a *Actions) JobInfo(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	job := FindJob(a.jobList, vars["jobId"])
+func (a *Actions) JobInfo(ctx *gin.Context) {
+	job := FindJob(a.jobList, ctx.Param("jobId"))
 	if job != nil {
-		if req.URL.Query().Get("compact") == "1" {
-			uniresp.WriteJSONResponse(w, job.CompactVersion())
+		if ctx.Request.URL.Query().Get("compact") == "1" {
+			uniresp.WriteJSONResponse(ctx.Writer, job.CompactVersion())
 
 		} else {
-			uniresp.WriteJSONResponse(w, job.FullInfo())
+			uniresp.WriteJSONResponse(ctx.Writer, job.FullInfo())
 		}
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
-func (a *Actions) Delete(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	job := FindJob(a.jobList, vars["jobId"])
+func (a *Actions) Delete(ctx *gin.Context) {
+	job := FindJob(a.jobList, ctx.Param("jobId"))
 	if job != nil {
 		a.jobStop <- job.GetID()
-		uniresp.WriteJSONResponse(w, job)
+		uniresp.WriteJSONResponse(ctx.Writer, job)
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
-func (a *Actions) ClearIfFinished(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	job, removed := ClearFinishedJob(a.jobList, vars["jobId"])
+func (a *Actions) ClearIfFinished(ctx *gin.Context) {
+	job, removed := ClearFinishedJob(a.jobList, ctx.Param("jobId"))
 	if job != nil {
-		uniresp.WriteJSONResponse(w, map[string]any{"removed": removed, "jobInfo": job})
+		uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"removed": removed, "jobInfo": job})
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job does not exist or did not finish yet"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job does not exist or did not finish yet"), http.StatusNotFound)
 	}
 }
 
@@ -284,24 +281,23 @@ func (a *Actions) GetJob(jobID string) (GeneralJobInfo, bool) {
 	return v, ok
 }
 
-func (a *Actions) AddNotification(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	jobID := vars["jobId"]
+func (a *Actions) AddNotification(ctx *gin.Context) {
+	jobID := ctx.Param("jobId")
 	job := FindJob(a.jobList, jobID)
 	if job != nil {
 		recipients, ok := a.notificationRecipients[jobID]
 		if !ok {
 			recipients = make([]string, 1)
-			recipients[0] = vars["address"]
+			recipients[0] = ctx.Param("address")
 		} else {
 			hasValue := false
 			for _, addr := range recipients {
-				if addr == vars["address"] {
+				if addr == ctx.Param("address") {
 					hasValue = true
 				}
 			}
 			if !hasValue {
-				recipients = append(recipients, vars["address"])
+				recipients = append(recipients, ctx.Param("address"))
 			}
 		}
 		a.notificationRecipients[jobID] = recipients
@@ -310,16 +306,15 @@ func (a *Actions) AddNotification(w http.ResponseWriter, req *http.Request) {
 		}{
 			Registered: true,
 		}
-		uniresp.WriteJSONResponse(w, resp)
+		uniresp.WriteJSONResponse(ctx.Writer, resp)
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
-func (a *Actions) GetNotifications(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	jobID := vars["jobId"]
+func (a *Actions) GetNotifications(ctx *gin.Context) {
+	jobID := ctx.Param("jobId")
 	job := FindJob(a.jobList, jobID)
 	if job != nil {
 		recipients, ok := a.notificationRecipients[job.GetID()]
@@ -331,23 +326,22 @@ func (a *Actions) GetNotifications(w http.ResponseWriter, req *http.Request) {
 		if ok {
 			resp.Recipients = recipients
 		}
-		uniresp.WriteJSONResponse(w, resp)
+		uniresp.WriteJSONResponse(ctx.Writer, resp)
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
-func (a *Actions) CheckNotification(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	jobID := vars["jobId"]
+func (a *Actions) CheckNotification(ctx *gin.Context) {
+	jobID := ctx.Param("jobId")
 	job := FindJob(a.jobList, jobID)
 	if job != nil {
 		registered := false
 		recipients, ok := a.notificationRecipients[jobID]
 		if ok {
 			for _, addr := range recipients {
-				if addr == vars["address"] {
+				if addr == ctx.Param("address") {
 					registered = true
 					break
 				}
@@ -361,25 +355,24 @@ func (a *Actions) CheckNotification(w http.ResponseWriter, req *http.Request) {
 		}
 
 		if registered {
-			uniresp.WriteJSONResponse(w, resp)
+			uniresp.WriteJSONResponse(ctx.Writer, resp)
 		} else {
-			uniresp.WriteJSONResponseWithStatus(w, http.StatusNotFound, resp)
+			uniresp.WriteJSONResponseWithStatus(ctx.Writer, http.StatusNotFound, resp)
 		}
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
-func (a *Actions) RemoveNotification(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	jobID := vars["jobId"]
+func (a *Actions) RemoveNotification(ctx *gin.Context) {
+	jobID := ctx.Param("jobId")
 	job := FindJob(a.jobList, jobID)
 	if job != nil {
 		recipients, ok := a.notificationRecipients[jobID]
 		if ok {
 			for i, addr := range recipients {
-				if addr == vars["address"] {
+				if addr == ctx.Param("address") {
 					recipients = append(recipients[:i], recipients[i+1:]...)
 					break
 				}
@@ -392,14 +385,14 @@ func (a *Actions) RemoveNotification(w http.ResponseWriter, req *http.Request) {
 		}{
 			Registered: false,
 		}
-		uniresp.WriteJSONResponse(w, resp)
+		uniresp.WriteJSONResponse(ctx.Writer, resp)
 
 	} else {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("job not found"), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("job not found"), http.StatusNotFound)
 	}
 }
 
-func (a *Actions) Utilization(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) Utilization(ctx *gin.Context) {
 	numUnfinished := a.numOfUnfinishedJobs()
 	ans := map[string]any{
 		"maxNumConcurrentJobs": a.conf.MaxNumConcurrentJobs,
@@ -407,7 +400,7 @@ func (a *Actions) Utilization(w http.ResponseWriter, req *http.Request) {
 		"utilization":          float32(numUnfinished) / float32(a.conf.MaxNumConcurrentJobs),
 		"jobQueueLength":       a.jobQueue.Size(),
 	}
-	uniresp.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
 // NewActions is the default factory

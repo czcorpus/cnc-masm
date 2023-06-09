@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -108,24 +109,24 @@ func importTaskArgs(args subcmixerArgs) ([]subcmixer.TaskArgs, error) {
 	return ret, nil
 }
 
-func (a *Actions) MixSubcorpus(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) MixSubcorpus(ctx *gin.Context) {
 	var args subcmixerArgs
-	err := json.NewDecoder(req.Body).Decode(&args)
+	err := json.NewDecoder(ctx.Request.Body).Decode(&args)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError("failed to mix subcorpus: %w", err), http.StatusBadRequest)
+			ctx.Writer, uniresp.NewActionError("failed to mix subcorpus: %w", err), http.StatusBadRequest)
 		return
 	}
 	baseErrTpl := "failed to mix subcorpus for %s: %w"
 	err = args.validate()
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusUnprocessableEntity)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusUnprocessableEntity)
 	}
 	conditions, err := importTaskArgs(args)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
 	}
 	laTableName := fmt.Sprintf("%s_liveattrs_entry", args.Corpora[0])
 	catTree, err := subcmixer.NewCategoryTree(
@@ -138,13 +139,13 @@ func (a *Actions) MixSubcorpus(w http.ResponseWriter, req *http.Request) {
 	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
 		return
 	}
 	corpusDBInfo, err := a.cncDB.LoadInfo(args.Corpora[0])
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
 		return
 	}
 	mm, err := subcmixer.NewMetadataModel(
@@ -155,9 +156,9 @@ func (a *Actions) MixSubcorpus(w http.ResponseWriter, req *http.Request) {
 	)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, args.Corpora[0], err), http.StatusInternalServerError)
 		return
 	}
 	ans := mm.Solve()
-	uniresp.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }

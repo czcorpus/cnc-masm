@@ -23,7 +23,7 @@ import (
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 // Actions wraps liveattrs-related actions
@@ -33,7 +33,7 @@ type Actions struct {
 
 // DynamicFunctions provides a list of Manatee internal + our configured functions
 // for generating dynamic attributes
-func (a *Actions) DynamicFunctions(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) DynamicFunctions(ctx *gin.Context) {
 	fullList := dynFnList[:]
 	fullList = append(fullList, DynFn{
 		Name:        "geteachncharbysep",
@@ -41,20 +41,19 @@ func (a *Actions) DynamicFunctions(w http.ResponseWriter, req *http.Request) {
 		Description: "Separate a string by \"|\" and return all the pos-th elements from respective items",
 		Dynlib:      a.conf.CorporaSetup.ManateeDynlibPath,
 	})
-	uniresp.WriteCacheableJSONResponse(w, req, fullList)
+	uniresp.WriteCacheableJSONResponse(ctx.Writer, ctx.Request, fullList)
 }
 
-func (a *Actions) PosSets(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) PosSets(ctx *gin.Context) {
 	ans := make([]Pos, len(posList))
 	for i, v := range posList {
 		ans[i] = v
 	}
-	uniresp.WriteCacheableJSONResponse(w, req, ans)
+	uniresp.WriteCacheableJSONResponse(ctx.Writer, ctx.Request, ans)
 }
 
-func (a *Actions) GetPosSetInfo(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	posID := vars["posId"]
+func (a *Actions) GetPosSetInfo(ctx *gin.Context) {
+	posID := ctx.Param("posId")
 	var srch Pos
 	for _, v := range posList {
 		if v.ID == posID {
@@ -62,45 +61,45 @@ func (a *Actions) GetPosSetInfo(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	if srch.ID == "" {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("Tagset %s not found", posID), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("Tagset %s not found", posID), http.StatusInternalServerError)
 
 	} else {
-		uniresp.WriteJSONResponse(w, srch)
+		uniresp.WriteJSONResponse(ctx.Writer, srch)
 	}
 }
 
-func (a *Actions) GetAttrMultivalueDefaults(w http.ResponseWriter, req *http.Request) {
-	uniresp.WriteJSONResponse(w, availBoolValues)
+func (a *Actions) GetAttrMultivalueDefaults(ctx *gin.Context) {
+	uniresp.WriteJSONResponse(ctx.Writer, availBoolValues)
 }
 
-func (a *Actions) GetAttrMultisepDefaults(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) GetAttrMultisepDefaults(ctx *gin.Context) {
 	ans := []multisep{
 		{Value: "|", Description: "A default value used within the CNC"},
 	}
-	uniresp.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
-func (a *Actions) GetAttrDynlibDefaults(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) GetAttrDynlibDefaults(ctx *gin.Context) {
 	ans := []dynlibItem{
 		{Value: "internal", Description: "Functions provided by Manatee"},
 		{Value: a.conf.CorporaSetup.ManateeDynlibPath, Description: "Custom functions provided by the CNC"},
 	}
-	uniresp.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
-func (a *Actions) GetAttrTransqueryDefaults(w http.ResponseWriter, req *http.Request) {
-	uniresp.WriteJSONResponse(w, availBoolValues)
+func (a *Actions) GetAttrTransqueryDefaults(ctx *gin.Context) {
+	uniresp.WriteJSONResponse(ctx.Writer, availBoolValues)
 }
 
-func (a *Actions) GetStructMultivalueDefaults(w http.ResponseWriter, req *http.Request) {
-	uniresp.WriteJSONResponse(w, availBoolValues)
+func (a *Actions) GetStructMultivalueDefaults(ctx *gin.Context) {
+	uniresp.WriteJSONResponse(ctx.Writer, availBoolValues)
 }
 
-func (a *Actions) GetStructMultisepDefaults(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) GetStructMultisepDefaults(ctx *gin.Context) {
 	ans := []multisep{
 		{Value: "|", Description: "A default value used within the CNC"},
 	}
-	uniresp.WriteJSONResponse(w, ans)
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
 // NewActions is the default factory for Actions

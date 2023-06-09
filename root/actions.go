@@ -25,6 +25,7 @@ import (
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
 type Actions struct {
@@ -34,14 +35,17 @@ type Actions struct {
 func (a *Actions) OnExit() {}
 
 // RootAction is just an information action about the service
-func (a *Actions) RootAction(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) RootAction(ctx *gin.Context) {
 	ans := make(map[string]interface{})
 	ans["message"] = "MASM - Manatee Assets, Services and Metadata"
 	ans["data"] = a.Version
 	resp, err := json.Marshal(ans)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError("failed to run the root action: %w", err), http.StatusInternalServerError)
+			ctx.Writer,
+			uniresp.NewActionError("failed to run the root action: %w", err),
+			http.StatusInternalServerError,
+		)
 	}
-	w.Write(resp)
+	ctx.Writer.Write(resp)
 }

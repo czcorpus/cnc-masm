@@ -28,7 +28,7 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 func (a *Actions) getJsonArgs(req *http.Request) (*liveattrsJsonArgs, error) {
@@ -92,39 +92,37 @@ func (a *Actions) createConf(
 	return conf, jsonArgs, err
 }
 
-func (a *Actions) ViewConf(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) ViewConf(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to get liveattrs conf for %s: %w"
 	conf, err := a.laConfCache.GetWithoutPasswords(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 
 	} else if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
-	uniresp.WriteJSONResponse(w, conf)
+	uniresp.WriteJSONResponse(ctx.Writer, conf)
 }
 
-func (a *Actions) CreateConf(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	corpusID := vars["corpusId"]
+func (a *Actions) CreateConf(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to create liveattrs config for %s: %w"
-	newConf, _, err := a.createConf(corpusID, req, true, a.conf.LiveAttrs.VertMaxNumErrors)
+	newConf, _, err := a.createConf(corpusID, ctx.Request, true, a.conf.LiveAttrs.VertMaxNumErrors)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Clear(corpusID)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
 	err = a.laConfCache.Save(newConf)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
-	uniresp.WriteJSONResponse(w, newConf)
+	uniresp.WriteJSONResponse(ctx.Writer, newConf)
 }
