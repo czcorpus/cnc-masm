@@ -117,7 +117,11 @@ func (exp *Exporter) isValidWord(w string) bool {
 	return validWordRegexp.MatchString(w)
 }
 
-func (exp *Exporter) processRowsSync(rows *sql.Rows, statusChan chan<- exporterStatus, status exporterStatus) {
+func (exp *Exporter) processRowsSync(
+	rows *sql.Rows,
+	statusChan chan<- exporterStatus,
+	status exporterStatus,
+) {
 	bulkWriter := couchdb.NewDocHandler[*Lemma](exp.cb)
 	var idBase, procRecords int
 	chunk := make([]*Lemma, 0, exportChunkSize)
@@ -175,7 +179,12 @@ func (exp *Exporter) processRowsSync(rows *sql.Rows, statusChan chan<- exporterS
 			)
 			sublemmas[sublemmaValue] = sublemmaCount
 			if len(chunk) == exportChunkSize {
-				bulkWriter.BulkInsert(chunk)
+				err := bulkWriter.BulkInsert(chunk)
+				if err != nil {
+					status.Error = err
+					statusChan <- status
+					return
+				}
 				chunk = make([]*Lemma, 0, exportChunkSize)
 			}
 		}
@@ -199,16 +208,16 @@ func (exp *Exporter) processRowsSync(rows *sql.Rows, statusChan chan<- exporterS
 		err := bulkWriter.BulkInsert(chunk)
 		if err != nil {
 			status.Error = err
-			statusChan <- status
-			return
 		}
 	}
-	return
+	statusChan <- status
 }
 
 func (exp *Exporter) exportValuesToCouchDBSync(statusChan chan<- exporterStatus) {
-	status := exporterStatus{}
 
+	defer close(statusChan) // we rely on the fact that everything is "sync" here
+
+	status := exporterStatus{}
 	couchdbSchema := couchdb.NewSchema(exp.cb)
 	err := couchdbSchema.CreateDatabase(exp.readAccessUsers)
 	if err != nil {

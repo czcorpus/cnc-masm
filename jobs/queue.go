@@ -20,7 +20,6 @@ package jobs
 
 import (
 	"errors"
-	"fmt"
 )
 
 var (
@@ -83,7 +82,6 @@ func (jq *JobQueue) DelayNext() error {
 	}
 	if jq.Size() == 2 {
 		first := jq.firstEntry
-		fmt.Println("FIRST")
 		jq.firstEntry = jq.lastEntry
 		jq.firstEntry.next = first
 		first.next = nil
