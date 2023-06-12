@@ -86,13 +86,6 @@ func setupLog(path string, debugMode bool) {
 	log.Debug().Msg("Running application in debug mode...")
 }
 
-func coreMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Writer.Header().Set("Content-Type", "application/json")
-		c.Next()
-	}
-}
-
 func init() {
 	gob.Register(&liveattrs.LiveAttrsJobInfo{})
 	gob.Register(&liveattrs.IdxUpdateJobInfo{})
@@ -170,7 +163,7 @@ func main() {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
-	engine.Use(coreMiddleware())
+	engine.Use(uniresp.AlwaysJSONContentType())
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
