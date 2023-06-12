@@ -33,7 +33,6 @@ import (
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"masm/v3/cncdb"
@@ -59,31 +58,6 @@ var (
 
 type ExitHandler interface {
 	OnExit()
-}
-
-func setupLog(path string, debugMode bool) {
-	if path != "" {
-		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatal().Msgf("Failed to initialize log. File: %s", path)
-		}
-		log.Logger = log.Output(logf)
-
-	} else {
-		log.Logger = log.Output(
-			zerolog.ConsoleWriter{
-				Out:        os.Stderr,
-				TimeFormat: time.RFC3339,
-			},
-		)
-	}
-
-	if debugMode {
-		log.Logger = log.Logger.Level(zerolog.DebugLevel)
-	} else {
-		log.Logger = log.Logger.Level(zerolog.InfoLevel)
-	}
-	log.Debug().Msg("Running application in debug mode...")
 }
 
 func init() {
@@ -114,7 +88,7 @@ func main() {
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
 	conf := corpus.LoadConfig(flag.Arg(1))
-	setupLog(conf.LogFile, conf.DebugMode)
+	logging.SetupLogging(conf.LogFile, conf.LogLevel)
 	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
 	corpus.ApplyDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
@@ -159,6 +133,10 @@ func main() {
 		dbInfo = fmt.Sprintf("file://%s/*.db", conf.CorporaSetup.TextTypesDbDirPath)
 	}
 	log.Info().Msgf("LiveAttrs SQL database(s): %s", dbInfo)
+
+	if !conf.LogLevel.IsDebugMode() {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -333,7 +311,7 @@ func main() {
 		"/corpora-database/:corpusId/kontextDefaults",
 		cncdbActions.InferKontextDefaults)
 
-	if conf.DebugMode {
+	if conf.LogLevel.IsDebugMode() {
 		debugActions := debug.NewActions(jobActions)
 		engine.POST("/debug/createJob", debugActions.CreateDummyJob)
 		engine.POST("/debug/finishJob/:jobId", debugActions.FinishDummyJob)

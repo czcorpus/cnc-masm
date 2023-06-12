@@ -26,6 +26,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/czcorpus/cnc-gokit/logging"
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
 
@@ -98,19 +99,23 @@ type NgramDB struct {
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress          string         `json:"listenAddress"`
-	ListenPort             int            `json:"listenPort"`
-	ServerReadTimeoutSecs  int            `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int            `json:"serverWriteTimeoutSecs"`
-	CorporaSetup           *CorporaSetup  `json:"corporaSetup"`
-	LogFile                string         `json:"logFile"`
-	CNCDB                  *databaseSetup `json:"cncDb"`
-	LiveAttrs              *LiveAttrsConf `json:"liveAttrs"`
-	Jobs                   *jobs.Conf     `json:"jobs"`
-	KontextSoftResetURL    []string       `json:"kontextSoftResetURL"`
-	NgramDB                NgramDB        `json:"ngramDb"`
-	DebugMode              bool           `json:"debugMode"`
-	Language               string         `json:"language"`
+	ListenAddress          string           `json:"listenAddress"`
+	ListenPort             int              `json:"listenPort"`
+	ServerReadTimeoutSecs  int              `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int              `json:"serverWriteTimeoutSecs"`
+	CorporaSetup           *CorporaSetup    `json:"corporaSetup"`
+	LogFile                string           `json:"logFile"`
+	CNCDB                  *databaseSetup   `json:"cncDb"`
+	LiveAttrs              *LiveAttrsConf   `json:"liveAttrs"`
+	Jobs                   *jobs.Conf       `json:"jobs"`
+	KontextSoftResetURL    []string         `json:"kontextSoftResetURL"`
+	NgramDB                NgramDB          `json:"ngramDb"`
+	LogLevel               logging.LogLevel `json:"logLevel"`
+	Language               string           `json:"language"`
+}
+
+func (conf *Conf) IsDebugMode() bool {
+	return conf.LogLevel == "debug"
 }
 
 func LoadConfig(path string) *Conf {
@@ -122,7 +127,6 @@ func LoadConfig(path string) *Conf {
 		log.Fatal().Err(err).Msg("Cannot load config")
 	}
 	var conf Conf
-	conf.DebugMode = false
 	err = json.Unmarshal(rawData, &conf)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Cannot load config")
