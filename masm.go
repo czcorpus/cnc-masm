@@ -30,6 +30,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
@@ -89,56 +90,6 @@ func coreMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Content-Type", "application/json")
 		c.Next()
-	}
-}
-
-func notFoundHandler(c *gin.Context) {
-	uniresp.WriteJSONErrorResponse(
-		c.Writer, uniresp.NewActionError("action not found"), http.StatusNotFound)
-}
-
-func noMethodHandler(c *gin.Context) {
-	uniresp.WriteJSONErrorResponse(
-		c.Writer, uniresp.NewActionError("method not allowed"), http.StatusMethodNotAllowed)
-}
-
-func legacyHandler(fn func(w http.ResponseWriter, r *http.Request)) func(*gin.Context) {
-	return func(ctx *gin.Context) {
-		fn(ctx.Writer, ctx.Request)
-	}
-}
-
-func GinZerolog() gin.HandlerFunc {
-
-	return func(c *gin.Context) {
-		// Start timer
-		start := time.Now()
-		path := c.Request.URL.Path
-		raw := c.Request.URL.RawQuery
-		if raw != "" {
-			path = path + "?" + raw
-		}
-
-		// Process request
-		c.Next()
-
-		var logEvent *zerolog.Event
-		if c.Writer.Status() >= 500 {
-			logEvent = log.Error()
-
-		} else {
-			logEvent = log.Info()
-		}
-		t0 := time.Now()
-		logEvent.
-			Float64("latency", t0.Sub(start).Seconds()).
-			Str("clientIP", c.ClientIP()).
-			Str("method", c.Request.Method).
-			Int("status", c.Writer.Status()).
-			Str("errorMessage", c.Errors.ByType(gin.ErrorTypePrivate).String()).
-			Int("bodySize", c.Writer.Size()).
-			Str("path", path).
-			Send()
 	}
 }
 
@@ -218,17 +169,17 @@ func main() {
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-	engine.Use(GinZerolog())
+	engine.Use(logging.GinMiddleware())
 	engine.Use(coreMiddleware())
-	engine.NoMethod(noMethodHandler)
-	engine.NoRoute(notFoundHandler)
+	engine.NoMethod(uniresp.NoMethodHandler)
+	engine.NoRoute(uniresp.NotFoundHandler)
 
 	rootActions := root.Actions{Version: version}
 
 	corpdataActions := corpdata.NewActions(conf, version)
 	engine.GET(
 		"/corpora-storage/available-locations",
-		legacyHandler(corpdataActions.AvailableDataLocations),
+		corpdataActions.AvailableDataLocations,
 	)
 
 	jobStopChannel := make(chan string)

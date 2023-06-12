@@ -26,6 +26,7 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
 type registrySubdir struct {
@@ -53,7 +54,7 @@ func (a *Actions) OnExit() {}
 
 // AvailableDataLocations provides pairs of registry_path=>data_path available
 // to a user
-func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Request) {
+func (a *Actions) AvailableDataLocations(ctx *gin.Context) {
 	location := &storageLocation{
 		Registry: registry{
 			RootPaths: make([]string, 0, 10),
@@ -67,7 +68,7 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 		regPaths, err := fs.ListDirsInDir(regPathRoot, false)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
-				w, uniresp.NewActionError("failed to get data locations: %w", err), http.StatusInternalServerError)
+				ctx.Writer, uniresp.NewActionError("failed to get data locations: %w", err), http.StatusInternalServerError)
 			return
 		}
 		regPaths.ForEach(func(info os.FileInfo, idx int) bool {
@@ -81,7 +82,7 @@ func (a *Actions) AvailableDataLocations(w http.ResponseWriter, req *http.Reques
 			location.Registry.SubDirs,
 			registrySubdir{Name: name, ReadOnly: readonly})
 	}
-	uniresp.WriteJSONResponse(w, location)
+	uniresp.WriteJSONResponse(ctx.Writer, location)
 }
 
 // NewActions is the default factory
