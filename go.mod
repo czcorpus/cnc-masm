@@ -3,7 +3,7 @@ module masm/v3
 go 1.19
 
 require (
-	github.com/czcorpus/cnc-gokit v0.3.1
+	github.com/czcorpus/cnc-gokit v0.3.2
 	github.com/czcorpus/vert-tagextract/v2 v2.3.11
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.6.0
