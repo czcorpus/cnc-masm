@@ -1,4 +1,4 @@
-FROM czcorpus/kontext-manatee:2.214.1-jammy
+FROM czcorpus/kontext-manatee:2.223.6-jammy
 
 RUN apt-get update && apt-get install wget tar python3-dev python3-pip curl git -y \
     && wget https://go.dev/dl/go1.18.3.linux-amd64.tar.gz \
@@ -10,7 +10,7 @@ WORKDIR /opt/masm
 
 RUN git config --global --add safe.directory /opt/masm \
     && export PATH=$PATH:/usr/local/go/bin \
-    && python3 build3 2.214.1
+    && python3 build3 2.223.6
 
 EXPOSE 8088
 CMD ["./masm3", "start", "conf-docker.json"]
