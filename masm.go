@@ -38,6 +38,7 @@ import (
 	"masm/v3/cncdb"
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
+	"masm/v3/corpus/conc"
 	"masm/v3/db/mysql"
 	"masm/v3/debug"
 	"masm/v3/general"
@@ -157,6 +158,7 @@ func main() {
 
 	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
 	corpusActions := corpus.NewActions(conf, jobActions)
+	concActions := conc.NewActions(conf)
 	liveattrsActions := laActions.NewActions(
 		conf, exitEvent, jobStopChannel, jobActions, cncDB, laDB, version)
 	registryActions := registry.NewActions(conf)
@@ -195,6 +197,9 @@ func main() {
 		"/corpora/:corpusId", corpusActions.GetCorpusInfo)
 	engine.POST(
 		"/corpora/:corpusId/_syncData", corpusActions.SynchronizeCorpusData)
+
+	engine.PUT(
+		"/concordance/:corpusId", concActions.CreateConcordance)
 
 	engine.POST(
 		"/liveAttributes/:corpusId/data", liveattrsActions.Create)

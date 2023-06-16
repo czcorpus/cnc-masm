@@ -1,7 +1,5 @@
 package mango
 
-// #cgo CXXFLAGS: -std=c++11
-// #cgo CFLAGS: -I${SRCDIR}/attrib -I${SRCDIR}/attrib/corp
 // #cgo LDFLAGS:  -lmanatee -L${SRCDIR} -Wl,-rpath='$ORIGIN'
 // #include <stdlib.h>
 // #include "mango.h"
@@ -17,12 +15,25 @@ type GoCorpus struct {
 	corp C.CorpusV
 }
 
+func (gc *GoCorpus) Close() {
+	C.close_corpus(gc.corp)
+}
+
+type GoConc struct {
+	conc C.ConcV
+}
+
+func (gc *GoConc) Size() int64 {
+	return int64(C.concordance_size(gc.conc))
+}
+
 // OpenCorpus is a factory function creating
 // a Manatee corpus wrapper.
 func OpenCorpus(path string) (GoCorpus, error) {
 	ret := GoCorpus{}
 	var err error
 	ans := C.open_corpus(C.CString(path))
+
 	if ans.err != nil {
 		err = fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -55,7 +66,7 @@ func GetCorpusSize(corpus GoCorpus) (int64, error) {
 
 // GetCorpusConf returns a corpus configuration item
 // stored in a corpus configuration file (aka "registry file")
-func GetCorpusConf(corpus GoCorpus, prop string) (string, error) {
+func GetCorpusConf(corpus *GoCorpus, prop string) (string, error) {
 	ans := (C.get_corpus_conf(corpus.corp, C.CString(prop)))
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
@@ -63,4 +74,16 @@ func GetCorpusConf(corpus GoCorpus, prop string) (string, error) {
 		return "", err
 	}
 	return C.GoString(ans.value), nil
+}
+
+func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
+	var ret GoConc
+	ans := (C.create_concordance(corpus.corp, C.CString(query)))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return &ret, err
+	}
+	ret.conc = ans.value
+	return &ret, nil
 }

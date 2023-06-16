@@ -88,6 +88,10 @@ type InfoError struct {
 	error
 }
 
+type CorpusError struct {
+	error
+}
+
 // bindValueToPath creates a new FileMappedValue instance
 // using 'value' argument. Then it tests whether the
 // 'path' exists and if so then it sets related properties
@@ -237,7 +241,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 				errStr := err.Error()
 				ans.IndexedData.ManateeError = &errStr
 			}
-			corpDataPath, err := mango.GetCorpusConf(corp, "PATH")
+			corpDataPath, err := mango.GetCorpusConf(&corp, "PATH")
 			if err != nil {
 				return nil, InfoError{err}
 			}
@@ -263,13 +267,13 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			}
 
 			// get encoding
-			ans.RegistryConf.Encoding, err = mango.GetCorpusConf(corp, "ENCODING")
+			ans.RegistryConf.Encoding, err = mango.GetCorpusConf(&corp, "ENCODING")
 			if err != nil {
 				return nil, InfoError{err}
 			}
 
 			// parse SUBCORPATTRS
-			subcorpAttrsString, err := mango.GetCorpusConf(corp, "SUBCORPATTRS")
+			subcorpAttrsString, err := mango.GetCorpusConf(&corp, "SUBCORPATTRS")
 			if err != nil {
 				return nil, InfoError{err}
 			}
@@ -282,7 +286,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 				}
 			}
 
-			unparsedStructs, err := mango.GetCorpusConf(corp, "STRUCTLIST")
+			unparsedStructs, err := mango.GetCorpusConf(&corp, "STRUCTLIST")
 			if err != nil {
 				return nil, InfoError{err}
 			}
@@ -295,7 +299,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			}
 
 			// try registry's VERTICAL
-			regVertical, err := mango.GetCorpusConf(corp, "VERTICAL")
+			regVertical, err := mango.GetCorpusConf(&corp, "VERTICAL")
 			if err != nil {
 				return nil, InfoError{err}
 			}
@@ -352,14 +356,8 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	return ans, nil
 }
 
-func GetCorpusAttrs(corpusID string, setup *CorporaSetup) ([]string, error) {
-	procCorpora := make(map[string]bool)
-
+func OpenCorpus(corpusID string, setup *CorporaSetup) (*mango.GoCorpus, error) {
 	for _, regPathRoot := range setup.RegistryDirPaths {
-		_, alreadyProc := procCorpora[corpusID]
-		if alreadyProc {
-			continue
-		}
 		regPath := filepath.Join(regPathRoot, corpusID)
 		isFile, err := fs.IsFile(regPath)
 		if err != nil {
@@ -372,20 +370,27 @@ func GetCorpusAttrs(corpusID string, setup *CorporaSetup) ([]string, error) {
 					return nil, NotFound{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
 
 				}
-				return nil, InfoError{err}
+				return nil, CorpusError{err}
 			}
-
-			defer mango.CloseCorpus(corp)
-
-			unparsedStructs, err := mango.GetCorpusConf(corp, "ATTRLIST")
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			if unparsedStructs != "" {
-				return strings.Split(unparsedStructs, ","), nil
-			}
+			return &corp, nil
 		}
 	}
+	return nil, NotFound{fmt.Errorf("no configuration found for %s", corpusID)}
+}
 
+func GetCorpusAttrs(corpusID string, setup *CorporaSetup) ([]string, error) {
+
+	corp, err := OpenCorpus(corpusID, setup)
+	if err != nil {
+		return []string{}, err
+	}
+
+	unparsedStructs, err := mango.GetCorpusConf(corp, "ATTRLIST")
+	if err != nil {
+		return nil, InfoError{err}
+	}
+	if unparsedStructs != "" {
+		return strings.Split(unparsedStructs, ","), nil
+	}
 	return nil, nil
 }

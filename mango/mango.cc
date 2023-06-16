@@ -18,6 +18,9 @@
 
 
 #include "corp/corpus.hh"
+#include "concord/concord.hh"
+#include "concord/concord.hh"
+#include "query/cqpeval.hh"
 #include "mango.h"
 #include <string.h>
 #include <stdio.h>
@@ -32,6 +35,7 @@ using namespace std;
 CorpusRetval open_corpus(const char* corpusPath) {
     string tmp(corpusPath);
     CorpusRetval ans;
+    ans.err = nullptr;
     try {
         ans.value = new Corpus(tmp);
         return ans;
@@ -48,6 +52,7 @@ void close_corpus(CorpusV corpus) {
 
 CorpusSizeRetrval get_corpus_size(CorpusV corpus) {
     CorpusSizeRetrval ans;
+    ans.err = nullptr;
     try {
         ans.value = ((Corpus*)corpus)->size();
         return ans;
@@ -60,6 +65,7 @@ CorpusSizeRetrval get_corpus_size(CorpusV corpus) {
 
 CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop) {
     CorpusStringRetval ans;
+    ans.err = nullptr;
     string tmp(prop);
     try {
         const char * s = ((Corpus*)corpus)->get_conf(tmp).c_str();
@@ -70,4 +76,26 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop) {
         ans.err = strdup(e.what());
         return ans;
     }
+}
+
+
+ConcRetval create_concordance(CorpusV corpus, char* query) {
+    string q(query);
+    ConcRetval ans;
+    ans.err = nullptr;
+    Corpus* corpusObj = (Corpus*)corpus;
+
+    try {
+        ans.value = new Concordance(
+            corpusObj, corpusObj->filter_query(eval_cqpquery(q.c_str(), (Corpus*)corpus)));
+        ((Concordance*)ans.value)->sync();
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+        return ans;
+    }
+    return ans;
+}
+
+long long int concordance_size(ConcV conc) {
+    return ((Concordance *)conc)->size();
 }
