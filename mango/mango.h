@@ -23,6 +23,7 @@ extern "C" {
 typedef void* PosAttrV;
 typedef void* CorpusV;
 typedef void* StructV;
+typedef void* ConcV;
 
 /**
  * CorpusRetval wraps both
@@ -46,6 +47,11 @@ typedef struct CorpusStringRetval {
     const char * err;
 } CorpusStringRetval;
 
+typedef struct ConcRetval {
+    ConcV value;
+    const char * err;
+} ConcRetval;
+
 /**
  * Create a Manatee corpus instance
  */
@@ -56,6 +62,10 @@ void close_corpus(CorpusV corpus);
 CorpusSizeRetrval get_corpus_size(CorpusV corpus);
 
 CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
+
+ConcRetval create_concordance(CorpusV corpus, char* query);
+
+long long int concordance_size(ConcV conc);
 
 #ifdef __cplusplus
 }

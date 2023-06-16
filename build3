@@ -133,11 +133,13 @@ def build_project(version: Version, manatee_src, manatee_lib, test=False, out=No
     if version.ge(Version('2.208')):
         subdirs += ['-I{}'.format(os.path.join(manatee_src, s)) for s in ['finlib', 'fsa3', 'hat-trie']]
         build_env = {
+            'CGO_CXXFLAGS': f'-std=c++11 -I{manatee_src}/corp -I{manatee_src}/concord -I{manatee_src}/query',
             'CGO_CPPFLAGS': ' '.join(subdirs),
             'CGO_LDFLAGS': '-lmanatee -L{lm} -lhat-trie -L{lm} -lfsa3 -L{lfsa}'.format(
                 lm=manatee_lib, lfsa=os.path.join(manatee_src, 'fsa3/.libs'))}
     else:
         build_env = {
+        'CGO_CXXFLAGS': f'-std=c++11 -I{manatee_src}/corp -I{manatee_src}/concord -I{manatee_src}/query',
         'CGO_CPPFLAGS': ' '.join(subdirs),
         'CGO_LDFLAGS': '-lmanatee -L{lm}'.format(lm=manatee_lib)}
     print('\nBuilding the project with the following env. variables:\n{0}'.format('\n'.join(['{0} {1}'.format(*x) for x in build_env.items()])))
