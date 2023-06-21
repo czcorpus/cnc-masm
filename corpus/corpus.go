@@ -326,19 +326,23 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 
 		} else {
 			dataDirPath := filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID))
-			dataDirMtime, err := fs.GetFileMtime(dataDirPath)
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			dataDirMtimeR := dataDirMtime.Format("2006-01-02T15:04:05-0700")
 			isDir, err := fs.IsDir(dataDirPath)
 			if err != nil {
 				return nil, InfoError{err}
 			}
+			var dataDirMtimeR *string
+			if isDir {
+				dataDirMtime, err := fs.GetFileMtime(dataDirPath)
+				if err != nil {
+					return nil, InfoError{err}
+				}
+				tmp := dataDirMtime.Format("2006-01-02T15:04:05-0700")
+				dataDirMtimeR = &tmp
+			}
 			ans.IndexedData.Size = 0
 			ans.IndexedData.Path = FileMappedValue{
 				Value:        dataDirPath,
-				LastModified: &dataDirMtimeR,
+				LastModified: dataDirMtimeR,
 				FileExists:   isDir,
 				Path:         dataDirPath,
 			}
