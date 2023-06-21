@@ -21,6 +21,7 @@ package corpus
 import (
 	"fmt"
 	"masm/v3/mango"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -327,7 +328,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 		} else {
 			dataDirPath := filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID))
 			isDir, err := fs.IsDir(dataDirPath)
-			if err != nil {
+			if err != nil && !os.IsNotExist(err) {
 				return nil, InfoError{err}
 			}
 			var dataDirMtimeR *string
