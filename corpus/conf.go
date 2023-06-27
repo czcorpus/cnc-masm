@@ -22,10 +22,12 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"masm/v3/jobs"
+	"path/filepath"
 	"runtime"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"
 	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
 )
@@ -54,6 +56,7 @@ type CorporaDataPaths struct {
 // to a corpus
 type CorporaSetup struct {
 	RegistryDirPaths     []string          `json:"registryDirPaths"`
+	RegistryTmpDir       string            `json:"registryTmpDir"`
 	TextTypesDbDirPath   string            `json:"textTypesDbDirPath"`
 	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
@@ -61,6 +64,22 @@ type CorporaSetup struct {
 	SyncAllowedCorpora   []string          `json:"syncAllowedCorpora"`
 	VerticalFilesDirPath string            `json:"verticalFilesDirPath"`
 	ManateeDynlibPath    string            `json:"manateeDynlibPath"`
+}
+
+func (cs *CorporaSetup) GetFirstValidRegistry(corpusID string) string {
+	for _, dir := range cs.RegistryDirPaths {
+		d := filepath.Join(dir, corpusID)
+		pe := fs.PathExists(d)
+		isf, _ := fs.IsFile(d)
+		if pe && isf {
+			return d
+		}
+	}
+	return ""
+}
+
+func (cs *CorporaSetup) GetCorpusCNCDataPath() string {
+	return cs.CorpusDataPath.CNC
 }
 
 func (cs *CorporaSetup) AllowsSyncForCorpus(name string) bool {

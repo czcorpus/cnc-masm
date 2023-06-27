@@ -62,18 +62,13 @@ func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 		wsattr = "lemma"
 	}
 	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
-	switch err.(type) {
-	case NotFound:
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
-		log.Error().Err(err)
-	case InfoError:
+	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		log.Error().Err(err)
-	case nil:
-		uniresp.WriteJSONResponse(ctx.Writer, ans)
+		return
 	}
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
 func (a *Actions) RestartJob(jinfo *JobInfo) error {
