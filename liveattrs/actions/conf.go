@@ -55,7 +55,7 @@ func (a *Actions) createConf(
 	saveJSONArgs bool,
 	maxNumErr int,
 ) (*vteCnf.VTEConf, *liveattrsJsonArgs, error) {
-	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
+	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.Corp)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,7 +77,7 @@ func (a *Actions) createConf(
 	}
 
 	conf, err := laconf.Create(
-		a.conf,
+		a.conf.LA,
 		corpusInfo,
 		corpusDBInfo,
 		req.URL.Query().Get("atomStructure"),
@@ -109,7 +109,7 @@ func (a *Actions) ViewConf(ctx *gin.Context) {
 func (a *Actions) CreateConf(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to create liveattrs config for %s: %w"
-	newConf, _, err := a.createConf(corpusID, ctx.Request, true, a.conf.LiveAttrs.VertMaxNumErrors)
+	newConf, _, err := a.createConf(corpusID, ctx.Request, true, a.conf.LA.VertMaxNumErrors)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return

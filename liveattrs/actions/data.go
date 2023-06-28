@@ -21,6 +21,7 @@ package actions
 import (
 	"fmt"
 	"masm/v3/jobs"
+	"masm/v3/kontext"
 	"masm/v3/liveattrs"
 	"masm/v3/liveattrs/db"
 	"net/http"
@@ -61,7 +62,7 @@ func (a *Actions) Create(ctx *gin.Context) {
 	if conf == nil {
 		var newConf *vteCnf.VTEConf
 		var err error
-		newConf, jsonArgs, err = a.createConf(corpusID, ctx.Request, false, a.conf.LiveAttrs.VertMaxNumErrors)
+		newConf, jsonArgs, err = a.createConf(corpusID, ctx.Request, false, a.conf.LA.VertMaxNumErrors)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 			return
@@ -182,7 +183,7 @@ func (a *Actions) Delete(ctx *gin.Context) {
 			baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	err = a.setSoftResetToKontext()
+	err = kontext.SendSoftReset(a.conf.KonText)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)

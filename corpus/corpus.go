@@ -62,11 +62,6 @@ type RegistryConf struct {
 	SubcorpAttrs map[string][]string `json:"subcorpAttrs"`
 }
 
-// TTDBRecord wraps information about text types data configuration
-type TTDBRecord struct {
-	Path FileMappedValue `json:"path"`
-}
-
 // Data wraps information about indexed corpus data/files
 type Data struct {
 	Size         int64           `json:"size"`
@@ -78,7 +73,6 @@ type Data struct {
 type Info struct {
 	ID             string       `json:"id"`
 	IndexedData    Data         `json:"indexedData"`
-	TextTypesDB    TTDBRecord   `json:"textTypesDb"`
 	IndexedStructs []string     `json:"indexedStructs"`
 	RegistryConf   RegistryConf `json:"registry"`
 }
@@ -176,18 +170,6 @@ func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup
 		return err
 	}
 	result.RegistryConf.WordSketches.WSThes = value
-	return nil
-}
-
-func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) error {
-	dbFileName := GenCorpusGroupName(corpusID) + ".db"
-	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
-	result.TextTypesDB = TTDBRecord{}
-	value, err := bindValueToPath(absPath, absPath)
-	if err != nil {
-		return err
-	}
-	result.TextTypesDB.Path = value
 	return nil
 }
 
@@ -353,10 +335,6 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 
 	// -----
 	err = attachWordSketchConfInfo(corpusID, wsattr, setup, ans)
-	if err != nil {
-		return nil, InfoError{err}
-	}
-	err = attachTextTypeDbInfo(corpusID, setup, ans)
 	if err != nil {
 		return nil, InfoError{err}
 	}

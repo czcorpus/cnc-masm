@@ -28,12 +28,12 @@ import (
 )
 
 type Actions struct {
-	conf *corpus.Conf
+	conf *corpus.CorporaSetup
 }
 
 func (a *Actions) CreateConcordance(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
-	corp, err := corpus.OpenCorpus(ctx.Param("corpusId"), a.conf.CorporaSetup)
+	corp, err := corpus.OpenCorpus(ctx.Param("corpusId"), a.conf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -54,7 +54,7 @@ func (a *Actions) CreateConcordance(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"concSize": conc.Size()})
 }
 
-func NewActions(conf *corpus.Conf) *Actions {
+func NewActions(conf *corpus.CorporaSetup) *Actions {
 	return &Actions{
 		conf: conf,
 	}

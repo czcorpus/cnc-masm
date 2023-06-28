@@ -19,24 +19,9 @@
 package corpus
 
 import (
-	"encoding/json"
-	"io/ioutil"
-	"masm/v3/jobs"
 	"path/filepath"
-	"runtime"
-
-	"github.com/rs/zerolog/log"
 
 	"github.com/czcorpus/cnc-gokit/fs"
-	"github.com/czcorpus/cnc-gokit/logging"
-	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
-)
-
-const (
-	dfltServerWriteTimeoutSecs = 10
-	dfltLanguage               = "en"
-	dfltMaxNumConcurrentJobs   = 4
-	dfltVertMaxNumErrors       = 100
 )
 
 // CorporaDataPaths describes three
@@ -57,7 +42,6 @@ type CorporaDataPaths struct {
 type CorporaSetup struct {
 	RegistryDirPaths     []string          `json:"registryDirPaths"`
 	RegistryTmpDir       string            `json:"registryTmpDir"`
-	TextTypesDbDirPath   string            `json:"textTypesDbDirPath"`
 	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
 	WordSketchDefDirPath string            `json:"wordSketchDefDirPath"`
@@ -96,88 +80,11 @@ func (cs *CorporaSetup) SubdirIsInAltAccessMapping(subdir string) bool {
 	return ok
 }
 
-type databaseSetup struct {
+type DatabaseSetup struct {
 	Host                     string `json:"host"`
 	User                     string `json:"user"`
 	Passwd                   string `json:"passwd"`
-	DBName                   string `json:"db"`
+	Name                     string `json:"db"`
 	OverrideCorporaTableName string `json:"overrideCorporaTableName"`
 	OverridePCTableName      string `json:"overridePcTableName"`
-}
-
-type LiveAttrsConf struct {
-	DB               *vtedb.Conf `json:"db"`
-	ConfDirPath      string      `json:"confDirPath"`
-	VertMaxNumErrors int         `json:"vertMaxNumErrors"`
-}
-
-type NgramDB struct {
-	URL             string   `json:"url"`
-	ReadAccessUsers []string `json:"readAccessUsers"`
-}
-
-// Conf is a global configuration of the app
-type Conf struct {
-	ListenAddress          string           `json:"listenAddress"`
-	ListenPort             int              `json:"listenPort"`
-	ServerReadTimeoutSecs  int              `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int              `json:"serverWriteTimeoutSecs"`
-	CorporaSetup           *CorporaSetup    `json:"corporaSetup"`
-	LogFile                string           `json:"logFile"`
-	CNCDB                  *databaseSetup   `json:"cncDb"`
-	LiveAttrs              *LiveAttrsConf   `json:"liveAttrs"`
-	Jobs                   *jobs.Conf       `json:"jobs"`
-	KontextSoftResetURL    []string         `json:"kontextSoftResetURL"`
-	NgramDB                NgramDB          `json:"ngramDb"`
-	LogLevel               logging.LogLevel `json:"logLevel"`
-	Language               string           `json:"language"`
-}
-
-func (conf *Conf) IsDebugMode() bool {
-	return conf.LogLevel == "debug"
-}
-
-func LoadConfig(path string) *Conf {
-	if path == "" {
-		log.Fatal().Msg("Cannot load config - path not specified")
-	}
-	rawData, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Cannot load config")
-	}
-	var conf Conf
-	err = json.Unmarshal(rawData, &conf)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Cannot load config")
-	}
-	return &conf
-}
-
-func ApplyDefaults(conf *Conf) {
-	if conf.ServerWriteTimeoutSecs == 0 {
-		conf.ServerWriteTimeoutSecs = dfltServerWriteTimeoutSecs
-		log.Warn().Msgf(
-			"serverWriteTimeoutSecs not specified, using default: %d",
-			dfltServerWriteTimeoutSecs,
-		)
-	}
-	if conf.LiveAttrs.VertMaxNumErrors == 0 {
-		conf.LiveAttrs.VertMaxNumErrors = dfltVertMaxNumErrors
-		log.Warn().Msgf(
-			"liveAttrs.vertMaxNumErrors not specified, using default: %d",
-			dfltVertMaxNumErrors,
-		)
-	}
-	if conf.Language == "" {
-		conf.Language = dfltLanguage
-		log.Warn().Msgf("language not specified, using default: %s", conf.Language)
-	}
-	if conf.Jobs.MaxNumConcurrentJobs == 0 {
-		v := dfltMaxNumConcurrentJobs
-		if v >= runtime.NumCPU() {
-			v = runtime.NumCPU()
-		}
-		conf.Jobs.MaxNumConcurrentJobs = v
-		log.Warn().Msgf("jobs.maxNumConcurrentJobs not specified, using default %d", v)
-	}
 }

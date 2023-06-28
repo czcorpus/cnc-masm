@@ -19,7 +19,6 @@
 package corpus
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,8 +38,9 @@ const (
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf       *Conf
+	conf       *CorporaSetup
 	osSignal   chan os.Signal
+	jobsConf   *jobs.Conf
 	jobActions *jobs.Actions
 }
 
@@ -61,7 +61,7 @@ func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 	if wsattr == "" {
 		wsattr = "lemma"
 	}
-	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf.CorporaSetup)
+	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
@@ -72,8 +72,9 @@ func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 }
 
 func (a *Actions) RestartJob(jinfo *JobInfo) error {
-	if jinfo.NumRestarts >= a.conf.Jobs.MaxNumRestarts {
-		return fmt.Errorf("cannot restart job %s - max. num. of restarts reached", jinfo.ID)
+	err := a.jobActions.TestAllowsJobRestart(jinfo)
+	if err != nil {
+		return err
 	}
 	jinfo.Start = jobs.CurrentDatetime()
 	jinfo.NumRestarts++
@@ -81,7 +82,7 @@ func (a *Actions) RestartJob(jinfo *JobInfo) error {
 
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		defer close(updateJobChan)
-		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, jinfo.CorpusID)
+		resp, err := synchronizeCorpusData(&a.conf.CorpusDataPath, jinfo.CorpusID)
 		if err != nil {
 			updateJobChan <- jinfo.WithError(err)
 
@@ -105,7 +106,7 @@ func (a *Actions) SynchronizeCorpusData(ctx *gin.Context) {
 	if subdir != "" {
 		corpusID = filepath.Join(subdir, corpusID)
 	}
-	if !a.conf.CorporaSetup.AllowsSyncForCorpus(corpusID) {
+	if !a.conf.AllowsSyncForCorpus(corpusID) {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("Corpus synchronization forbidden for '%s'", corpusID), http.StatusUnauthorized)
 		return
 	}
@@ -132,7 +133,7 @@ func (a *Actions) SynchronizeCorpusData(ctx *gin.Context) {
 	// now let's define and enqueue the actual synchronization
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		defer close(updateJobChan)
-		resp, err := synchronizeCorpusData(&a.conf.CorporaSetup.CorpusDataPath, corpusID)
+		resp, err := synchronizeCorpusData(&a.conf.CorpusDataPath, corpusID)
 		if err != nil {
 			jobRec.Error = err
 		}
@@ -145,9 +146,10 @@ func (a *Actions) SynchronizeCorpusData(ctx *gin.Context) {
 }
 
 // NewActions is the default factory
-func NewActions(conf *Conf, jobActions *jobs.Actions) *Actions {
+func NewActions(conf *CorporaSetup, jobsConf *jobs.Conf, jobActions *jobs.Actions) *Actions {
 	return &Actions{
 		conf:       conf,
+		jobsConf:   jobsConf,
 		jobActions: jobActions,
 	}
 }

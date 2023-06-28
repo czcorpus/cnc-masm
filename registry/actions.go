@@ -28,7 +28,7 @@ import (
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
-	conf *corpus.Conf
+	conf *corpus.CorporaSetup
 }
 
 // DynamicFunctions provides a list of Manatee internal + our configured functions
@@ -39,7 +39,7 @@ func (a *Actions) DynamicFunctions(ctx *gin.Context) {
 		Name:        "geteachncharbysep",
 		Args:        []string{"str", "n"},
 		Description: "Separate a string by \"|\" and return all the pos-th elements from respective items",
-		Dynlib:      a.conf.CorporaSetup.ManateeDynlibPath,
+		Dynlib:      a.conf.ManateeDynlibPath,
 	})
 	uniresp.WriteCacheableJSONResponse(ctx.Writer, ctx.Request, fullList)
 }
@@ -82,7 +82,7 @@ func (a *Actions) GetAttrMultisepDefaults(ctx *gin.Context) {
 func (a *Actions) GetAttrDynlibDefaults(ctx *gin.Context) {
 	ans := []dynlibItem{
 		{Value: "internal", Description: "Functions provided by Manatee"},
-		{Value: a.conf.CorporaSetup.ManateeDynlibPath, Description: "Custom functions provided by the CNC"},
+		{Value: a.conf.ManateeDynlibPath, Description: "Custom functions provided by the CNC"},
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
@@ -104,7 +104,7 @@ func (a *Actions) GetStructMultisepDefaults(ctx *gin.Context) {
 
 // NewActions is the default factory for Actions
 func NewActions(
-	conf *corpus.Conf,
+	conf *corpus.CorporaSetup,
 ) *Actions {
 	return &Actions{
 		conf: conf,
