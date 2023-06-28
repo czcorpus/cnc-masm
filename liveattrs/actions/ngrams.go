@@ -144,10 +144,9 @@ func (a *Actions) CreateQuerySuggestions(ctx *gin.Context) {
 		return
 	}
 	exporter := qs.NewExporter(
-		&a.conf.NgramDB,
+		a.conf.Ngram,
 		a.laDB,
 		corpusDBInfo.GroupedName(),
-		a.conf.NgramDB.ReadAccessUsers,
 		multiValuesEnabled,
 		a.jobActions,
 	)

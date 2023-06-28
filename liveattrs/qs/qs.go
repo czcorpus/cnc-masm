@@ -23,9 +23,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"masm/v3/common"
-	"masm/v3/corpus"
 	"masm/v3/db/couchdb"
 	"masm/v3/jobs"
+	"masm/v3/liveattrs"
 	"regexp"
 	"strings"
 
@@ -291,10 +291,9 @@ func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error)
 }
 
 func NewExporter(
-	conf *corpus.NgramDB,
+	conf *liveattrs.NgramDBConf,
 	db *sql.DB,
 	groupedName string,
-	readAccessUsers []string,
 	multiValuesEnabled bool,
 	jobActions *jobs.Actions,
 ) *Exporter {
@@ -305,7 +304,7 @@ func NewExporter(
 		},
 		db:                 db,
 		groupedName:        groupedName,
-		readAccessUsers:    readAccessUsers,
+		readAccessUsers:    conf.ReadAccessUsers,
 		jobActions:         jobActions,
 		multiValuesEnabled: multiValuesEnabled,
 	}

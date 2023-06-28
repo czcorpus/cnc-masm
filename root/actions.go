@@ -21,8 +21,10 @@ package root
 
 import (
 	"encoding/json"
+	"masm/v3/cnf"
 	"masm/v3/general"
 	"net/http"
+	"os"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -30,15 +32,29 @@ import (
 
 type Actions struct {
 	Version general.VersionInfo
+	Conf    *cnf.Conf
 }
 
 func (a *Actions) OnExit() {}
 
 // RootAction is just an information action about the service
 func (a *Actions) RootAction(ctx *gin.Context) {
-	ans := make(map[string]interface{})
-	ans["message"] = "MASM - Manatee Assets, Services and Metadata"
-	ans["data"] = a.Version
+	host, err := os.Hostname()
+	if err != nil {
+		host = "#failed_to_obtain"
+	}
+	ans := struct {
+		Name     string              `json:"name"`
+		Version  general.VersionInfo `json:"version"`
+		Host     string              `json:"host"`
+		ConfPath string              `json:"confPath"`
+	}{
+		Name:     "MASM - Manatee Assets, Services and Metadata",
+		Version:  a.Version,
+		Host:     host,
+		ConfPath: a.Conf.GetSourcePath(),
+	}
+
 	resp, err := json.Marshal(ans)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(

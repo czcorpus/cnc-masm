@@ -36,6 +36,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"masm/v3/cncdb"
+	"masm/v3/cnf"
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
 	"masm/v3/corpus/conc"
@@ -88,10 +89,10 @@ func main() {
 	} else if action != "start" {
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
-	conf := corpus.LoadConfig(flag.Arg(1))
+	conf := cnf.LoadConfig(flag.Arg(1))
 	logging.SetupLogging(conf.LogFile, conf.LogLevel)
 	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
-	corpus.ApplyDefaults(conf)
+	cnf.ApplyDefaults(conf)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -113,14 +114,14 @@ func main() {
 		conf.CNCDB.Host,
 		conf.CNCDB.User,
 		conf.CNCDB.Passwd,
-		conf.CNCDB.DBName,
+		conf.CNCDB.Name,
 		cTableName,
 		pcTableName,
 	)
 	if err != nil {
 		log.Fatal().Err(err)
 	}
-	log.Info().Msgf("CNC SQL database: %s", conf.CNCDB.Host)
+	log.Info().Msgf("CNC SQL database: %s@%s", conf.CNCDB.Name, conf.CNCDB.Host)
 
 	laDB, err := mysql.OpenDB(conf.LiveAttrs.DB)
 	if err != nil {
@@ -128,10 +129,10 @@ func main() {
 	}
 	var dbInfo string
 	if conf.LiveAttrs.DB.Type == "mysql" {
-		dbInfo = conf.LiveAttrs.DB.Host
+		dbInfo = fmt.Sprintf("%s@%s", conf.LiveAttrs.DB.Name, conf.LiveAttrs.DB.Host)
 
 	} else {
-		dbInfo = fmt.Sprintf("file://%s/*.db", conf.CorporaSetup.TextTypesDbDirPath)
+		dbInfo = fmt.Sprintf("file://%s/*.db", conf.LiveAttrs.TextTypesDbDirPath)
 	}
 	log.Info().Msgf("LiveAttrs SQL database(s): %s", dbInfo)
 
@@ -146,7 +147,7 @@ func main() {
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	rootActions := root.Actions{Version: version}
+	rootActions := root.Actions{Version: version, Conf: conf}
 
 	corpdataActions := corpdata.NewActions(conf, version)
 	engine.GET(
@@ -157,11 +158,23 @@ func main() {
 	jobStopChannel := make(chan string)
 
 	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
-	corpusActions := corpus.NewActions(conf, jobActions)
-	concActions := conc.NewActions(conf)
+	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions)
+	concActions := conc.NewActions(conf.CorporaSetup)
 	liveattrsActions := laActions.NewActions(
-		conf, exitEvent, jobStopChannel, jobActions, cncDB, laDB, version)
-	registryActions := registry.NewActions(conf)
+		laActions.LAConf{
+			LA:      conf.LiveAttrs,
+			Ngram:   conf.NgramDB,
+			KonText: conf.Kontext,
+			Corp:    conf.CorporaSetup,
+		},
+		exitEvent,
+		jobStopChannel,
+		jobActions,
+		cncDB,
+		laDB,
+		version,
+	)
+	registryActions := registry.NewActions(conf.CorporaSetup)
 
 	for _, dj := range jobActions.GetDetachedJobs() {
 		if dj.IsFinished() {
@@ -308,7 +321,7 @@ func main() {
 		}
 	}([]ExitHandler{corpdataActions, jobActions, corpusActions, liveattrsActions})
 
-	cncdbActions := cncdb.NewActions(conf, cncDB)
+	cncdbActions := cncdb.NewActions(conf.CNCDB, cncDB)
 	engine.POST(
 		"/corpora-database/:corpusId/auto-update",
 		cncdbActions.UpdateCorpusInfo)

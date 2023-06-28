@@ -26,6 +26,7 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
 	"masm/v3/jobs"
+	"masm/v3/liveattrs"
 	"masm/v3/liveattrs/utils"
 	"os"
 	"path"
@@ -46,7 +47,7 @@ var (
 // on provided args.
 // note: bibIdAttr and mergeAttrs use dot notation (e.g. "doc.author")
 func Create(
-	masmConf *corpus.Conf,
+	conf *liveattrs.Conf,
 	corpusInfo *corpus.Info,
 	corpusDBInfo *corpus.DBInfo,
 	atomStructure string,
@@ -133,13 +134,13 @@ func Create(
 		}
 		newConf.SelfJoin.GeneratorFn = mergeFn
 	}
-	if masmConf.LiveAttrs.DB.Type == "mysql" {
+	if conf.DB.Type == "mysql" {
 		newConf.DB = vtedb.Conf{
 			Type:           "mysql",
-			Host:           masmConf.LiveAttrs.DB.Host,
-			User:           masmConf.LiveAttrs.DB.User,
-			Password:       masmConf.LiveAttrs.DB.Password,
-			PreconfQueries: masmConf.LiveAttrs.DB.PreconfQueries,
+			Host:           conf.DB.Host,
+			User:           conf.DB.User,
+			Password:       conf.DB.Password,
+			PreconfQueries: conf.DB.PreconfQueries,
 		}
 		if corpusDBInfo.ParallelCorpus != "" {
 			newConf.DB.Name = corpusDBInfo.ParallelCorpus
@@ -152,7 +153,7 @@ func Create(
 		newConf.DB = vtedb.Conf{
 			Type: "sqlite",
 			Name: path.Join(
-				masmConf.CorporaSetup.TextTypesDbDirPath,
+				conf.TextTypesDbDirPath,
 				fmt.Sprintf("%s.db", corpusInfo.ID),
 			),
 		}

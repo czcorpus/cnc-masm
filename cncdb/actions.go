@@ -50,12 +50,13 @@ type updateSizeResp struct {
 
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf *corpus.Conf
-	db   DataHandler
+	conf  *corpus.DatabaseSetup
+	cConf *corpus.CorporaSetup
+	db    DataHandler
 }
 
 // NewActions is the default factory
-func NewActions(conf *corpus.Conf, db DataHandler) *Actions {
+func NewActions(conf *corpus.DatabaseSetup, db DataHandler) *Actions {
 	return &Actions{
 		conf: conf,
 		db:   db,
@@ -65,7 +66,7 @@ func NewActions(conf *corpus.Conf, db DataHandler) *Actions {
 func (a *Actions) UpdateCorpusInfo(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to update info for corpus %s: %w"
-	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.CorporaSetup)
+	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.cConf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
@@ -119,7 +120,7 @@ func (a *Actions) InferKontextDefaults(ctx *gin.Context) {
 	}
 
 	if len(defaultViewOpts.Attrs) == 0 {
-		corpusAttrs, err := corpus.GetCorpusAttrs(corpusID, a.conf.CorporaSetup)
+		corpusAttrs, err := corpus.GetCorpusAttrs(corpusID, a.cConf)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer, uniresp.NewActionError("Failed to get corpus attrs: %w", err), http.StatusInternalServerError)

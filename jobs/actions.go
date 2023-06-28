@@ -70,6 +70,13 @@ type Actions struct {
 	notificationRecipients map[string][]string
 }
 
+func (a *Actions) TestAllowsJobRestart(jinfo GeneralJobInfo) error {
+	if jinfo.GetNumRestarts() >= a.conf.MaxNumRestarts {
+		return fmt.Errorf("cannot restart job %s - max. num. of restarts reached", jinfo.GetID())
+	}
+	return nil
+}
+
 func (a *Actions) createJobList(unfinishedOnly bool) JobInfoList {
 	ans := make(JobInfoList, 0, len(a.jobList))
 	for _, v := range a.jobList {

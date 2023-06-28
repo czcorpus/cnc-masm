@@ -26,6 +26,7 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/general"
 	"masm/v3/jobs"
+	"masm/v3/kontext"
 	"masm/v3/liveattrs"
 	"masm/v3/liveattrs/cache"
 	"masm/v3/liveattrs/db"
@@ -79,8 +80,17 @@ func arrayShowShortened(data []string) string {
 	return strings.Join(ans, ", ")
 }
 
+type LAConf struct {
+	LA      *liveattrs.Conf
+	Ngram   *liveattrs.NgramDBConf
+	KonText *kontext.Conf
+	Corp    *corpus.CorporaSetup
+}
+
 // Actions wraps liveattrs-related actions
 type Actions struct {
+	conf LAConf
+
 	// exitEvent channel recieves value once user (or OS) terminates masm process
 	exitEvent <-chan os.Signal
 
@@ -91,8 +101,6 @@ type Actions struct {
 	// jobStopChannel receives job ID based on user interaction with job HTTP API in
 	// case users asks for stopping the vte process
 	jobStopChannel <-chan string
-
-	conf *corpus.Conf
 
 	jobActions *jobs.Actions
 
@@ -145,23 +153,6 @@ type ngramConf struct {
 type liveattrsJsonArgs struct {
 	VerticalFiles []string  `json:"verticalFiles"`
 	Ngrams        ngramConf `json:"ngrams"`
-}
-
-func (a *Actions) setSoftResetToKontext() error {
-	if len(a.conf.KontextSoftResetURL) == 0 {
-		log.Warn().Msgf("The kontextSoftResetURL configuration not set - ignoring the action")
-		return nil
-	}
-	for _, instance := range a.conf.KontextSoftResetURL {
-		resp, err := http.Post(instance, "application/json", nil)
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode >= 300 {
-			return fmt.Errorf("kontext instance `%s` soft reset failed - unexpected status code %d", instance, resp.StatusCode)
-		}
-	}
-	return nil
 }
 
 // createDataFromJobStatus starts data extraction and generation
@@ -231,7 +222,7 @@ func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobI
 						updateJobChan <- jobStatus.WithError(err)
 						transact.Rollback()
 					}
-					err = a.setSoftResetToKontext()
+					err = kontext.SendSoftReset(a.conf.KonText)
 					if err != nil {
 						updateJobChan <- jobStatus.WithError(err)
 					}
@@ -241,7 +232,7 @@ func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobI
 					}
 				}
 			case "sqlite":
-				err = a.setSoftResetToKontext()
+				err = kontext.SendSoftReset(a.conf.KonText)
 				if err != nil {
 					updateJobChan <- initialStatus.WithError(err)
 				}
@@ -449,8 +440,9 @@ func (a *Actions) UpdateIndexes(ctx *gin.Context) {
 }
 
 func (a *Actions) RestartLiveAttrsJob(jinfo *liveattrs.LiveAttrsJobInfo) error {
-	if jinfo.NumRestarts >= a.conf.Jobs.MaxNumRestarts {
-		return fmt.Errorf("cannot restart job %s - max. num. of restarts reached", jinfo.ID)
+	err := a.jobActions.TestAllowsJobRestart(jinfo)
+	if err != nil {
+		return err
 	}
 	jinfo.Start = jobs.CurrentDatetime()
 	jinfo.NumRestarts++
@@ -488,7 +480,7 @@ func (a *Actions) InferredAtomStructure(ctx *gin.Context) {
 
 // NewActions is the default factory for Actions
 func NewActions(
-	conf *corpus.Conf,
+	conf LAConf,
 	exitEvent <-chan os.Signal,
 	jobStopChannel <-chan string,
 	jobActions *jobs.Actions,
@@ -506,14 +498,14 @@ func NewActions(
 		}
 	}()
 	actions := &Actions{
+		conf:           conf,
 		exitEvent:      exitEvent,
 		vteExitEvents:  vteExitEvents,
-		conf:           conf,
 		jobActions:     jobActions,
 		jobStopChannel: jobStopChannel,
 		laConfCache: laconf.NewLiveAttrsBuildConfProvider(
-			conf.LiveAttrs.ConfDirPath,
-			conf.LiveAttrs.DB,
+			conf.LA.ConfDirPath,
+			conf.LA.DB,
 		),
 		cncDB:           cncDB,
 		laDB:            laDB,

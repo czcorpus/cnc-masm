@@ -19,7 +19,9 @@
 package corpus
 
 import (
+	"errors"
 	"fmt"
+	"masm/v3/corpus/registry"
 	"masm/v3/mango"
 	"os"
 	"path/filepath"
@@ -27,6 +29,10 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
+)
+
+var (
+	CorpusNotFound = errors.New("corpus not found")
 )
 
 // FileMappedValue is an abstraction of a configured file-related
@@ -56,11 +62,6 @@ type RegistryConf struct {
 	SubcorpAttrs map[string][]string `json:"subcorpAttrs"`
 }
 
-// TTDBRecord wraps information about text types data configuration
-type TTDBRecord struct {
-	Path FileMappedValue `json:"path"`
-}
-
 // Data wraps information about indexed corpus data/files
 type Data struct {
 	Size         int64           `json:"size"`
@@ -72,19 +73,11 @@ type Data struct {
 type Info struct {
 	ID             string       `json:"id"`
 	IndexedData    Data         `json:"indexedData"`
-	TextTypesDB    TTDBRecord   `json:"textTypesDb"`
 	IndexedStructs []string     `json:"indexedStructs"`
 	RegistryConf   RegistryConf `json:"registry"`
 }
 
-// NotFound is an error mapped to a similar Manatee error
-type NotFound struct {
-	error
-}
-
-// InfoError is a general corpus data information error
-// Please note that we do not consider 'data not being present'
-// an error.
+// InfoError is a general corpus data information error.
 type InfoError struct {
 	error
 }
@@ -180,18 +173,6 @@ func attachWordSketchConfInfo(corpusID string, wsattr string, conf *CorporaSetup
 	return nil
 }
 
-func attachTextTypeDbInfo(corpusID string, conf *CorporaSetup, result *Info) error {
-	dbFileName := GenCorpusGroupName(corpusID) + ".db"
-	absPath := filepath.Join(conf.TextTypesDbDirPath, dbFileName)
-	result.TextTypesDB = TTDBRecord{}
-	value, err := bindValueToPath(absPath, absPath)
-	if err != nil {
-		return err
-	}
-	result.TextTypesDB.Path = value
-	return nil
-}
-
 // GetCorpusInfo provides miscellaneous corpus installation information mostly
 // related to different data files.
 // It should return an error only in case Manatee or filesystem produces some
@@ -206,155 +187,154 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	}
 	ans.RegistryConf.Vertical = vertical
 	ans.RegistryConf.SubcorpAttrs = make(map[string][]string)
-	procCorpora := make(map[string]bool)
 
-	for _, regPathRoot := range setup.RegistryDirPaths {
-		_, alreadyProc := procCorpora[corpusID]
-		if alreadyProc {
-			continue
+	corpReg, err := registry.EnsureValidDataRegistry(setup, corpusID)
+	isFile := true
+	if err != nil {
+		if errors.Is(err, registry.RegistryNotFound) {
+			isFile = false
+
+		} else {
+			return nil, InfoError{err}
 		}
-		regPath := filepath.Join(regPathRoot, corpusID)
-		isFile, err := fs.IsFile(regPath)
+	}
+
+	if isFile {
+		value, err := bindValueToPath(corpReg, corpReg)
 		if err != nil {
 			return nil, InfoError{err}
 		}
-		if isFile {
-			value, err := bindValueToPath(regPath, regPath)
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, value)
-			corp, err := mango.OpenCorpus(regPath)
-			if err != nil {
-				if strings.Contains(err.Error(), "CorpInfoNotFound") {
-					return nil, NotFound{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
+		ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, value)
+		corp, err := mango.OpenCorpus(corpReg)
+		if err != nil {
+			// call of registry.EnsureValidDataRegistry should make this
+			// almost impossible. In case this happens, we consider the
+			// error "internal" (i.e. no "not found" here)
+			if strings.Contains(err.Error(), "CorpInfoNotFound") {
+				return nil, InfoError{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
 
-				}
-				return nil, InfoError{err}
 			}
+			return nil, InfoError{err}
+		}
 
-			defer mango.CloseCorpus(corp)
-			ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
-			if err != nil {
-				if !strings.Contains(err.Error(), "FileAccessError") {
-					return nil, InfoError{err}
-				}
-				errStr := err.Error()
-				ans.IndexedData.ManateeError = &errStr
-			}
-			corpDataPath, err := mango.GetCorpusConf(&corp, "PATH")
-			if err != nil {
+		defer mango.CloseCorpus(corp)
+		ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
+		if err != nil {
+			if !strings.Contains(err.Error(), "FileAccessError") {
 				return nil, InfoError{err}
 			}
-			dataDirPath := filepath.Clean(corpDataPath)
+			errStr := err.Error()
+			ans.IndexedData.ManateeError = &errStr
+		}
+		corpDataPath, err := mango.GetCorpusConf(&corp, "PATH")
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		dataDirPath := filepath.Clean(corpDataPath)
+		dataDirMtime, err := fs.GetFileMtime(dataDirPath)
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		dataDirMtimeR := dataDirMtime.Format("2006-01-02T15:04:05-0700")
+		isDir, err := fs.IsDir(dataDirPath)
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		size, err := fs.FileSize(dataDirPath)
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		ans.IndexedData.Path = FileMappedValue{
+			Value:        dataDirPath,
+			LastModified: &dataDirMtimeR,
+			FileExists:   isDir,
+			Size:         size,
+		}
+
+		// get encoding
+		ans.RegistryConf.Encoding, err = mango.GetCorpusConf(&corp, "ENCODING")
+		if err != nil {
+			return nil, InfoError{err}
+		}
+
+		// parse SUBCORPATTRS
+		subcorpAttrsString, err := mango.GetCorpusConf(&corp, "SUBCORPATTRS")
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		if subcorpAttrsString != "" {
+			for _, attr1 := range strings.Split(subcorpAttrsString, "|") {
+				for _, attr2 := range strings.Split(attr1, ",") {
+					split := strings.Split(attr2, ".")
+					ans.RegistryConf.SubcorpAttrs[split[0]] = append(ans.RegistryConf.SubcorpAttrs[split[0]], split[1])
+				}
+			}
+		}
+
+		unparsedStructs, err := mango.GetCorpusConf(&corp, "STRUCTLIST")
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		if unparsedStructs != "" {
+			structs := strings.Split(unparsedStructs, ",")
+			ans.IndexedStructs = make([]string, len(structs))
+			for i, st := range structs {
+				ans.IndexedStructs[i] = st
+			}
+		}
+
+		// try registry's VERTICAL
+		regVertical, err := mango.GetCorpusConf(&corp, "VERTICAL")
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		if regVertical != "" && ans.RegistryConf.Vertical.Path != regVertical {
+			if ans.RegistryConf.Vertical.FileExists {
+				log.Warn().Msgf(
+					"Registry file likely provides an incorrect VERTICAL %s",
+					regVertical,
+				)
+				log.Warn().Msgf(
+					"MASM will keep using inferred file %s for %s",
+					ans.RegistryConf.Vertical.Path,
+					corpusID,
+				)
+
+			} else {
+				ans.RegistryConf.Vertical.Value = regVertical
+				ans.RegistryConf.Vertical.Path = regVertical
+				ans.RegistryConf.Vertical.FileExists = false
+				ans.RegistryConf.Vertical.LastModified = nil
+				ans.RegistryConf.Vertical.Size = 0
+			}
+		}
+
+	} else {
+		dataDirPath := filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID))
+		isDir, err := fs.IsDir(dataDirPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, InfoError{err}
+		}
+		var dataDirMtimeR *string
+		if isDir {
 			dataDirMtime, err := fs.GetFileMtime(dataDirPath)
 			if err != nil {
 				return nil, InfoError{err}
 			}
-			dataDirMtimeR := dataDirMtime.Format("2006-01-02T15:04:05-0700")
-			isDir, err := fs.IsDir(dataDirPath)
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			size, err := fs.FileSize(dataDirPath)
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			ans.IndexedData.Path = FileMappedValue{
-				Value:        dataDirPath,
-				LastModified: &dataDirMtimeR,
-				FileExists:   isDir,
-				Size:         size,
-			}
-
-			// get encoding
-			ans.RegistryConf.Encoding, err = mango.GetCorpusConf(&corp, "ENCODING")
-			if err != nil {
-				return nil, InfoError{err}
-			}
-
-			// parse SUBCORPATTRS
-			subcorpAttrsString, err := mango.GetCorpusConf(&corp, "SUBCORPATTRS")
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			if subcorpAttrsString != "" {
-				for _, attr1 := range strings.Split(subcorpAttrsString, "|") {
-					for _, attr2 := range strings.Split(attr1, ",") {
-						split := strings.Split(attr2, ".")
-						ans.RegistryConf.SubcorpAttrs[split[0]] = append(ans.RegistryConf.SubcorpAttrs[split[0]], split[1])
-					}
-				}
-			}
-
-			unparsedStructs, err := mango.GetCorpusConf(&corp, "STRUCTLIST")
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			if unparsedStructs != "" {
-				structs := strings.Split(unparsedStructs, ",")
-				ans.IndexedStructs = make([]string, len(structs))
-				for i, st := range structs {
-					ans.IndexedStructs[i] = st
-				}
-			}
-
-			// try registry's VERTICAL
-			regVertical, err := mango.GetCorpusConf(&corp, "VERTICAL")
-			if err != nil {
-				return nil, InfoError{err}
-			}
-			if regVertical != "" && ans.RegistryConf.Vertical.Path != regVertical {
-				if ans.RegistryConf.Vertical.FileExists {
-					log.Warn().Msgf(
-						"Registry file likely provides an incorrect VERTICAL %s",
-						regVertical,
-					)
-					log.Warn().Msgf(
-						"MASM will keep using inferred file %s for %s",
-						ans.RegistryConf.Vertical.Path,
-						corpusID,
-					)
-
-				} else {
-					ans.RegistryConf.Vertical.Value = regVertical
-					ans.RegistryConf.Vertical.Path = regVertical
-					ans.RegistryConf.Vertical.FileExists = false
-					ans.RegistryConf.Vertical.LastModified = nil
-					ans.RegistryConf.Vertical.Size = 0
-				}
-			}
-
-		} else {
-			dataDirPath := filepath.Clean(filepath.Join(setup.CorpusDataPath.Abstract, corpusID))
-			isDir, err := fs.IsDir(dataDirPath)
-			if err != nil && !os.IsNotExist(err) {
-				return nil, InfoError{err}
-			}
-			var dataDirMtimeR *string
-			if isDir {
-				dataDirMtime, err := fs.GetFileMtime(dataDirPath)
-				if err != nil {
-					return nil, InfoError{err}
-				}
-				tmp := dataDirMtime.Format("2006-01-02T15:04:05-0700")
-				dataDirMtimeR = &tmp
-			}
-			ans.IndexedData.Size = 0
-			ans.IndexedData.Path = FileMappedValue{
-				Value:        dataDirPath,
-				LastModified: dataDirMtimeR,
-				FileExists:   isDir,
-				Path:         dataDirPath,
-			}
+			tmp := dataDirMtime.Format("2006-01-02T15:04:05-0700")
+			dataDirMtimeR = &tmp
 		}
-		procCorpora[corpusID] = true
+		ans.IndexedData.Size = 0
+		ans.IndexedData.Path = FileMappedValue{
+			Value:        dataDirPath,
+			LastModified: dataDirMtimeR,
+			FileExists:   isDir,
+			Path:         dataDirPath,
+		}
 	}
+
+	// -----
 	err = attachWordSketchConfInfo(corpusID, wsattr, setup, ans)
-	if err != nil {
-		return nil, InfoError{err}
-	}
-	err = attachTextTypeDbInfo(corpusID, setup, ans)
 	if err != nil {
 		return nil, InfoError{err}
 	}
@@ -372,7 +352,7 @@ func OpenCorpus(corpusID string, setup *CorporaSetup) (*mango.GoCorpus, error) {
 			corp, err := mango.OpenCorpus(regPath)
 			if err != nil {
 				if strings.Contains(err.Error(), "CorpInfoNotFound") {
-					return nil, NotFound{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
+					return nil, CorpusNotFound
 
 				}
 				return nil, CorpusError{err}
@@ -380,7 +360,7 @@ func OpenCorpus(corpusID string, setup *CorporaSetup) (*mango.GoCorpus, error) {
 			return &corp, nil
 		}
 	}
-	return nil, NotFound{fmt.Errorf("no configuration found for %s", corpusID)}
+	return nil, CorpusNotFound
 }
 
 func GetCorpusAttrs(corpusID string, setup *CorporaSetup) ([]string, error) {
