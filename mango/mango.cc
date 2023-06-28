@@ -99,3 +99,36 @@ ConcRetval create_concordance(CorpusV corpus, char* query) {
 long long int concordance_size(ConcV conc) {
     return ((Concordance *)conc)->size();
 }
+
+void freq_dist(CorpusV corpus, ConcV conc, char* fcrit, MVector words, MVector freqs, MVector norms) {
+    Corpus* corpusObj = (Corpus*)corpus;
+    Concordance* concObj = (Concordance *)conc;
+
+    vector<string> xwords = (vector<string>*)words;
+    vector<long long int> xfreqs = (vector<long long int>*)freqs;
+    vector<long long int> xnorms = (vector<long long int>*)norms;
+
+    corpusObj->freq_dist (concObj->RS(), fcrit, 100, xwords, xfreqs, xnorms);
+}
+
+
+const char* str_vector_get_element(MVector v, int i) {
+    std::vector<std::string>* vectorObj = (std::vector<std::string>*)v;
+    return vectorObj->at(i).c_str();
+}
+
+int str_vector_get_size(MVector v) {
+    std::vector<std::string>* vectorObj = (std::vector<std::string>*)v;
+    return vectorObj->size();
+}
+
+
+const long long int int_vector_get_element(MVector v, int i) {
+    std::vector<long long int>* vectorObj = (std::vector<long long int>*)v;
+    return vectorObj->at(i);
+}
+
+int int_vector_get_size(MVector v) {
+    std::vector<long long int>* vectorObj = (std::vector<long long int>*)v;
+    return vectorObj->size();
+}

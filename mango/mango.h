@@ -24,6 +24,7 @@ typedef void* PosAttrV;
 typedef void* CorpusV;
 typedef void* StructV;
 typedef void* ConcV;
+typedef void* MVector;
 
 /**
  * CorpusRetval wraps both
@@ -66,6 +67,18 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 ConcRetval create_concordance(CorpusV corpus, char* query);
 
 long long int concordance_size(ConcV conc);
+
+
+const char* str_vector_get_element(MVector v, int i);
+
+int str_vector_get_size(MVector v);
+
+const char* int_vector_get_element(MVector v, int i);
+
+int int_vector_get_size(MVector v);
+
+void freq_dist(CorpusV corpus, ConcV conc, char* fcrit, MVector words, MVector freqs, MVector norms);
+
 
 #ifdef __cplusplus
 }

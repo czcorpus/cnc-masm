@@ -23,6 +23,16 @@ type GoConc struct {
 	conc C.ConcV
 }
 
+type GoVector struct {
+	v C.MVector
+}
+
+type GoFreqs struct {
+	words C.MVector
+	freqs C.MVector
+	norms C.MVector
+}
+
 func (gc *GoConc) Size() int64 {
 	return int64(C.concordance_size(gc.conc))
 }
@@ -86,4 +96,20 @@ func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	}
 	ret.conc = ans.value
 	return &ret, nil
+}
+
+func CalcFreqDist(corpus *GoCorpus, conc *GoConc, fcrit string) (*GoFreqs, error) {
+	var ret GoFreqs
+	C.freq_dist(corpus, conc, C.CString(fcrit))
+	return &ret, nil
+}
+
+func StrVectorToSlice(vector GoVector) []string {
+	size := int(C.str_vector_get_size(vector.v))
+	slice := make([]string, size)
+	for i := 0; i < size; i++ {
+		cstr := C.str_vector_get_element(vector.v, C.int(i))
+		slice[i] = C.GoString(cstr)
+	}
+	return slice
 }
