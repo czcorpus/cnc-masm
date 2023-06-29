@@ -6,6 +6,7 @@ But it can be also run as a standalone service for:
 - generating n-grams,
 - generating and querying corpora structural metadata,
 - managing Manatee-open compatible data
+- querying a corpus (experimental)
 
 Functions:
 
@@ -18,6 +19,8 @@ Functions:
    * basic registry configuration
    * KonText corpora database access
 3. corpus data synchronization between two locations
+4. corpus querying (experimental)
+   * getting a frequency distribution of a searched expression
    
 For more information, see the [API.md](./API.md).
    
