@@ -40,5 +40,5 @@ To start the building process, just run:
 ```
 ./build3 [manatee version]
 ```
-The concrete supported versions of Manatee-open are: `2.167.8`,  `2.167.10`,  `2.208`.
+The concrete supported versions of Manatee-open are: `2.167.8`,  `2.167.10`,  `2.208`, `2.223.6`. In most cases, the latest version is the best option to use.
 Once build, a standalone binary `masm3` should be created in the working directory.
