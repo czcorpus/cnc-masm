@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <iostream>
+#include <memory>
 
 using namespace std;
 
@@ -96,6 +97,48 @@ ConcRetval create_concordance(CorpusV corpus, char* query) {
     return ans;
 }
 
-long long int concordance_size(ConcV conc) {
+PosInt concordance_size(ConcV conc) {
     return ((Concordance *)conc)->size();
+}
+
+FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
+    Corpus* corpusObj = (Corpus*)corpus;
+    Concordance* concObj = (Concordance *)conc;
+
+    auto xwords = new vector<string>;
+    vector<string>& words = *xwords;
+    auto xfreqs = new vector<PosInt>;
+    vector<PosInt>& freqs = *xfreqs;
+    auto xnorms = new vector<PosInt>;
+    vector<PosInt>& norms = *xnorms;
+
+    corpusObj->freq_dist (concObj->RS(), fcrit, flimit, words, freqs, norms);
+    FreqsRetval ans {
+        static_cast<void*>(xwords),
+        static_cast<void*>(xfreqs),
+        static_cast<void*>(xnorms)
+    };
+    return ans;
+}
+
+
+const char* str_vector_get_element(MVector v, int i) {
+    vector<string>* vectorObj = (vector<string>*)v;
+    return vectorObj->at(i).c_str();
+}
+
+PosInt str_vector_get_size(MVector v) {
+    vector<string>* vectorObj = (vector<string>*)v;
+    return vectorObj->size();
+}
+
+
+PosInt int_vector_get_element(MVector v, int i) {
+    vector<PosInt>* vectorObj = (vector<PosInt>*)v;
+    return vectorObj->at(i);
+}
+
+PosInt int_vector_get_size(MVector v) {
+    vector<PosInt>* vectorObj = (vector<PosInt>*)v;
+    return vectorObj->size();
 }

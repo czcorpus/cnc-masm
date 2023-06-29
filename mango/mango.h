@@ -24,6 +24,10 @@ typedef void* PosAttrV;
 typedef void* CorpusV;
 typedef void* StructV;
 typedef void* ConcV;
+typedef void* MVector;
+
+
+typedef long long int PosInt;
 
 /**
  * CorpusRetval wraps both
@@ -37,7 +41,7 @@ typedef struct CorpusRetval {
 
 
 typedef struct CorpusSizeRetrval {
-    long long int value;
+    PosInt value;
     const char * err;
 } CorpusSizeRetrval;
 
@@ -52,6 +56,13 @@ typedef struct ConcRetval {
     const char * err;
 } ConcRetval;
 
+typedef struct FreqsRetval {
+    MVector words;
+    MVector freqs;
+    MVector norms;
+    const char * err;
+} FreqsRetval;
+
 /**
  * Create a Manatee corpus instance
  */
@@ -65,7 +76,19 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 
 ConcRetval create_concordance(CorpusV corpus, char* query);
 
-long long int concordance_size(ConcV conc);
+PosInt concordance_size(ConcV conc);
+
+
+const char* str_vector_get_element(MVector v, int i);
+
+PosInt str_vector_get_size(MVector v);
+
+PosInt int_vector_get_element(MVector v, int i);
+
+PosInt int_vector_get_size(MVector v);
+
+FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit);
+
 
 #ifdef __cplusplus
 }
