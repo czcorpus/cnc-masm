@@ -78,6 +78,9 @@ ConcRetval create_concordance(CorpusV corpus, char* query);
 
 PosInt concordance_size(ConcV conc);
 
+void delete_str_vector(MVector v);
+
+void delete_int_vector(MVector v);
 
 const char* str_vector_get_element(MVector v, int i);
 

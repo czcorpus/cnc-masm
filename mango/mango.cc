@@ -122,6 +122,16 @@ FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
 }
 
 
+void delete_str_vector(MVector v) {
+    vector<string>* vectorObj = (vector<string>*)v;
+    delete vectorObj;
+}
+
+void delete_int_vector(MVector v) {
+    vector<PosInt>* vectorObj = (vector<PosInt>*)v;
+    delete vectorObj;
+}
+
 const char* str_vector_get_element(MVector v, int i) {
     vector<string>* vectorObj = (vector<string>*)v;
     return vectorObj->at(i).c_str();

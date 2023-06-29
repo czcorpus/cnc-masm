@@ -103,6 +103,11 @@ func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 func CalcFreqDist(corpus *GoCorpus, conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
 	var ret Freqs
 	ans := C.freq_dist(corpus.corp, conc.conc, C.CString(fcrit), C.longlong(flimit))
+	defer func() { // the 'new' was called before any possible error so we have to do this
+		C.delete_int_vector(ans.freqs)
+		C.delete_int_vector(ans.norms)
+		C.delete_str_vector(ans.words)
+	}()
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -111,9 +116,6 @@ func CalcFreqDist(corpus *GoCorpus, conc *GoConc, fcrit string, flimit int) (*Fr
 	ret.Freqs = IntVectorToSlice(GoVector{ans.freqs})
 	ret.Norms = IntVectorToSlice(GoVector{ans.norms})
 	ret.Words = StrVectorToSlice(GoVector{ans.words})
-	C.free(unsafe.Pointer(ans.freqs))
-	C.free(unsafe.Pointer(ans.norms))
-	C.free(unsafe.Pointer(ans.words))
 	return &ret, nil
 }
 
