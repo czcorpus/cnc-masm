@@ -25,6 +25,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <iostream>
+#include <memory>
 
 using namespace std;
 
@@ -96,39 +97,48 @@ ConcRetval create_concordance(CorpusV corpus, char* query) {
     return ans;
 }
 
-long long int concordance_size(ConcV conc) {
+PosInt concordance_size(ConcV conc) {
     return ((Concordance *)conc)->size();
 }
 
-void freq_dist(CorpusV corpus, ConcV conc, char* fcrit, MVector words, MVector freqs, MVector norms) {
+FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {
     Corpus* corpusObj = (Corpus*)corpus;
     Concordance* concObj = (Concordance *)conc;
 
-    vector<string> xwords = (vector<string>*)words;
-    vector<long long int> xfreqs = (vector<long long int>*)freqs;
-    vector<long long int> xnorms = (vector<long long int>*)norms;
+    auto xwords = new vector<string>;
+    vector<string>& words = *xwords;
+    auto xfreqs = new vector<PosInt>;
+    vector<PosInt>& freqs = *xfreqs;
+    auto xnorms = new vector<PosInt>;
+    vector<PosInt>& norms = *xnorms;
 
-    corpusObj->freq_dist (concObj->RS(), fcrit, 100, xwords, xfreqs, xnorms);
+    corpusObj->freq_dist (concObj->RS(), fcrit, flimit, words, freqs, norms);
+    FreqsRetval ans {
+        static_cast<void*>(xwords),
+        static_cast<void*>(xfreqs),
+        static_cast<void*>(xnorms)
+    };
+    return ans;
 }
 
 
 const char* str_vector_get_element(MVector v, int i) {
-    std::vector<std::string>* vectorObj = (std::vector<std::string>*)v;
+    vector<string>* vectorObj = (vector<string>*)v;
     return vectorObj->at(i).c_str();
 }
 
-int str_vector_get_size(MVector v) {
-    std::vector<std::string>* vectorObj = (std::vector<std::string>*)v;
+PosInt str_vector_get_size(MVector v) {
+    vector<string>* vectorObj = (vector<string>*)v;
     return vectorObj->size();
 }
 
 
-const long long int int_vector_get_element(MVector v, int i) {
-    std::vector<long long int>* vectorObj = (std::vector<long long int>*)v;
+PosInt int_vector_get_element(MVector v, int i) {
+    vector<PosInt>* vectorObj = (vector<PosInt>*)v;
     return vectorObj->at(i);
 }
 
-int int_vector_get_size(MVector v) {
-    std::vector<long long int>* vectorObj = (std::vector<long long int>*)v;
+PosInt int_vector_get_size(MVector v) {
+    vector<PosInt>* vectorObj = (vector<PosInt>*)v;
     return vectorObj->size();
 }

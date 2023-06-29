@@ -22,23 +22,49 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/mango"
 	"net/http"
+	"strconv"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 type Actions struct {
 	conf *corpus.CorporaSetup
 }
 
-func (a *Actions) CreateConcordance(ctx *gin.Context) {
+func (a *Actions) FreqDistrib(ctx *gin.Context) {
 	q := ctx.Request.URL.Query().Get("q")
+	log.Debug().
+		Str("query", q).
+		Msg("processing Mango query")
+	flimit := 1
+	if ctx.Request.URL.Query().Has("flimit") {
+		var err error
+		flimit, err = strconv.Atoi(ctx.Request.URL.Query().Get("flimit"))
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusUnprocessableEntity,
+			)
+		}
+	}
 	corp, err := corpus.OpenCorpus(ctx.Param("corpusId"), a.conf)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError, // TODO the status should be based on err type
+		)
+		return
+	}
+	corpSize, err := mango.GetCorpusSize(corp)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
 		)
 		return
 	}
@@ -51,7 +77,27 @@ func (a *Actions) CreateConcordance(ctx *gin.Context) {
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"concSize": conc.Size()})
+	freqs, err := mango.CalcFreqDist(corp, conc, "lemma/e 0~0>0", flimit)
+	ans := make([]*FreqDistribItem, len(freqs.Freqs))
+	for i, _ := range ans {
+		norm := freqs.Norms[i]
+		if norm == 0 {
+			norm = corpSize
+		}
+		ans[i] = &FreqDistribItem{
+			Freq: freqs.Freqs[i],
+			Norm: norm,
+			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
+			Word: freqs.Words[i],
+		}
+	}
+	uniresp.WriteJSONResponse(
+		ctx.Writer,
+		map[string]any{
+			"concSize": conc.Size(),
+			"freqs":    ans,
+		},
+	)
 }
 
 func NewActions(conf *corpus.CorporaSetup) *Actions {

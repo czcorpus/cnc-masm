@@ -211,8 +211,8 @@ func main() {
 	engine.POST(
 		"/corpora/:corpusId/_syncData", corpusActions.SynchronizeCorpusData)
 
-	engine.PUT(
-		"/concordance/:corpusId", concActions.CreateConcordance)
+	engine.GET(
+		"/freqs/:corpusId", concActions.FreqDistrib)
 
 	engine.POST(
 		"/liveAttributes/:corpusId/data", liveattrsActions.Create)

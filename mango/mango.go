@@ -7,6 +7,8 @@ import "C"
 
 import (
 	"fmt"
+	"strings"
+	"unicode"
 	"unsafe"
 )
 
@@ -27,10 +29,10 @@ type GoVector struct {
 	v C.MVector
 }
 
-type GoFreqs struct {
-	words C.MVector
-	freqs C.MVector
-	norms C.MVector
+type Freqs struct {
+	Words []string
+	Freqs []int64
+	Norms []int64
 }
 
 func (gc *GoConc) Size() int64 {
@@ -39,8 +41,8 @@ func (gc *GoConc) Size() int64 {
 
 // OpenCorpus is a factory function creating
 // a Manatee corpus wrapper.
-func OpenCorpus(path string) (GoCorpus, error) {
-	ret := GoCorpus{}
+func OpenCorpus(path string) (*GoCorpus, error) {
+	ret := &GoCorpus{}
 	var err error
 	ans := C.open_corpus(C.CString(path))
 
@@ -58,13 +60,13 @@ func OpenCorpus(path string) (GoCorpus, error) {
 
 // CloseCorpus closes all the resources accompanying
 // the corpus. The instance should become unusable.
-func CloseCorpus(corpus GoCorpus) error {
+func CloseCorpus(corpus *GoCorpus) error {
 	C.close_corpus(corpus.corp)
 	return nil
 }
 
 // GetCorpusSize returns corpus size in tokens
-func GetCorpusSize(corpus GoCorpus) (int64, error) {
+func GetCorpusSize(corpus *GoCorpus) (int64, error) {
 	ans := (C.get_corpus_size(corpus.corp))
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
@@ -92,16 +94,36 @@ func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
-		return &ret, err
+		return nil, err
 	}
 	ret.conc = ans.value
 	return &ret, nil
 }
 
-func CalcFreqDist(corpus *GoCorpus, conc *GoConc, fcrit string) (*GoFreqs, error) {
-	var ret GoFreqs
-	C.freq_dist(corpus, conc, C.CString(fcrit))
+func CalcFreqDist(corpus *GoCorpus, conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
+	var ret Freqs
+	ans := C.freq_dist(corpus.corp, conc.conc, C.CString(fcrit), C.longlong(flimit))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return &ret, err
+	}
+	ret.Freqs = IntVectorToSlice(GoVector{ans.freqs})
+	ret.Norms = IntVectorToSlice(GoVector{ans.norms})
+	ret.Words = StrVectorToSlice(GoVector{ans.words})
+	C.free(unsafe.Pointer(ans.freqs))
+	C.free(unsafe.Pointer(ans.norms))
+	C.free(unsafe.Pointer(ans.words))
 	return &ret, nil
+}
+
+func normalizeMultiword(w string) string {
+	return strings.TrimSpace(strings.Map(func(c rune) rune {
+		if unicode.IsSpace(c) {
+			return ' '
+		}
+		return c
+	}, w))
 }
 
 func StrVectorToSlice(vector GoVector) []string {
@@ -109,7 +131,17 @@ func StrVectorToSlice(vector GoVector) []string {
 	slice := make([]string, size)
 	for i := 0; i < size; i++ {
 		cstr := C.str_vector_get_element(vector.v, C.int(i))
-		slice[i] = C.GoString(cstr)
+		slice[i] = normalizeMultiword(C.GoString(cstr))
+	}
+	return slice
+}
+
+func IntVectorToSlice(vector GoVector) []int64 {
+	size := int(C.int_vector_get_size(vector.v))
+	slice := make([]int64, size)
+	for i := 0; i < size; i++ {
+		v := C.int_vector_get_element(vector.v, C.int(i))
+		slice[i] = int64(v)
 	}
 	return slice
 }

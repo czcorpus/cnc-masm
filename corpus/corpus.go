@@ -226,7 +226,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			errStr := err.Error()
 			ans.IndexedData.ManateeError = &errStr
 		}
-		corpDataPath, err := mango.GetCorpusConf(&corp, "PATH")
+		corpDataPath, err := mango.GetCorpusConf(corp, "PATH")
 		if err != nil {
 			return nil, InfoError{err}
 		}
@@ -252,13 +252,13 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 		}
 
 		// get encoding
-		ans.RegistryConf.Encoding, err = mango.GetCorpusConf(&corp, "ENCODING")
+		ans.RegistryConf.Encoding, err = mango.GetCorpusConf(corp, "ENCODING")
 		if err != nil {
 			return nil, InfoError{err}
 		}
 
 		// parse SUBCORPATTRS
-		subcorpAttrsString, err := mango.GetCorpusConf(&corp, "SUBCORPATTRS")
+		subcorpAttrsString, err := mango.GetCorpusConf(corp, "SUBCORPATTRS")
 		if err != nil {
 			return nil, InfoError{err}
 		}
@@ -271,7 +271,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 			}
 		}
 
-		unparsedStructs, err := mango.GetCorpusConf(&corp, "STRUCTLIST")
+		unparsedStructs, err := mango.GetCorpusConf(corp, "STRUCTLIST")
 		if err != nil {
 			return nil, InfoError{err}
 		}
@@ -284,7 +284,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 		}
 
 		// try registry's VERTICAL
-		regVertical, err := mango.GetCorpusConf(&corp, "VERTICAL")
+		regVertical, err := mango.GetCorpusConf(corp, "VERTICAL")
 		if err != nil {
 			return nil, InfoError{err}
 		}
@@ -357,7 +357,7 @@ func OpenCorpus(corpusID string, setup *CorporaSetup) (*mango.GoCorpus, error) {
 				}
 				return nil, CorpusError{err}
 			}
-			return &corp, nil
+			return corp, nil
 		}
 	}
 	return nil, CorpusNotFound
