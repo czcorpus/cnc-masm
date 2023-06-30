@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package conc
+package query
 
 import (
 	"masm/v3/corpus"
@@ -31,6 +31,18 @@ import (
 
 type Actions struct {
 	conf *corpus.CorporaSetup
+}
+
+func (a *Actions) getConcordance(corpusId, query string) (*mango.GoConc, error) {
+	corp, err := corpus.OpenCorpus(corpusId, a.conf)
+	if err != nil {
+		return nil, err
+	}
+	conc, err := mango.CreateConcordance(corp, query)
+	if err != nil {
+		return nil, err
+	}
+	return conc, nil
 }
 
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
@@ -50,7 +62,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 			)
 		}
 	}
-	corp, err := corpus.OpenCorpus(ctx.Param("corpusId"), a.conf)
+	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -59,30 +71,12 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		)
 		return
 	}
-	corpSize, err := mango.GetCorpusSize(corp)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	conc, err := mango.CreateConcordance(corp, q)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError, // TODO the status should be based on err type
-		)
-		return
-	}
-	freqs, err := mango.CalcFreqDist(corp, conc, "lemma/e 0~0>0", flimit)
+	freqs, err := mango.CalcFreqDist(conc.Corpus(), conc, "lemma/e 0~0>0", flimit)
 	ans := make([]*FreqDistribItem, len(freqs.Freqs))
 	for i, _ := range ans {
 		norm := freqs.Norms[i]
 		if norm == 0 {
-			norm = corpSize
+			norm = conc.CorpSize()
 		}
 		ans[i] = &FreqDistribItem{
 			Freq: freqs.Freqs[i],

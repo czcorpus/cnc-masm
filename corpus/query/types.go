@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package conc
+package query
 
 type FreqDistribItem struct {
 	Word string  `json:"word"`

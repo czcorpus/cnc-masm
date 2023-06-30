@@ -21,10 +21,6 @@ func (gc *GoCorpus) Close() {
 	C.close_corpus(gc.corp)
 }
 
-type GoConc struct {
-	conc C.ConcV
-}
-
 type GoVector struct {
 	v C.MVector
 }
@@ -35,8 +31,22 @@ type Freqs struct {
 	Norms []int64
 }
 
+type GoConc struct {
+	conc     C.ConcV
+	corpSize int64
+	corpus   *GoCorpus
+}
+
 func (gc *GoConc) Size() int64 {
 	return int64(C.concordance_size(gc.conc))
+}
+
+func (gc *GoConc) CorpSize() int64 {
+	return gc.corpSize
+}
+
+func (gc *GoConc) Corpus() *GoCorpus {
+	return gc.corpus
 }
 
 // OpenCorpus is a factory function creating
@@ -97,6 +107,13 @@ func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 		return nil, err
 	}
 	ret.conc = ans.value
+
+	corpSize, err := GetCorpusSize(corpus)
+	if err != nil {
+		return nil, err
+	}
+	ret.corpSize = corpSize
+	ret.corpus = corpus
 	return &ret, nil
 }
 
