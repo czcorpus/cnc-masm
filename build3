@@ -50,6 +50,8 @@ def autodetect_version(spec_path=None):
     try:
         import manatee
         v = manatee.version()
+        if v.endswith('-cnc'):
+            v = v[:-4]
         return v[v.index('open-') + 5:]
     except ImportError:
         manatee = NoManatee()
