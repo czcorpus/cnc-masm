@@ -49,6 +49,14 @@ func (gc *GoConc) Corpus() *GoCorpus {
 	return gc.corpus
 }
 
+// ---
+
+type GoColls struct {
+	Word  string
+	Value float64
+	Freq  int64
+}
+
 // OpenCorpus is a factory function creating
 // a Manatee corpus wrapper.
 func OpenCorpus(path string) (*GoCorpus, error) {
@@ -117,9 +125,9 @@ func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	return &ret, nil
 }
 
-func CalcFreqDist(corpus *GoCorpus, conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
+func CalcFreqDist(conc *GoConc, fcrit string, flimit int) (*Freqs, error) {
 	var ret Freqs
-	ans := C.freq_dist(corpus.corp, conc.conc, C.CString(fcrit), C.longlong(flimit))
+	ans := C.freq_dist(conc.Corpus().corp, conc.conc, C.CString(fcrit), C.longlong(flimit))
 	defer func() { // the 'new' was called before any possible error so we have to do this
 		C.delete_int_vector(ans.freqs)
 		C.delete_int_vector(ans.norms)
@@ -163,4 +171,50 @@ func IntVectorToSlice(vector GoVector) []int64 {
 		slice[i] = int64(v)
 	}
 	return slice
+}
+
+// GetCollcations
+//
+// 't': 'T-score',
+// 'm': 'MI',
+// '3': 'MI3',
+// 'l': 'log likelihood',
+// 's': 'min. sensitivity',
+// 'p': 'MI.log_f',
+// 'r': 'relative freq. [%]',
+// 'f': 'absolute freq.',
+// 'd': 'logDice'
+func GetCollcations(
+	conc *GoConc,
+	attrName string,
+	calcFn byte,
+	minFreq int64,
+	maxItems int,
+) ([]*GoColls, error) {
+	colls := C.collocations(conc.conc, C.CString(attrName), C.char(calcFn),
+		C.longlong(minFreq), C.longlong(minFreq), -5, 5, C.int(maxItems))
+	if colls.err != nil {
+		err := fmt.Errorf(C.GoString(colls.err))
+		defer C.free(unsafe.Pointer(colls.err))
+		return []*GoColls{}, err
+	}
+	ret := make([]*GoColls, 0, 50) // TODO capacity
+	for C.has_next_colloc(colls.value) == 1 {
+		ans := C.next_colloc_item(colls.value, C.char(calcFn))
+		if ans.err != nil {
+			err := fmt.Errorf(C.GoString(ans.err))
+			defer C.free(unsafe.Pointer(ans.err))
+			return []*GoColls{}, err
+		}
+		ret = append(
+			ret,
+			&GoColls{
+				Word:  C.GoString(ans.word),
+				Value: float64(ans.value),
+				Freq:  int64(ans.freq),
+			},
+		)
+	}
+
+	return ret, nil
 }

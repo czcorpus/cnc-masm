@@ -25,6 +25,7 @@ typedef void* CorpusV;
 typedef void* StructV;
 typedef void* ConcV;
 typedef void* MVector;
+typedef void* CollsV;
 
 
 typedef long long int PosInt;
@@ -63,6 +64,11 @@ typedef struct FreqsRetval {
     const char * err;
 } FreqsRetval;
 
+typedef struct CollsRetVal {
+    CollsV value;
+    const char * err;
+} CollsRetVal;
+
 /**
  * Create a Manatee corpus instance
  */
@@ -91,6 +97,21 @@ PosInt int_vector_get_element(MVector v, int i);
 PosInt int_vector_get_size(MVector v);
 
 FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit);
+
+CollsRetVal collocations(ConcV conc, const char * attr_name, char sort_fun_code,
+             PosInt minfreq, PosInt minbgr, int fromw, int tow, int maxitems);
+
+typedef struct CollVal {
+    const char* word;
+    double value;
+    PosInt freq;
+    const char * err;
+} CollVal;
+
+
+CollVal next_colloc_item(CollsV colls, char collFn);
+
+int has_next_colloc(CollsV colls);
 
 
 #ifdef __cplusplus

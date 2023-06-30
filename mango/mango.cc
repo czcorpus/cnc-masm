@@ -20,6 +20,7 @@
 #include "corp/corpus.hh"
 #include "concord/concord.hh"
 #include "concord/concord.hh"
+#include "concord/concstat.hh"
 #include "query/cqpeval.hh"
 #include "mango.h"
 #include <string.h>
@@ -39,12 +40,11 @@ CorpusRetval open_corpus(const char* corpusPath) {
     ans.err = nullptr;
     try {
         ans.value = new Corpus(tmp);
-        return ans;
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
-        return ans;
     }
+    return ans;
 }
 
 void close_corpus(CorpusV corpus) {
@@ -56,12 +56,11 @@ CorpusSizeRetrval get_corpus_size(CorpusV corpus) {
     ans.err = nullptr;
     try {
         ans.value = ((Corpus*)corpus)->size();
-        return ans;
 
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
-        return ans;
     }
+    return ans;
 }
 
 CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop) {
@@ -92,7 +91,6 @@ ConcRetval create_concordance(CorpusV corpus, char* query) {
         ((Concordance*)ans.value)->sync();
     } catch (std::exception &e) {
         ans.err = strdup(e.what());
-        return ans;
     }
     return ans;
 }
@@ -151,4 +149,44 @@ PosInt int_vector_get_element(MVector v, int i) {
 PosInt int_vector_get_size(MVector v) {
     vector<PosInt>* vectorObj = (vector<PosInt>*)v;
     return vectorObj->size();
+}
+
+CollsRetVal collocations(ConcV conc, const char * attr_name, char sort_fun_code,
+             PosInt minfreq, PosInt minbgr, int fromw, int tow, int maxitems) {
+    CollsRetVal ans;
+    ans.err = nullptr;
+    Concordance* concObj = (Concordance*)conc;
+
+    try {
+        ans.value = new CollocItems(concObj, string(attr_name), sort_fun_code, minfreq, minbgr, fromw, tow, maxitems);
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    return ans;
+}
+
+
+CollVal next_colloc_item(CollsV colls, char collFn) {
+    CollVal ans;
+    ans.err = nullptr;
+    CollocItems* collsObj = (CollocItems*)colls;
+    try {
+        string word = string(collsObj->get_item());
+        double value = collsObj->get_bgr(collFn);
+        ans.value = value;
+        ans.word = word.c_str();
+        ans.freq = collsObj->get_cnt();
+        collsObj->next();
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    return ans;
+}
+
+int has_next_colloc(CollsV colls) {
+    CollVal ans;
+    ans.err = nullptr;
+    CollocItems* collsObj = (CollocItems*)colls;
+    return collsObj->eos() == true ? 0 : 1;
 }
