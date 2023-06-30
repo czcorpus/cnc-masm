@@ -39,7 +39,7 @@ import (
 	"masm/v3/cnf"
 	"masm/v3/corpdata"
 	"masm/v3/corpus"
-	"masm/v3/corpus/freqs"
+	"masm/v3/corpus/query"
 	"masm/v3/db/mysql"
 	"masm/v3/debug"
 	"masm/v3/general"
@@ -159,7 +159,7 @@ func main() {
 
 	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
 	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions)
-	concActions := freqs.NewActions(conf.CorporaSetup)
+	concActions := query.NewActions(conf.CorporaSetup)
 	liveattrsActions := laActions.NewActions(
 		laActions.LAConf{
 			LA:      conf.LiveAttrs,
