@@ -214,6 +214,9 @@ func main() {
 	engine.GET(
 		"/freqs/:corpusId", concActions.FreqDistrib)
 
+	engine.GET(
+		"/collocs/:corpusId", concActions.Collocations)
+
 	engine.POST(
 		"/liveAttributes/:corpusId/data", liveattrsActions.Create)
 	engine.DELETE(

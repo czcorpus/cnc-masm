@@ -29,6 +29,20 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var (
+	collFunc = map[string]byte{
+		"absoluteFreq":  'f',
+		"LLH":           'l',
+		"logDice":       'd',
+		"minSens":       's',
+		"mutualInf":     'm',
+		"mutualInf3":    '3',
+		"mutualInfLogF": 'p',
+		"relativeFreq":  'r',
+		"tScore":        't',
+	}
+)
+
 type Actions struct {
 	conf *corpus.CorporaSetup
 }
@@ -71,7 +85,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		)
 		return
 	}
-	freqs, err := mango.CalcFreqDist(conc.Corpus(), conc, "lemma/e 0~0>0", flimit)
+	freqs, err := mango.CalcFreqDist(conc, "lemma/e 0~0>0", flimit)
 	ans := make([]*FreqDistribItem, len(freqs.Freqs))
 	for i, _ := range ans {
 		norm := freqs.Norms[i]
@@ -92,6 +106,48 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 			"freqs":    ans,
 		},
 	)
+}
+
+func (a *Actions) Collocations(ctx *gin.Context) {
+	q := ctx.Request.URL.Query().Get("q")
+	log.Debug().
+		Str("query", q).
+		Msg("processing Mango query")
+	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError, // TODO the status should be based on err type
+		)
+		return
+	}
+	collFnArg := ctx.Request.URL.Query().Get("fn")
+	collFn, ok := collFunc[collFnArg]
+	if !ok {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("unknown collocations function %s", collFnArg),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+	collocs, err := mango.GetCollcations(conc, "word", collFn, 20, 20)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError, // TODO the status should be based on err type
+		)
+		return
+	}
+	uniresp.WriteJSONResponse(
+		ctx.Writer,
+		map[string]any{
+			"collocs": collocs,
+		},
+	)
+
 }
 
 func NewActions(conf *corpus.CorporaSetup) *Actions {
