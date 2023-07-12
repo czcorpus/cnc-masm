@@ -56,10 +56,15 @@ type Actions struct {
 }
 
 // NewActions is the default factory
-func NewActions(conf *corpus.DatabaseSetup, db DataHandler) *Actions {
+func NewActions(
+	conf *corpus.DatabaseSetup,
+	cConf *corpus.CorporaSetup,
+	db DataHandler,
+) *Actions {
 	return &Actions{
-		conf: conf,
-		db:   db,
+		conf:  conf,
+		cConf: cConf,
+		db:    db,
 	}
 }
 

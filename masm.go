@@ -324,7 +324,7 @@ func main() {
 		}
 	}([]ExitHandler{corpdataActions, jobActions, corpusActions, liveattrsActions})
 
-	cncdbActions := cncdb.NewActions(conf.CNCDB, cncDB)
+	cncdbActions := cncdb.NewActions(conf.CNCDB, conf.CorporaSetup, cncDB)
 	engine.POST(
 		"/corpora-database/:corpusId/auto-update",
 		cncdbActions.UpdateCorpusInfo)
