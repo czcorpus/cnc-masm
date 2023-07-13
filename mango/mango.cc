@@ -19,7 +19,6 @@
 
 #include "corp/corpus.hh"
 #include "concord/concord.hh"
-#include "concord/concord.hh"
 #include "concord/concstat.hh"
 #include "query/cqpeval.hh"
 #include "mango.h"

@@ -24,3 +24,9 @@ type FreqDistribItem struct {
 	Norm int64   `json:"norm"`
 	IPM  float32 `json:"ipm"`
 }
+
+type WordFormsItem struct {
+	Lemma string             `json:"lemma"`
+	POS   string             `json:"pos"`
+	Forms []*FreqDistribItem `json:"forms"`
+}

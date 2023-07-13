@@ -217,6 +217,9 @@ func main() {
 	engine.GET(
 		"/collocs/:corpusId", concActions.Collocations)
 
+	engine.GET(
+		"/word-forms/:corpusId", concActions.WordForms)
+
 	engine.POST(
 		"/liveAttributes/:corpusId/data", liveattrsActions.Create)
 	engine.DELETE(

@@ -23,6 +23,7 @@ import (
 	"masm/v3/mango"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -147,7 +148,120 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 			"collocs": collocs,
 		},
 	)
+}
 
+func (a *Actions) findLemmas(corpusID string, word string, pos string) (*mango.Freqs, error) {
+	q := "word=\"" + word + "\""
+	if len(pos) > 0 {
+		q += " & pos=\"" + pos + "\""
+	}
+	conc, err := a.getConcordance(corpusID, "["+q+"]")
+	if err != nil {
+		return nil, err
+	}
+	freqs, err := mango.CalcFreqDist(conc, "lemma 0~0>0 pos 0~0>0", 1)
+	if err != nil {
+		return nil, err
+	}
+	return freqs, nil
+}
+
+func (a *Actions) findWordForms(corpusID string, lemma string, pos string) (*WordFormsItem, error) {
+	q := "lemma=\"" + lemma + "\""
+	if len(pos) > 0 {
+		q += " & pos=\"" + pos + "\""
+	}
+	conc, err := a.getConcordance(corpusID, "["+q+"]")
+	if err != nil {
+		return nil, err
+	}
+	freqs, err := mango.CalcFreqDist(conc, "word/i 0~0>0", 1)
+	if err != nil {
+		return nil, err
+	}
+
+	ans := &WordFormsItem{
+		Lemma: lemma,
+		POS:   pos,
+		Forms: make([]*FreqDistribItem, len(freqs.Words)),
+	}
+	for i, word := range freqs.Words {
+		norm := freqs.Norms[i]
+		if norm == 0 {
+			norm = conc.CorpSize()
+		}
+		ans.Forms[i] = &FreqDistribItem{
+			Freq: freqs.Freqs[i],
+			Norm: norm,
+			IPM:  float32(freqs.Freqs[i]) / float32(norm) * 1e6,
+			Word: word,
+		}
+	}
+
+	return ans, nil
+}
+
+func (a *Actions) WordForms(ctx *gin.Context) {
+	var ans []*WordFormsItem
+	lemma := ctx.Request.URL.Query().Get("lemma")
+	word := ctx.Request.URL.Query().Get("word")
+	pos := ctx.Request.URL.Query().Get("pos")
+	if len(lemma) > 0 {
+		log.Debug().
+			Str("lemma", lemma).
+			Str("pos", pos).
+			Msg("processing Mango query")
+		wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		ans = append(ans, wordForms)
+
+	} else if len(word) > 0 {
+		log.Debug().
+			Str("word", word).
+			Str("pos", pos).
+			Msg("processing Mango query")
+		lemmas, err := a.findLemmas(ctx.Param("corpusId"), word, pos)
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(err),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		for _, lemmaPos := range lemmas.Words {
+			lemmaPosSplit := strings.Split(lemmaPos, " ")
+			pos := lemmaPosSplit[len(lemmaPosSplit)-1]
+			lemma := strings.Join(lemmaPosSplit[:len(lemmaPosSplit)-1], " ")
+			wordForms, err := a.findWordForms(ctx.Param("corpusId"), lemma, pos)
+			if err != nil {
+				uniresp.WriteJSONErrorResponse(
+					ctx.Writer,
+					uniresp.NewActionErrorFrom(err),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+			ans = append(ans, wordForms)
+		}
+
+	} else {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError("Required parameters are `lemma` or `word`"),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
 func NewActions(conf *corpus.CorporaSetup) *Actions {
