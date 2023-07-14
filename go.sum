@@ -7,8 +7,8 @@ github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583j
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/czcorpus/cnc-gokit v0.3.2 h1:07Wnd+ON1AGcdPz8+sn+3cR6CHKNQofH5FEfeSnCKv4=
 github.com/czcorpus/cnc-gokit v0.3.2/go.mod h1:m6/pi38R7LW9Dm598fwI0UTqcCcCuLD60Tx7pidWGcc=
-github.com/czcorpus/vert-tagextract/v2 v2.3.11 h1:HlRxfGbgn9cZc9oT3LyUKGkwO766PXbYGnZINFmQHjQ=
-github.com/czcorpus/vert-tagextract/v2 v2.3.11/go.mod h1:6+aX/obFtNWbNR+9apYLEdl0rfZZ0DBGW2mVcU3Z+e8=
+github.com/czcorpus/vert-tagextract/v2 v2.3.13 h1:Tp/ll64tCq8R+7rWoIssQgeHDy2m/WNa9FBJc7UDdOM=
+github.com/czcorpus/vert-tagextract/v2 v2.3.13/go.mod h1:n6iNyt06me+e6zzC6Y2q27x3AsKNv/MQtAyQRXNNEXo=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
