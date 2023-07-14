@@ -1,3 +1,21 @@
+// Copyright 2020 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2020 Institute of the Czech National Corpus,
+//                Faculty of Arts, Charles University
+//   This file is part of CNC-MASM.
+//
+//  CNC-MASM is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  CNC-MASM is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
+
 package mango
 
 // #cgo LDFLAGS:  -lmanatee -L${SRCDIR} -Wl,-rpath='$ORIGIN'
@@ -108,7 +126,7 @@ func GetCorpusConf(corpus *GoCorpus, prop string) (string, error) {
 
 func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	var ret GoConc
-	ans := (C.create_concordance(corpus.corp, C.CString(query)))
+	ans := C.create_concordance(corpus.corp, C.CString(query))
 	if ans.err != nil {
 		err := fmt.Errorf(C.GoString(ans.err))
 		defer C.free(unsafe.Pointer(ans.err))
@@ -123,6 +141,35 @@ func CreateConcordance(corpus *GoCorpus, query string) (*GoConc, error) {
 	ret.corpSize = corpSize
 	ret.corpus = corpus
 	return &ret, nil
+}
+
+func OpenConcordance(corpus *GoCorpus, path string) (*GoConc, error) {
+	var ret GoConc
+	ans := C.open_concordance(corpus.corp, C.CString(path))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return nil, err
+	}
+	ret.conc = ans.value
+
+	corpSize, err := GetCorpusSize(corpus)
+	if err != nil {
+		return nil, err
+	}
+	ret.corpSize = corpSize
+	ret.corpus = corpus
+	return &ret, nil
+}
+
+func SaveConcordance(conc *GoConc, path string) error {
+	ans := C.save_concordance(conc.conc, C.CString(path))
+	if ans.err != nil {
+		err := fmt.Errorf(C.GoString(ans.err))
+		defer C.free(unsafe.Pointer(ans.err))
+		return err
+	}
+	return nil
 }
 
 func CalcFreqDist(conc *GoConc, fcrit string, flimit int) (*Freqs, error) {

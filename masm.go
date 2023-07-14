@@ -159,7 +159,7 @@ func main() {
 
 	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
 	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions)
-	concActions := query.NewActions(conf.CorporaSetup)
+	concActions := query.NewActions(conf.CorporaSetup, conf.GetLocation())
 	liveattrsActions := laActions.NewActions(
 		laActions.LAConf{
 			LA:      conf.LiveAttrs,

@@ -57,6 +57,10 @@ typedef struct ConcRetval {
     const char * err;
 } ConcRetval;
 
+typedef struct ConcSaveRetval {
+    const char *err;
+} ConcSaveRetval;
+
 typedef struct FreqsRetval {
     MVector words;
     MVector freqs;
@@ -83,6 +87,10 @@ CorpusStringRetval get_corpus_conf(CorpusV corpus, const char* prop);
 ConcRetval create_concordance(CorpusV corpus, char* query);
 
 PosInt concordance_size(ConcV conc);
+
+ConcRetval open_concordance(CorpusV corpus, char* path);
+
+ConcSaveRetval save_concordance(ConcV conc, const char* path);
 
 void delete_str_vector(MVector v);
 
