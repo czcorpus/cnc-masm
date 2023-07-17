@@ -209,9 +209,13 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 
 }
 
-func NewActions(conf *corpus.CorporaSetup, location *time.Location) *Actions {
+func NewActions(
+	conf *corpus.CorporaSetup,
+	location *time.Location,
+	cache *Cache,
+) *Actions {
 	return &Actions{
 		conf:      conf,
-		concCache: NewCache(conf.ConcCacheDirPath, location),
+		concCache: cache,
 	}
 }

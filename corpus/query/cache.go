@@ -22,11 +22,16 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"os"
+	"path"
 	"path/filepath"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/czcorpus/cnc-gokit/collections"
+	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -69,6 +74,62 @@ func (cache *Cache) mkPath(corpusID, query string) string {
 
 func (cache *Cache) Contains(corpusID, query string) bool {
 	return cache.data.HasKey(cache.mkKey(corpusID, query))
+}
+
+func (cache *Cache) RestoreUnboundEntries() error {
+	log.Info().
+		Str("cachePath", cache.rootPath).
+		Msg("trying to restore all the unbound cache files")
+	corpDirs, err := fs.ListDirsInDir(cache.rootPath, false)
+	if err != nil {
+		return fmt.Errorf("failed to restore unbound cache records: %w", err)
+	}
+	now := time.Now().In(cache.loc)
+	var iterErr error
+	corpDirs.ForEach(func(dirInfo os.FileInfo, _ int) bool {
+		subdir := path.Base(dirInfo.Name())
+		files, err := fs.ListFilesInDir(path.Join(cache.rootPath, subdir), false)
+		if err != nil {
+			iterErr = fmt.Errorf("failed to restore unbound cache records: %w", err)
+			return false
+		}
+		files.ForEach(func(finfo os.FileInfo, _ int) bool {
+			file := path.Base(finfo.Name())
+			entry := CacheEntry{
+				PromisedAt:  now,
+				FulfilledAt: now,
+				FilePath:    path.Join(cache.rootPath, subdir, file),
+			}
+			cache.data.Set(file, entry)
+			return true
+		})
+		return true
+	})
+	log.Info().
+		Int("numEntries", cache.data.Len()).
+		Msg("restored unbound cache entries")
+	return iterErr
+}
+
+func (cache *Cache) restoreIfUnboundEntry(corpusID, query string) CacheEntry {
+	targetPath := cache.mkPath(corpusID, query)
+	now := time.Now().In(cache.loc)
+	ans := CacheEntry{PromisedAt: now, FulfilledAt: now}
+	isFile, err := fs.IsFile(targetPath)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("path", targetPath).
+			Msg("failed to determine cache file status")
+		ans.Err = err
+
+	} else if !isFile {
+		ans.Err = ErrEntryNotFound
+
+	} else {
+		ans.FilePath = targetPath
+	}
+	return ans
 }
 
 func (cache *Cache) Promise(corpusID, query string, fn func(path string) error) <-chan CacheEntry {
