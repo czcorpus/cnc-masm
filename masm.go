@@ -159,7 +159,9 @@ func main() {
 
 	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
 	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions)
-	concActions := query.NewActions(conf.CorporaSetup, conf.GetLocation())
+	concCache := query.NewCache(conf.CorporaSetup.ConcCacheDirPath, conf.GetLocation())
+	concCache.RestoreUnboundEntries()
+	concActions := query.NewActions(conf.CorporaSetup, conf.GetLocation(), concCache)
 	liveattrsActions := laActions.NewActions(
 		laActions.LAConf{
 			LA:      conf.LiveAttrs,
