@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/rs/zerolog/log"
@@ -60,6 +61,14 @@ type Conf struct {
 
 func (conf *Conf) IsDebugMode() bool {
 	return conf.LogLevel == "debug"
+}
+
+func (conf *Conf) GetLocation() *time.Location { // TODO
+	loc, err := time.LoadLocation("Europe/Prague")
+	if err != nil {
+		log.Fatal().Msg("failed to initialize location")
+	}
+	return loc
 }
 
 // GetSourcePath returns an absolute path of a file

@@ -3,6 +3,7 @@ module masm/v3
 go 1.19
 
 require (
+	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/czcorpus/cnc-gokit v0.3.2
 	github.com/czcorpus/vert-tagextract/v2 v2.3.14
 	github.com/gin-gonic/gin v1.9.1

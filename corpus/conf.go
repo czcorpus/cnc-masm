@@ -43,6 +43,7 @@ type CorporaSetup struct {
 	RegistryDirPaths     []string          `json:"registryDirPaths"`
 	RegistryTmpDir       string            `json:"registryTmpDir"`
 	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
+	ConcCacheDirPath     string            `json:"concCacheDirPath"`
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
 	WordSketchDefDirPath string            `json:"wordSketchDefDirPath"`
 	SyncAllowedCorpora   []string          `json:"syncAllowedCorpora"`

@@ -95,8 +95,35 @@ ConcRetval create_concordance(CorpusV corpus, char* query) {
     return ans;
 }
 
+ConcRetval open_concordance(CorpusV corpus, char* path) {
+    string dataPath(path);
+    ConcRetval ans;
+    ans.err = nullptr;
+    Corpus* corpusObj = (Corpus*)corpus;
+
+    try {
+        ans.value = new Concordance(corpusObj, path);
+
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    return ans;
+}
+
 PosInt concordance_size(ConcV conc) {
     return ((Concordance *)conc)->size();
+}
+
+ConcSaveRetval save_concordance(ConcV conc, const char* path) {
+    ConcSaveRetval ans;
+    ans.err = nullptr;
+    Concordance* concObj = (Concordance *)conc;
+    try {
+        concObj->save(path);
+    } catch (std::exception &e) {
+        ans.err = strdup(e.what());
+    }
+    return ans;
 }
 
 FreqsRetval freq_dist(CorpusV corpus, ConcV conc, char* fcrit, PosInt flimit) {

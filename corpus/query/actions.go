@@ -22,8 +22,12 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/mango"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
+	"time"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -44,19 +48,8 @@ var (
 )
 
 type Actions struct {
-	conf *corpus.CorporaSetup
-}
-
-func (a *Actions) getConcordance(corpusId, query string) (*mango.GoConc, error) {
-	corp, err := corpus.OpenCorpus(corpusId, a.conf)
-	if err != nil {
-		return nil, err
-	}
-	conc, err := mango.CreateConcordance(corp, query)
-	if err != nil {
-		return nil, err
-	}
-	return conc, nil
+	conf      *corpus.CorporaSetup
+	concCache *Cache
 }
 
 func (a *Actions) FreqDistrib(ctx *gin.Context) {
@@ -74,9 +67,63 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 				uniresp.NewActionErrorFrom(err),
 				http.StatusUnprocessableEntity,
 			)
+			return
 		}
 	}
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+
+	var err error
+	var corp *mango.GoCorpus
+	corp, err = corpus.OpenCorpus(ctx.Param("corpusId"), a.conf)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusUnprocessableEntity,
+		)
+		return
+	}
+
+	var conc *mango.GoConc
+	if a.concCache.Contains(ctx.Param("corpusId"), q) {
+		cacheEntry, err := a.concCache.Get(ctx.Param("corpusId"), q)
+		if cacheEntry.Err != nil {
+			err = cacheEntry.Err
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer,
+				uniresp.NewActionErrorFrom(cacheEntry.Err),
+				http.StatusInternalServerError,
+			)
+			return
+
+		} else {
+			conc, err = mango.OpenConcordance(corp, cacheEntry.FilePath)
+			if err != nil {
+				uniresp.WriteJSONErrorResponse(
+					ctx.Writer,
+					uniresp.NewActionErrorFrom(err),
+					http.StatusInternalServerError,
+				)
+				return
+			}
+		}
+
+	} else {
+		conc, err = mango.CreateConcordance(corp, q)
+		a.concCache.Promise(
+			ctx.Param("corpusId"),
+			q,
+			func(targetPath string) error {
+				targetDir := path.Dir(targetPath)
+				if !fs.PathExists(targetDir) {
+					if err := os.MkdirAll(targetDir, 0755); err != nil {
+						return err
+					}
+				}
+				return mango.SaveConcordance(conc, targetPath)
+			},
+		)
+	}
+
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -85,6 +132,7 @@ func (a *Actions) FreqDistrib(ctx *gin.Context) {
 		)
 		return
 	}
+
 	freqs, err := mango.CalcFreqDist(conc, "lemma/e 0~0>0", flimit)
 	ans := make([]*FreqDistribItem, len(freqs.Freqs))
 	for i, _ := range ans {
@@ -113,7 +161,18 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 	log.Debug().
 		Str("query", q).
 		Msg("processing Mango query")
-	conc, err := a.getConcordance(ctx.Param("corpusId"), q)
+
+	corp, err := corpus.OpenCorpus(ctx.Param("corpusId"), a.conf)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	conc, err := mango.CreateConcordance(corp, q)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -150,8 +209,9 @@ func (a *Actions) Collocations(ctx *gin.Context) {
 
 }
 
-func NewActions(conf *corpus.CorporaSetup) *Actions {
+func NewActions(conf *corpus.CorporaSetup, location *time.Location) *Actions {
 	return &Actions{
-		conf: conf,
+		conf:      conf,
+		concCache: NewCache(conf.ConcCacheDirPath, location),
 	}
 }
