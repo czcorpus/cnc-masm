@@ -67,7 +67,7 @@ type CorpusConfProvider interface {
 func EnsureValidDataRegistry(conf CorpusConfProvider, corpusID string) (string, error) {
 	regPath := conf.GetFirstValidRegistry(corpusID)
 	if regPath == "" {
-		return "", fmt.Errorf("failed to find valid registry path for %s", corpusID)
+		return "", RegistryNotFound
 	}
 	regIsFile, err := fs.IsFile(regPath)
 	if err != nil {
