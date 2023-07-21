@@ -164,10 +164,9 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	}
 	ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, value)
 	corp, err := mango.OpenCorpus(corpReg)
+
 	if err != nil {
-		// call of registry.EnsureValidDataRegistry should make this
-		// almost impossible. In case this happens, we consider the
-		// error "internal" (i.e. no "not found" here)
+		// this means registry exists but it probably corrupted in some way
 		if strings.Contains(err.Error(), "CorpInfoNotFound") {
 			return nil, InfoError{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
 
@@ -178,11 +177,9 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	defer mango.CloseCorpus(corp)
 	ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
 	if err != nil {
-		if !strings.Contains(err.Error(), "FileAccessError") {
-			return nil, InfoError{err}
-		}
 		errStr := err.Error()
 		ans.IndexedData.ManateeError = &errStr
+		return ans, nil
 	}
 	corpDataPath, err := mango.GetCorpusConf(corp, "PATH")
 	if err != nil {

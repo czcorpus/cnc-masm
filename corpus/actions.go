@@ -19,7 +19,6 @@
 package corpus
 
 import (
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -64,7 +63,6 @@ func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 		wsattr = "lemma"
 	}
 	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf)
-	fmt.Println("%#v", err)
 	if err == registry.RegistryNotFound {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
