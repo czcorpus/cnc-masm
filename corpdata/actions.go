@@ -38,6 +38,7 @@ type registry struct {
 type storageLocation struct {
 	Data     string   `json:"data"`
 	Registry registry `json:"registry"`
+	Aligndef string   `json:"aligndef"`
 }
 
 // Actions contains all the fsops-related REST actions
@@ -55,7 +56,8 @@ func (a *Actions) AvailableDataLocations(ctx *gin.Context) {
 		Registry: registry{
 			RootPaths: make([]string, 0, 10),
 		},
-		Data: a.conf.CorporaSetup.CorpusDataPath.Abstract,
+		Data:     a.conf.CorporaSetup.CorpusDataPath.Abstract,
+		Aligndef: a.conf.CorporaSetup.AligndefDirPath,
 	}
 	for _, regPathRoot := range a.conf.CorporaSetup.RegistryDirPaths {
 		location.Registry.RootPaths = append(location.Registry.RootPaths, regPathRoot)
