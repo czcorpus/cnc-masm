@@ -29,6 +29,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/google/uuid"
 
+	"masm/v3/corpus/registry"
 	"masm/v3/jobs"
 )
 
@@ -62,7 +63,13 @@ func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 		wsattr = "lemma"
 	}
 	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf)
-	if err != nil {
+	if err == registry.RegistryNotFound {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+		log.Error().Err(err)
+		return
+
+	} else if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		log.Error().Err(err)
