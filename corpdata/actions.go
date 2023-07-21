@@ -21,10 +21,7 @@ package corpdata
 import (
 	"masm/v3/cnf"
 	"masm/v3/general"
-	"net/http"
-	"os"
 
-	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
@@ -35,8 +32,7 @@ type registrySubdir struct {
 }
 
 type registry struct {
-	RootPaths []string         `json:"rootPaths"`
-	SubDirs   []registrySubdir `json:"subDirs"`
+	RootPaths []string `json:"rootPaths"`
 }
 
 type storageLocation struct {
@@ -58,29 +54,11 @@ func (a *Actions) AvailableDataLocations(ctx *gin.Context) {
 	location := &storageLocation{
 		Registry: registry{
 			RootPaths: make([]string, 0, 10),
-			SubDirs:   make([]registrySubdir, 0, 50),
 		},
 		Data: a.conf.CorporaSetup.CorpusDataPath.Abstract,
 	}
-	subdirs := make(map[string]bool) // path => readonly
-
 	for _, regPathRoot := range a.conf.CorporaSetup.RegistryDirPaths {
-		regPaths, err := fs.ListDirsInDir(regPathRoot, false)
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer, uniresp.NewActionError("failed to get data locations: %w", err), http.StatusInternalServerError)
-			return
-		}
-		regPaths.ForEach(func(info os.FileInfo, idx int) bool {
-			subdirs[info.Name()] = a.conf.CorporaSetup.SubdirIsInAltAccessMapping(info.Name())
-			return true
-		})
 		location.Registry.RootPaths = append(location.Registry.RootPaths, regPathRoot)
-	}
-	for name, readonly := range subdirs {
-		location.Registry.SubDirs = append(
-			location.Registry.SubDirs,
-			registrySubdir{Name: name, ReadOnly: readonly})
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, location)
 }
