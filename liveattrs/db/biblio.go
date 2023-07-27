@@ -205,7 +205,7 @@ func attrsToSQL(attrs query.Attrs) (string, []any) {
 			if len(tValues) > 0 {
 				sql = append(
 					sql,
-					fmt.Sprintf(" %s IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))),
+					fmt.Sprintf(" t1.%s IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))),
 				)
 				for _, v := range tValues {
 					sqlValues = append(sqlValues, v)
@@ -216,7 +216,7 @@ func attrsToSQL(attrs query.Attrs) (string, []any) {
 			if v != "" {
 				sql = append(
 					sql,
-					fmt.Sprintf("%s REGEXP ?", utils.ImportKey(attr)),
+					fmt.Sprintf("t1.%s REGEXP ?", utils.ImportKey(attr)),
 				)
 				sqlValues = append(sqlValues, v)
 
@@ -245,14 +245,14 @@ func buildQuery(
 	queryArgs := make([]any, 0, len(alignedCorpora)+2)
 	for i, item := range alignedCorpora {
 		sql.WriteString(fmt.Sprintf(
-			"JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id", corpusInfo.GroupedName(),
+			"INNER JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id", corpusInfo.GroupedName(),
 			i+2, i+2,
 		))
-		whereSQL = append(whereSQL, fmt.Sprintf(" AND t%d.corpus_id = ?", i+2))
+		whereSQL = append(whereSQL, fmt.Sprintf("t%d.corpus_id = ?", i+2))
 		queryArgs = append(queryArgs, item)
 	}
 	sql.WriteString(" WHERE t1.corpus_id = ? ")
-	queryArgs = append(queryArgs, corpusInfo.GroupedName())
+	queryArgs = append(queryArgs, corpusInfo.Name)
 	for _, w := range whereSQL {
 		sql.WriteString(" AND " + w)
 	}
@@ -269,7 +269,7 @@ func GetNumOfDocuments(
 	alignedCorpora []string,
 	attrs query.Attrs,
 ) (int, error) {
-	sql, args := buildQuery([]string{"*"}, corpusInfo, alignedCorpora, attrs)
+	sql, args := buildQuery([]string{"t1.*"}, corpusInfo, alignedCorpora, attrs)
 	wsql := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS docitems", sql)
 	row := db.QueryRow(wsql, args...)
 	var ans int
