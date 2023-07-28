@@ -245,10 +245,9 @@ func buildQuery(
 	queryArgs := make([]any, 0, len(alignedCorpora)+2)
 	for i, item := range alignedCorpora {
 		sql.WriteString(fmt.Sprintf(
-			"INNER JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id", corpusInfo.GroupedName(),
-			i+2, i+2,
+			"INNER JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id AND t%d.corpus_id = ?", corpusInfo.GroupedName(),
+			i+2, i+2, i+2,
 		))
-		whereSQL = append(whereSQL, fmt.Sprintf("t%d.corpus_id = ?", i+2))
 		queryArgs = append(queryArgs, item)
 	}
 	sql.WriteString(" WHERE t1.corpus_id = ? ")
