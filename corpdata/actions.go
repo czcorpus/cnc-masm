@@ -21,9 +21,6 @@ package corpdata
 import (
 	"masm/v3/cnf"
 	"masm/v3/general"
-
-	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gin-gonic/gin"
 )
 
 type registrySubdir struct {
@@ -48,22 +45,6 @@ type Actions struct {
 }
 
 func (a *Actions) OnExit() {}
-
-// AvailableDataLocations provides pairs of registry_path=>data_path available
-// to a user
-func (a *Actions) AvailableDataLocations(ctx *gin.Context) {
-	location := &storageLocation{
-		Registry: registry{
-			RootPaths: make([]string, 0, 10),
-		},
-		Data:     a.conf.CorporaSetup.CorpusDataPath.Abstract,
-		Aligndef: a.conf.CorporaSetup.AligndefDirPath,
-	}
-	for _, regPathRoot := range a.conf.CorporaSetup.RegistryDirPaths {
-		location.Registry.RootPaths = append(location.Registry.RootPaths, regPathRoot)
-	}
-	uniresp.WriteJSONResponse(ctx.Writer, location)
-}
 
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version general.VersionInfo) *Actions {

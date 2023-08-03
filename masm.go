@@ -150,18 +150,16 @@ func main() {
 	rootActions := root.Actions{Version: version, Conf: conf}
 
 	corpdataActions := corpdata.NewActions(conf, version)
-	engine.GET(
-		"/corpora-storage/available-locations",
-		corpdataActions.AvailableDataLocations,
-	)
 
 	jobStopChannel := make(chan string)
-
 	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
+
 	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions)
+
 	concCache := query.NewCache(conf.CorporaSetup.ConcCacheDirPath, conf.GetLocation())
 	concCache.RestoreUnboundEntries()
 	concActions := query.NewActions(conf.CorporaSetup, conf.GetLocation(), concCache)
+
 	liveattrsActions := laActions.NewActions(
 		laActions.LAConf{
 			LA:      conf.LiveAttrs,
