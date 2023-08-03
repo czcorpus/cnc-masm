@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -99,7 +98,22 @@ func EnsureValidDataRegistry(conf CorpusConfProvider, corpusID string) (string, 
 				realDataPath = srch[3]
 			}
 			rdpExists, err := fs.IsDir(realDataPath)
-			if err != nil || !rdpExists {
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("dataPath", realDataPath).
+					Msg("failed to test whether the path is a directory")
+			}
+			altDataPath := filepath.Join(conf.GetCorpusCNCDataPath(), corpusID)
+			adpExists, err := fs.IsDir(altDataPath)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Str("dataPath", altDataPath).
+					Msg("failed to test whether the alternative path is a directory")
+			}
+			fmt.Println("realDataPath ", realDataPath, ", exists? ", rdpExists)
+			if (err != nil || !rdpExists) && adpExists {
 				isPatched = true
 				fwr2.WriteString(
 					fmt.Sprintf("PATH \"%s\"\n",
@@ -118,7 +132,7 @@ func EnsureValidDataRegistry(conf CorpusConfProvider, corpusID string) (string, 
 		}
 	}
 	if isPatched {
-		file2, err := ioutil.TempFile(os.TempDir(), tmpFileNameTemplate)
+		file2, err := os.CreateTemp(os.TempDir(), tmpFileNameTemplate)
 		if err != nil {
 			return "", fmt.Errorf("failed to create tmp file for writing registry: %w", err)
 		}
