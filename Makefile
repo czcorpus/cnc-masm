@@ -10,9 +10,6 @@ clean:
 	rm masm3
 
 test:
-	go test ./...
-
-rtest:
-	go test -race ./...
+	manabuild -test masm3
 
 .PHONY: clean install test
