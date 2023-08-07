@@ -76,14 +76,14 @@ func (a *Actions) UpdateCorpusInfo(ctx *gin.Context) {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	if !corpusInfo.IndexedData.Path.FileExists {
+	if !corpusInfo.IndexedData.Primary.Path.FileExists {
 		err := fmt.Errorf("data not found for corpus %s", corpusID)
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 		return
 	}
 	transact, err := a.db.StartTx()
-	err = a.db.UpdateSize(transact, corpusID, corpusInfo.IndexedData.Size)
+	err = a.db.UpdateSize(transact, corpusID, corpusInfo.IndexedData.Primary.Size)
 	if err != nil {
 		err2 := a.db.RollbackTx(transact)
 		if err2 != nil {

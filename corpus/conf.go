@@ -24,6 +24,20 @@ import (
 	"github.com/czcorpus/cnc-gokit/fs"
 )
 
+const (
+	CorpusVariantPrimary CorpusVariant = "primary"
+	CorpusVariantLimited CorpusVariant = "omezeni"
+)
+
+type CorpusVariant string
+
+func (cv CorpusVariant) SubDir() string {
+	if cv == "primary" {
+		return ""
+	}
+	return string(cv)
+}
+
 // CorporaDataPaths describes three
 // different ways how paths to corpora
 // data are specified:
@@ -48,13 +62,12 @@ type CorporaSetup struct {
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
 	WordSketchDefDirPath string            `json:"wordSketchDefDirPath"`
 	SyncAllowedCorpora   []string          `json:"syncAllowedCorpora"`
-	VerticalFilesDirPath string            `json:"verticalFilesDirPath"`
 	ManateeDynlibPath    string            `json:"manateeDynlibPath"`
 }
 
-func (cs *CorporaSetup) GetFirstValidRegistry(corpusID string) string {
+func (cs *CorporaSetup) GetFirstValidRegistry(corpusID, subDir string) string {
 	for _, dir := range cs.RegistryDirPaths {
-		d := filepath.Join(dir, corpusID)
+		d := filepath.Join(dir, subDir, corpusID)
 		pe := fs.PathExists(d)
 		isf, _ := fs.IsFile(d)
 		if pe && isf {

@@ -86,7 +86,7 @@ func (a *Actions) createConf(
 		req.URL.Query().Get("mergeFn"), // e.g. "identity", "intecorp"
 		maxNumErr,
 	)
-
+	err = a.ensureVerticalFile(conf, corpusInfo)
 	a.applyNgramConf(conf, jsonArgs)
 
 	return conf, jsonArgs, err
@@ -110,7 +110,11 @@ func (a *Actions) CreateConf(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to create liveattrs config for %s: %w"
 	newConf, _, err := a.createConf(corpusID, ctx.Request, true, a.conf.LA.VertMaxNumErrors)
-	if err != nil {
+	if err == ErrorMissingVertical {
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusConflict)
+		return
+
+	} else if err != nil {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}

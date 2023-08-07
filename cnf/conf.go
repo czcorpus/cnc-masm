@@ -20,7 +20,6 @@ package cnf
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"masm/v3/corpus"
 	"masm/v3/jobs"
 	"masm/v3/kontext"
@@ -89,7 +88,7 @@ func LoadConfig(path string) *Conf {
 	if path == "" {
 		log.Fatal().Msg("Cannot load config - path not specified")
 	}
-	rawData, err := ioutil.ReadFile(path)
+	rawData, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Cannot load config")
 	}

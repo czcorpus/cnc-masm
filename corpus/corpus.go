@@ -21,7 +21,6 @@ package corpus
 import (
 	"errors"
 	"fmt"
-	"masm/v3/corpus/registry"
 	"masm/v3/mango"
 	"path/filepath"
 	"strings"
@@ -60,10 +59,15 @@ type Data struct {
 	ManateeError *string         `json:"manateeError"`
 }
 
+type IndexedData struct {
+	Primary *Data `json:"primary"`
+	Limited *Data `json:"omezeni"`
+}
+
 // Info wraps information about a corpus installation
 type Info struct {
 	ID             string       `json:"id"`
-	IndexedData    Data         `json:"indexedData"`
+	IndexedData    IndexedData  `json:"indexedData"`
 	IndexedStructs []string     `json:"indexedStructs"`
 	RegistryConf   RegistryConf `json:"registry"`
 }
@@ -104,7 +108,10 @@ func bindValueToPath(value, path string) (FileMappedValue, error) {
 	return ans, nil
 }
 
-func findVerticalFile(basePath, corpusID string) (FileMappedValue, error) {
+func FindVerticalFile(basePath, corpusID string) (FileMappedValue, error) {
+	if basePath == "" {
+		panic("FindVerticalFile error - basePath cannot be empty")
+	}
 	suffixes := []string{".tar.gz", ".tar.bz2", ".tgz", ".tbz2", ".7z", ".gz", ".zip", ".tar", ".rar", ""}
 	var verticalPath string
 	if IsIntercorpFilename(corpusID) {
@@ -138,50 +145,21 @@ func findVerticalFile(basePath, corpusID string) (FileMappedValue, error) {
 	return ans, nil
 }
 
-// GetCorpusInfo provides miscellaneous corpus installation information mostly
-// related to different data files.
-// It should return an error only in case Manatee or filesystem produces some
-// error (i.e. not in case something is just not found).
-func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, error) {
-	ans := &Info{ID: corpusID}
-	ans.IndexedData = Data{}
-	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
-	vertical, err := findVerticalFile(setup.VerticalFilesDirPath, corpusID)
-	if err != nil {
-		return nil, err
-	}
-	ans.RegistryConf.Vertical = vertical
-	ans.RegistryConf.SubcorpAttrs = make(map[string][]string)
-
-	corpReg, err := registry.EnsureValidDataRegistry(setup, corpusID)
-	if err != nil {
-		return nil, err
-	}
-
-	value, err := bindValueToPath(corpReg, corpReg)
-	if err != nil {
-		return nil, InfoError{err}
-	}
-	ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, value)
-	corp, err := mango.OpenCorpus(corpReg)
-
-	if err != nil {
-		// this means registry exists but it probably corrupted in some way
-		if strings.Contains(err.Error(), "CorpInfoNotFound") {
-			return nil, InfoError{fmt.Errorf("Manatee cannot open/find corpus %s", corpusID)}
-
-		}
-		return nil, InfoError{err}
-	}
-
-	defer mango.CloseCorpus(corp)
-	ans.IndexedData.Size, err = mango.GetCorpusSize(corp)
+// getCorpusInfo obtains misc. information about
+// a provided corpus. Errors returned by Manatee
+// are not returned by the function as they are
+// just attached to the returned `Data` value and
+// considered being a part of function's "reporting"
+func getCorpusInfo(corpus *mango.GoCorpus) (*Data, error) {
+	ans := new(Data)
+	var err error
+	ans.Size, err = mango.GetCorpusSize(corpus)
 	if err != nil {
 		errStr := err.Error()
-		ans.IndexedData.ManateeError = &errStr
+		ans.ManateeError = &errStr
 		return ans, nil
 	}
-	corpDataPath, err := mango.GetCorpusConf(corp, "PATH")
+	corpDataPath, err := mango.GetCorpusConf(corpus, "PATH")
 	if err != nil {
 		return nil, InfoError{err}
 	}
@@ -199,21 +177,89 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	if err != nil {
 		return nil, InfoError{err}
 	}
-	ans.IndexedData.Path = FileMappedValue{
+	ans.Path = FileMappedValue{
 		Value:        dataDirPath,
 		LastModified: &dataDirMtimeR,
 		FileExists:   isDir,
 		Size:         size,
 	}
+	return ans, nil
+}
+
+func openCorpus(regPath string) (*mango.GoCorpus, error) {
+	corp, err := mango.OpenCorpus(regPath)
+	if err != nil {
+		if strings.Contains(err.Error(), "CorpInfoNotFound") {
+			return nil, CorpusNotFound
+
+		}
+		return nil, fmt.Errorf("Manatee failed to open %s: %w", regPath, err)
+	}
+	return corp, err
+}
+
+// GetCorpusInfo provides miscellaneous corpus installation information mostly
+// related to different data files.
+// It should return an error only in case Manatee or filesystem produces some
+// error (i.e. not in case something is just not found).
+func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, error) {
+	ans := &Info{ID: corpusID}
+	ans.IndexedData = IndexedData{}
+	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
+	ans.RegistryConf.SubcorpAttrs = make(map[string][]string)
+
+	corpReg1 := setup.GetFirstValidRegistry(corpusID, CorpusVariantPrimary.SubDir())
+	value, err := bindValueToPath(corpReg1, corpReg1)
+	if err != nil {
+		return nil, InfoError{err}
+	}
+	ans.RegistryConf.Paths = append(ans.RegistryConf.Paths, value)
+
+	corp1, err := openCorpus(corpReg1)
+	if err != nil {
+		return nil, InfoError{err}
+	}
+	defer mango.CloseCorpus(corp1)
+	corp1Info, err := getCorpusInfo(corp1)
+	if err != nil {
+		return nil, InfoError{fmt.Errorf("Failed to get info about %s: %w", corpReg1, err)}
+	}
+	ans.IndexedData.Primary = corp1Info
+
+	corpReg2 := setup.GetFirstValidRegistry(corpusID, CorpusVariantLimited.SubDir())
+	if fs.PathExists(corpReg2) {
+		corp2, err := openCorpus(corpReg2)
+		if err != nil {
+			return nil, InfoError{err}
+		}
+		defer mango.CloseCorpus(corp2)
+		corp2Info, err := getCorpusInfo(corp2)
+		if err != nil {
+			return nil, InfoError{fmt.Errorf("Failed to get info about %s: %w", corpReg2, err)}
+		}
+		ans.IndexedData.Limited = corp2Info
+	}
+
+	// -------
 
 	// get encoding
-	ans.RegistryConf.Encoding, err = mango.GetCorpusConf(corp, "ENCODING")
+	ans.RegistryConf.Encoding, err = mango.GetCorpusConf(corp1, "ENCODING")
+	if err != nil {
+		return nil, InfoError{err}
+	}
+
+	// get vertical info
+	vert, err := mango.GetCorpusConf(corp1, "VERTICAL")
+	if err != nil {
+		return nil, InfoError{err}
+	}
+	ans.RegistryConf.Vertical, err = bindValueToPath(vert, vert)
 	if err != nil {
 		return nil, InfoError{err}
 	}
 
 	// parse SUBCORPATTRS
-	subcorpAttrsString, err := mango.GetCorpusConf(corp, "SUBCORPATTRS")
+	subcorpAttrsString, err := mango.GetCorpusConf(corp1, "SUBCORPATTRS")
 	if err != nil {
 		return nil, InfoError{err}
 	}
@@ -226,7 +272,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 		}
 	}
 
-	unparsedStructs, err := mango.GetCorpusConf(corp, "STRUCTLIST")
+	unparsedStructs, err := mango.GetCorpusConf(corp1, "STRUCTLIST")
 	if err != nil {
 		return nil, InfoError{err}
 	}
@@ -239,7 +285,7 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	}
 
 	// try registry's VERTICAL
-	regVertical, err := mango.GetCorpusConf(corp, "VERTICAL")
+	regVertical, err := mango.GetCorpusConf(corp1, "VERTICAL")
 	if err != nil {
 		return nil, InfoError{err}
 	}

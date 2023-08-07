@@ -27,9 +27,10 @@ type Conf struct {
 
 	// TextTypesDbDirPath is an alternative to DB attribute
 	// when dealing with SQLite3-based setup
-	TextTypesDbDirPath string `json:"textTypesDbDirPath"`
-	ConfDirPath        string `json:"confDirPath"`
-	VertMaxNumErrors   int    `json:"vertMaxNumErrors"`
+	TextTypesDbDirPath   string `json:"textTypesDbDirPath"`
+	ConfDirPath          string `json:"confDirPath"`
+	VertMaxNumErrors     int    `json:"vertMaxNumErrors"`
+	VerticalFilesDirPath string `json:"verticalFilesDirPath"`
 }
 
 type NgramDBConf struct {
