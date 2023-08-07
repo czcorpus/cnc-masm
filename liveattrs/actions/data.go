@@ -59,12 +59,15 @@ func (a *Actions) Create(ctx *gin.Context) {
 	}
 
 	var jsonArgs *liveattrsJsonArgs
+	var noConfVertical bool
 	if conf == nil {
 		var newConf *vteCnf.VTEConf
 		var err error
 		newConf, jsonArgs, err = a.createConf(corpusID, ctx.Request, false, a.conf.LA.VertMaxNumErrors)
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+		noConfVertical = (err == ErrorMissingVertical)
+		if err != nil && err != ErrorMissingVertical {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 			return
 		}
 
@@ -92,6 +95,11 @@ func (a *Actions) Create(ctx *gin.Context) {
 	if len(jsonArgs.VerticalFiles) > 0 {
 		runtimeConf.VerticalFile = ""
 		runtimeConf.VerticalFiles = jsonArgs.VerticalFiles
+
+	} else if noConfVertical {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusConflict)
+		return
 	}
 	if jsonArgs.Ngrams.NgramSize > 0 && ctx.Request.URL.Query().Get("skipNgrams") == "1" {
 		runtimeConf.Ngrams = vteCnf.NgramConf{}

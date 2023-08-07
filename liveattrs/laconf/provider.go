@@ -43,7 +43,7 @@ var (
 	ErrorNoSuchConfig = errors.New("no such configuration (corpus not installed)")
 )
 
-// Create creates a new live attribute extraction configuration based
+// Create creates a new live attributes extraction configuration based
 // on provided args.
 // note: bibIdAttr and mergeAttrs use dot notation (e.g. "doc.author")
 func Create(
@@ -56,6 +56,7 @@ func Create(
 	mergeFn string,
 	maxNumErrors int,
 ) (*vteconf.VTEConf, error) {
+
 	newConf := vteconf.VTEConf{
 		Corpus:              corpusInfo.ID,
 		ParallelCorpus:      corpusDBInfo.ParallelCorpus,
@@ -67,6 +68,7 @@ func Create(
 		IndexedCols:         []string{},
 		VerticalFile:        corpusInfo.RegistryConf.Vertical.Path,
 	}
+
 	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
 	if bibIdAttr != "" {
 		bibView := vtedb.BibViewConf{}

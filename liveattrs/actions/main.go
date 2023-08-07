@@ -21,6 +21,7 @@ package actions
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"masm/v3/cncdb"
 	"masm/v3/corpus"
@@ -57,6 +58,10 @@ const (
 	emptyValuePlaceholder = "?"
 	dfltMaxAttrListSize   = 30
 	shortLabelMaxLength   = 30
+)
+
+var (
+	ErrorMissingVertical = errors.New("missing vertical file")
 )
 
 type CreateLiveAttrsReqBody struct {
@@ -137,6 +142,31 @@ func (a *Actions) applyNgramConf(targetConf *vteCnf.VTEConf, jsonArgs *liveattrs
 			targetConf.Ngrams.UniqKeyColumns[i] = item.Idx
 		}
 	}
+}
+
+func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.Info) error {
+	var verticalPath string
+	if corpusInfo.RegistryConf.Vertical.FileExists {
+		verticalPath = corpusInfo.RegistryConf.Vertical.Path
+
+	} else {
+		vpInfo, err := corpus.FindVerticalFile(a.conf.LA.VerticalFilesDirPath, corpusInfo.ID)
+		if err != nil {
+			return err
+		}
+		if vpInfo.FileExists {
+			verticalPath = vpInfo.Path
+			log.Warn().
+				Str("origPath", corpusInfo.RegistryConf.Vertical.Path).
+				Str("foundPath", verticalPath).
+				Msg("failed to apply configured VERTICAL, but found a different file")
+
+		} else {
+			return ErrorMissingVertical
+		}
+	}
+	vconf.VerticalFile = verticalPath
+	return nil
 }
 
 type ngramColumn struct {
