@@ -279,6 +279,14 @@ func GetNumOfDocuments(
 	return ans, nil
 }
 
+func mkAttrs(attrs []string) map[string]string {
+	ans := make(map[string]string)
+	for _, v := range attrs {
+		ans[v] = ""
+	}
+	return ans
+}
+
 func GetDocuments(
 	db *sql.DB,
 	corpusInfo *corpus.DBInfo,
@@ -323,7 +331,7 @@ func GetDocuments(
 	for rows.Next() {
 		docEntryLabel := sql.NullString{}
 		docEntry := &DocumentRow{Idx: i}
-		docEntry.Attrs = make(map[string]string)
+		docEntry.Attrs = mkAttrs(viewAttrs)
 		scanVals[0] = &docEntry.ID
 		scanVals[1] = &docEntryLabel
 		scanVals[2] = &docEntry.NumPos
