@@ -71,7 +71,7 @@ func NewActions(
 func (a *Actions) UpdateCorpusInfo(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to update info for corpus %s: %w"
-	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.cConf)
+	corpusInfo, err := corpus.GetCorpusInfo(corpusID, a.cConf, false)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return

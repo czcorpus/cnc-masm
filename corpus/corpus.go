@@ -61,7 +61,7 @@ type Data struct {
 
 type IndexedData struct {
 	Primary *Data `json:"primary"`
-	Limited *Data `json:"omezeni"`
+	Limited *Data `json:"omezeni,omitempty"`
 }
 
 // Info wraps information about a corpus installation
@@ -202,7 +202,7 @@ func openCorpus(regPath string) (*mango.GoCorpus, error) {
 // related to different data files.
 // It should return an error only in case Manatee or filesystem produces some
 // error (i.e. not in case something is just not found).
-func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, error) {
+func GetCorpusInfo(corpusID string, setup *CorporaSetup, tryLimited bool) (*Info, error) {
 	ans := &Info{ID: corpusID}
 	ans.IndexedData = IndexedData{}
 	ans.RegistryConf = RegistryConf{Paths: make([]FileMappedValue, 0, 10)}
@@ -226,8 +226,8 @@ func GetCorpusInfo(corpusID string, wsattr string, setup *CorporaSetup) (*Info, 
 	}
 	ans.IndexedData.Primary = corp1Info
 
-	corpReg2 := setup.GetFirstValidRegistry(corpusID, CorpusVariantLimited.SubDir())
-	if fs.PathExists(corpReg2) {
+	if tryLimited {
+		corpReg2 := setup.GetFirstValidRegistry(corpusID, CorpusVariantLimited.SubDir())
 		corp2, err := openCorpus(corpReg2)
 		if err != nil {
 			return nil, InfoError{err}

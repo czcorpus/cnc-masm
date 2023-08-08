@@ -154,7 +154,7 @@ func main() {
 	jobStopChannel := make(chan string)
 	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
 
-	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions)
+	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions, cncDB)
 
 	concCache := query.NewCache(conf.CorporaSetup.ConcCacheDirPath, conf.GetLocation())
 	concCache.RestoreUnboundEntries()
