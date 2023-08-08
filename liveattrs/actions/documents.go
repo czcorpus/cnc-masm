@@ -169,7 +169,6 @@ func (a *Actions) DocumentList(ctx *gin.Context) {
 
 	pginfo := db.PageInfo{Page: page, PageSize: pageSize}
 
-	var ans []*db.DocumentRow
 	for _, v := range ctx.Request.URL.Query()["attr"] {
 		if !isValidAttr(v) {
 			uniresp.WriteJSONErrorResponse(
@@ -186,8 +185,10 @@ func (a *Actions) DocumentList(ctx *gin.Context) {
 	if err != nil && err != io.EOF {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
+
 	}
 
+	var ans []*db.DocumentRow
 	ans, err = db.GetDocuments(
 		a.laDB,
 		corpInfo,
