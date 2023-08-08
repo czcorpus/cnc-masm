@@ -55,7 +55,7 @@ func (a *Actions) createConf(
 	saveJSONArgs bool,
 	maxNumErr int,
 ) (*vteCnf.VTEConf, *liveattrsJsonArgs, error) {
-	corpusInfo, err := corpus.GetCorpusInfo(corpusID, "", a.conf.Corp)
+	corpusInfo, err := corpus.GetCorpusInfo(corpusID, a.conf.Corp, false)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -125,15 +125,20 @@ func (c *CNCMySQLHandler) UpdateDescription(transact *sql.Tx, corpus, descCs, de
 func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 	var bibLabelStruct, bibLabelAttr, bibIDStruct, bibIDAttr sql.NullString
 	row := c.conn.QueryRow(
-		fmt.Sprintf(`SELECT c.name, c.active, c.bib_label_struct, c.bib_label_attr,
-			c.bib_id_struct, c.bib_id_attr, c.bib_group_duplicates, c.locale, p.name
-			FROM %s AS c
-			LEFT JOIN %s AS p ON p.id = c.parallel_corpus_id
-			WHERE c.name = ?`, c.corporaTableName, c.pcTableName),
+		fmt.Sprintf(
+			"SELECT c.name, c.active, c.bib_label_struct, c.bib_label_attr, "+
+				" c.bib_id_struct, c.bib_id_attr, c.bib_group_duplicates, c.locale, "+
+				" p.name, rv.variant "+
+				"FROM %s AS c "+
+				"LEFT JOIN %s AS p ON p.id = c.parallel_corpus_id "+
+				"LEFT JOIN registry_variable AS rv ON rv.corpus_name = c.name "+
+				" AND rv.variant = 'omezeni' "+
+				"WHERE c.name = ? LIMIT 1", c.corporaTableName, c.pcTableName),
 		corpusID)
 	var ans corpus.DBInfo
 	var pcName sql.NullString
 	var locale sql.NullString
+	var variant sql.NullString
 	err := row.Scan(
 		&ans.Name,
 		&ans.Active,
@@ -144,6 +149,7 @@ func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 		&ans.BibGroupDuplicates,
 		&locale,
 		&pcName,
+		&variant,
 	)
 	if err != nil {
 		return nil, err
@@ -160,6 +166,7 @@ func (c *CNCMySQLHandler) LoadInfo(corpusID string) (*corpus.DBInfo, error) {
 	if pcName.Valid {
 		ans.ParallelCorpus = pcName.String
 	}
+	ans.HasLimitedVariant = variant.Valid
 	return &ans, nil
 
 }

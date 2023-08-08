@@ -19,6 +19,7 @@
 package corpus
 
 import (
+	"database/sql"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,12 +37,17 @@ const (
 	jobTypeSyncCNK = "sync-cnk"
 )
 
+type CorpusInfoProvider interface {
+	LoadInfo(corpusID string) (*DBInfo, error)
+}
+
 // Actions contains all the server HTTP REST actions
 type Actions struct {
-	conf       *CorporaSetup
-	osSignal   chan os.Signal
-	jobsConf   *jobs.Conf
-	jobActions *jobs.Actions
+	conf         *CorporaSetup
+	osSignal     chan os.Signal
+	jobsConf     *jobs.Conf
+	jobActions   *jobs.Actions
+	infoProvider CorpusInfoProvider
 }
 
 func (a *Actions) OnExit() {}
@@ -50,18 +56,22 @@ func (a *Actions) OnExit() {}
 func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 	var err error
 	corpusID := ctx.Param("corpusId")
-	// mostly, 'subdir' should not be needed as all CNC corpora registry have at
-	// least a symbolic link to an actual registry file in a single directory.
-	subdir := ctx.Request.URL.Query().Get("subdir")
-	if subdir != "" {
-		corpusID = filepath.Join(subdir, corpusID)
-	}
 	baseErrTpl := "failed to get corpus info for %s: %w"
-	wsattr := ctx.Request.URL.Query().Get("wsattr")
-	if wsattr == "" {
-		wsattr = "lemma"
+	dbInfo, err := a.infoProvider.LoadInfo(corpusID)
+
+	if err == sql.ErrNoRows {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+		log.Error().Err(err)
+		return
+
+	} else if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+		log.Error().Err(err)
+		return
 	}
-	ans, err := GetCorpusInfo(corpusID, wsattr, a.conf)
+	ans, err := GetCorpusInfo(corpusID, a.conf, dbInfo.HasLimitedVariant)
 	if err == CorpusNotFound {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
@@ -152,10 +162,16 @@ func (a *Actions) SynchronizeCorpusData(ctx *gin.Context) {
 }
 
 // NewActions is the default factory
-func NewActions(conf *CorporaSetup, jobsConf *jobs.Conf, jobActions *jobs.Actions) *Actions {
+func NewActions(
+	conf *CorporaSetup,
+	jobsConf *jobs.Conf,
+	jobActions *jobs.Actions,
+	infoProvider CorpusInfoProvider,
+) *Actions {
 	return &Actions{
-		conf:       conf,
-		jobsConf:   jobsConf,
-		jobActions: jobActions,
+		conf:         conf,
+		jobsConf:     jobsConf,
+		jobActions:   jobActions,
+		infoProvider: infoProvider,
 	}
 }

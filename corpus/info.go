@@ -19,9 +19,10 @@
 package corpus
 
 type DBInfo struct {
-	Name   string
-	Active int
-	Locale string
+	Name              string
+	Active            int
+	Locale            string
+	HasLimitedVariant bool
 
 	ParallelCorpus string
 
