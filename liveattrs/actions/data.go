@@ -95,8 +95,9 @@ func (a *Actions) Create(ctx *gin.Context) {
 	if len(jsonArgs.VerticalFiles) > 0 {
 		runtimeConf.VerticalFile = ""
 		runtimeConf.VerticalFiles = jsonArgs.VerticalFiles
-
-	} else if noConfVertical {
+		noConfVertical = false
+	}
+	if noConfVertical {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusConflict)
 		return
