@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
-	"masm/v3/liveattrs/db/qbuilder"
+	"masm/v3/liveattrs/db/qbuilder/laquery"
 	"masm/v3/liveattrs/laconf"
 	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/request/response"
@@ -91,7 +91,7 @@ func (a *Actions) getAttrValues(
 			expandAttrs.Add(utils.ImportKey(attr))
 		}
 	}
-	qBuilder := &qbuilder.Builder{
+	qBuilder := &laquery.LAFilter{
 		CorpusInfo:          corpusInfo,
 		AttrMap:             qry.Attrs,
 		SearchAttrs:         srchAttrs.ToOrderedSlice(),
@@ -99,7 +99,7 @@ func (a *Actions) getAttrValues(
 		AutocompleteAttr:    qry.AutocompleteAttr,
 		EmptyValPlaceholder: emptyValuePlaceholder,
 	}
-	dataIterator := qbuilder.DataIterator{
+	dataIterator := laquery.DataIterator{
 		DB:      a.laDB,
 		Builder: qBuilder,
 	}
@@ -120,7 +120,7 @@ func (a *Actions) getAttrValues(
 	tmpAns := make(map[string]map[string]*response.ListedValue)
 	bibID := utils.ImportKey(qBuilder.CorpusInfo.BibIDAttr)
 	nilCol := make(map[string]int)
-	err = dataIterator.Iterate(func(row qbuilder.ResultRow) error {
+	err = dataIterator.Iterate(func(row laquery.ResultRow) error {
 		ans.Poscount += row.Poscount
 		for dbKey, dbVal := range row.Attrs {
 			colKey := utils.ExportKey(dbKey)

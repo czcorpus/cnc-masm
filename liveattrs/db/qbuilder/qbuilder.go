@@ -16,12 +16,13 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package equery
+package qbuilder
 
-import "masm/v3/liveattrs/request/query"
+import "strings"
 
-type Payload struct {
-	Corpname string      `json:"corpname"`
-	Aligned  []string    `json:"aligned"`
-	Attrs    query.Attrs `json:"attrs"`
+func CmpOperator(val string) string {
+	if strings.Contains(val, "%") {
+		return "LIKE"
+	}
+	return "="
 }

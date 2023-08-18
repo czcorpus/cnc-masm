@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package qbuilder
+package laquery
 
 import (
 	"database/sql"
@@ -28,7 +28,7 @@ import (
 	"strings"
 )
 
-type Builder struct {
+type LAFilter struct {
 	CorpusInfo          *corpus.DBInfo
 	AttrMap             query.Attrs
 	SearchAttrs         []string
@@ -37,7 +37,7 @@ type Builder struct {
 	EmptyValPlaceholder string
 }
 
-func (b *Builder) attrToSQL(values []string, prefix string) []string {
+func (b *LAFilter) attrToSQL(values []string, prefix string) []string {
 	ans := make([]string, len(values))
 	for i, v := range values {
 		ans[i] = prefix + "." + utils.ImportKey(v)
@@ -45,10 +45,10 @@ func (b *Builder) attrToSQL(values []string, prefix string) []string {
 	return ans
 }
 
-func (b *Builder) CreateSQL() QueryComponents {
+func (b *LAFilter) CreateSQL() QueryComponents {
 	bibID := utils.ImportKey(b.CorpusInfo.BibIDAttr)
 	bibLabel := utils.ImportKey(b.CorpusInfo.BibLabelAttr)
-	attrItems := AttrArgs{
+	attrItems := PredicateArgs{
 		data:                b.AttrMap,
 		bibID:               bibID,
 		bibLabel:            bibLabel,
@@ -111,7 +111,7 @@ type ResultRow struct {
 
 type DataIterator struct {
 	DB      *sql.DB
-	Builder *Builder
+	Builder *LAFilter
 }
 
 func (di *DataIterator) Iterate(fn func(row ResultRow) error) error {

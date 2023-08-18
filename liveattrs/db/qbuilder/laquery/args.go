@@ -16,10 +16,11 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package qbuilder
+package laquery
 
 import (
 	"fmt"
+	"masm/v3/liveattrs/db/qbuilder"
 	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/utils"
 	"strings"
@@ -27,14 +28,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func cmpOperator(val string) string {
-	if strings.Contains(val, "%") {
-		return "LIKE"
-	}
-	return "="
-}
-
-type AttrArgs struct {
+type PredicateArgs struct {
 	data                query.Attrs
 	bibID               string
 	bibLabel            string
@@ -42,18 +36,18 @@ type AttrArgs struct {
 	emptyValPlaceholder string
 }
 
-func (args *AttrArgs) Len() int {
+func (args *PredicateArgs) Len() int {
 	return len(args.data)
 }
 
-func (args *AttrArgs) importValue(value string) string {
+func (args *PredicateArgs) importValue(value string) string {
 	if value == args.emptyValPlaceholder {
 		return ""
 	}
 	return value
 }
 
-func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) {
+func (args *PredicateArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) {
 	where := make([]string, 0, 20)
 	sqlValues := make([]string, 0, 20)
 	for dkey, values := range args.data {
@@ -74,7 +68,7 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 						cnfItem,
 						fmt.Sprintf(
 							"%s.%s %s ?",
-							itemPrefix, key, cmpOperator(tValue),
+							itemPrefix, key, qbuilder.CmpOperator(tValue),
 						),
 					)
 					sqlValues = append(sqlValues, args.importValue(tValue))
@@ -85,7 +79,7 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 						fmt.Sprintf(
 							"%s.%s %s ?",
 							itemPrefix, args.bibLabel,
-							cmpOperator(tValue[1:]),
+							qbuilder.CmpOperator(tValue[1:]),
 						),
 					)
 					sqlValues = append(sqlValues, args.importValue(tValue[1:]))
@@ -116,7 +110,7 @@ func (args *AttrArgs) ExportSQL(itemPrefix, corpusID string) (string, []string) 
 				cnfItem,
 				fmt.Sprintf(
 					"LOWER(%s.%s) %s LOWER(?)",
-					itemPrefix, key, cmpOperator(fmt.Sprintf("%v", tValues)),
+					itemPrefix, key, qbuilder.CmpOperator(fmt.Sprintf("%v", tValues)),
 				),
 			)
 			sqlValues = append(sqlValues, args.importValue(fmt.Sprintf("%v", tValues)))

@@ -21,8 +21,9 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"masm/v3/liveattrs/utils"
-	"strings"
+	"masm/v3/corpus"
+	"masm/v3/liveattrs/db/qbuilder/adhoc"
+	"masm/v3/liveattrs/request/query"
 )
 
 func DeleteTable(tx *sql.Tx, groupedName string, corpusName string) error {
@@ -41,51 +42,15 @@ func DeleteTable(tx *sql.Tx, groupedName string, corpusName string) error {
 	return err
 }
 
-func GetSubcSize(db *sql.DB, groupedName string, corpora []string, attrMap map[string][]string) (int, error) {
-	joinSQL := make([]string, 0, 10)
-	whereSQL := []string{
-		"t1.corpus_id = ?",
-		"t1.poscount is NOT NULL",
+func GetSubcSize(laDB *sql.DB, corpusInfo *corpus.DBInfo, corpora []string, attrMap query.Attrs) (int, error) {
+	sizeCalc := adhoc.SubcSize{
+		CorpusInfo:          corpusInfo,
+		AttrMap:             attrMap,
+		AlignedCorpora:      corpora[1:],
+		EmptyValPlaceholder: "", // TODO !!!!
 	}
-	whereValues := []any{corpora[0]}
-	for i, item := range corpora[1:] {
-		iOffs := i + 2
-		joinSQL = append(
-			joinSQL,
-			fmt.Sprintf(
-				"JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id",
-				groupedName, iOffs, iOffs,
-			),
-		)
-		whereSQL = append(
-			whereSQL,
-			fmt.Sprintf("t%d.corpus_id = ?", iOffs),
-		)
-		whereValues = append(whereValues, item)
-	}
-	for k, vlist := range attrMap {
-		tmp := make([]string, 0, len(vlist)*5)
-		for _, v := range vlist {
-			whereValues = append(whereValues, v)
-			tmp = append(
-				tmp,
-				fmt.Sprintf("t1.%s = ?", utils.ImportKey(k)),
-			)
-		}
-		whereSQL = append(
-			whereSQL,
-			fmt.Sprintf("(%s)", strings.Join(tmp, " OR ")),
-		)
-	}
-	cur := db.QueryRow(
-		fmt.Sprintf(
-			"SELECT SUM(t1.poscount) FROM `%s_liveattrs_entry` AS t1 %s WHERE %s",
-			groupedName,
-			strings.Join(joinSQL, " "),
-			strings.Join(whereSQL, " AND "),
-		),
-		whereValues...,
-	)
+	sql, args := sizeCalc.Query()
+	cur := laDB.QueryRow(sql, args...)
 	var ans int
 	err := cur.Scan(&ans)
 	return ans, err
