@@ -217,7 +217,9 @@ func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobI
 			}
 
 			for upd := range procStatus {
-				jobStatus.Error = upd.Error
+				if upd.Error == vteProc.ErrorTooManyParsingErrors {
+					jobStatus.Error = upd.Error
+				}
 				jobStatus.ProcessedAtoms = upd.ProcessedAtoms
 				jobStatus.ProcessedLines = upd.ProcessedLines
 				updateJobChan <- jobStatus

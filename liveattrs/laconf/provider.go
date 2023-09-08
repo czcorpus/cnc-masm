@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
 	"masm/v3/jobs"
@@ -223,7 +222,7 @@ func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 		return err
 	}
 	confPath := path.Join(lcache.confDirPath, data.Corpus+".json")
-	err = ioutil.WriteFile(confPath, rawData, 0777)
+	err = os.WriteFile(confPath, rawData, 0777)
 	if err != nil {
 		return err
 	}
