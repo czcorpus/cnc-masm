@@ -147,7 +147,7 @@ func (a *Actions) applyNgramConf(targetConf *vteCnf.VTEConf, jsonArgs *liveattrs
 func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.Info) error {
 	var verticalPath string
 	if corpusInfo.RegistryConf.Vertical.FileExists {
-		verticalPath = corpusInfo.RegistryConf.Vertical.Path
+		verticalPath = corpusInfo.RegistryConf.Vertical.VisiblePath()
 
 	} else {
 		vpInfo, err := corpus.FindVerticalFile(a.conf.LA.VerticalFilesDirPath, corpusInfo.ID)
@@ -157,7 +157,7 @@ func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.I
 		if vpInfo.FileExists {
 			verticalPath = vpInfo.Path
 			log.Warn().
-				Str("origPath", corpusInfo.RegistryConf.Vertical.Path).
+				Str("origPath", corpusInfo.RegistryConf.Vertical.VisiblePath()).
 				Str("foundPath", verticalPath).
 				Msg("failed to apply configured VERTICAL, but found a different file")
 
