@@ -65,7 +65,7 @@ func Create(
 		Ngrams:              vteconf.NgramConf{},
 		Encoding:            "UTF-8",
 		IndexedCols:         []string{},
-		VerticalFile:        corpusInfo.RegistryConf.Vertical.Path,
+		VerticalFile:        corpusInfo.RegistryConf.Vertical.VisiblePath(),
 	}
 
 	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs

@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/czcorpus/cnc-gokit v0.3.6
-	github.com/czcorpus/vert-tagextract/v2 v2.3.14
+	github.com/czcorpus/vert-tagextract/v2 v2.3.17
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.3.0

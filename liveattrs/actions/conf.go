@@ -75,7 +75,6 @@ func (a *Actions) createConf(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	conf, err := laconf.Create(
 		a.conf.LA,
 		corpusInfo,
@@ -86,6 +85,9 @@ func (a *Actions) createConf(
 		req.URL.Query().Get("mergeFn"), // e.g. "identity", "intecorp"
 		maxNumErr,
 	)
+	if err != nil {
+		return conf, jsonArgs, err
+	}
 	err = a.ensureVerticalFile(conf, corpusInfo)
 	a.applyNgramConf(conf, jsonArgs)
 

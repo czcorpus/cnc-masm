@@ -26,7 +26,7 @@ import (
 )
 
 func SendSoftReset(conf *Conf) error {
-	if len(conf.SoftResetURL) == 0 {
+	if conf == nil || len(conf.SoftResetURL) == 0 {
 		log.Warn().Msgf("The kontextSoftResetURL configuration not set - ignoring the action")
 		return nil
 	}

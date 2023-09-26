@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/czcorpus/cnc-gokit/fs"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -42,6 +41,14 @@ type FileMappedValue struct {
 	FileExists   bool    `json:"exists"`
 	LastModified *string `json:"lastModified"`
 	Size         int64   `json:"size"`
+}
+
+func (fmv FileMappedValue) TruePath() string {
+	return fmv.Path
+}
+
+func (fmv FileMappedValue) VisiblePath() string {
+	return fmv.Value
 }
 
 // RegistryConf wraps registry configuration related info
@@ -86,7 +93,7 @@ type CorpusError struct {
 // 'path' exists and if so then it sets related properties
 // (FileExists, LastModified, Size) to proper values
 func bindValueToPath(value, path string) (FileMappedValue, error) {
-	ans := FileMappedValue{Value: value}
+	ans := FileMappedValue{Value: value, Path: path}
 	isFile, err := fs.IsFile(path)
 	if err != nil {
 		return ans, err
@@ -248,16 +255,6 @@ func GetCorpusInfo(corpusID string, setup *CorporaSetup, tryLimited bool) (*Info
 		return nil, InfoError{err}
 	}
 
-	// get vertical info
-	vert, err := mango.GetCorpusConf(corp1, "VERTICAL")
-	if err != nil {
-		return nil, InfoError{err}
-	}
-	ans.RegistryConf.Vertical, err = bindValueToPath(vert, vert)
-	if err != nil {
-		return nil, InfoError{err}
-	}
-
 	// parse SUBCORPATTRS
 	subcorpAttrsString, err := mango.GetCorpusConf(corp1, "SUBCORPATTRS")
 	if err != nil {
@@ -289,26 +286,11 @@ func GetCorpusInfo(corpusID string, setup *CorporaSetup, tryLimited bool) (*Info
 	if err != nil {
 		return nil, InfoError{err}
 	}
-	if regVertical != "" && ans.RegistryConf.Vertical.Path != regVertical {
-		if ans.RegistryConf.Vertical.FileExists {
-			log.Warn().Msgf(
-				"Registry file likely provides an incorrect VERTICAL %s",
-				regVertical,
-			)
-			log.Warn().Msgf(
-				"MASM will keep using inferred file %s for %s",
-				ans.RegistryConf.Vertical.Path,
-				corpusID,
-			)
-
-		} else {
-			ans.RegistryConf.Vertical.Value = regVertical
-			ans.RegistryConf.Vertical.Path = regVertical
-			ans.RegistryConf.Vertical.FileExists = false
-			ans.RegistryConf.Vertical.LastModified = nil
-			ans.RegistryConf.Vertical.Size = 0
-		}
+	ans.RegistryConf.Vertical, err = bindValueToPath(regVertical, regVertical)
+	if err != nil {
+		return nil, InfoError{err}
 	}
+
 	return ans, nil
 }
 
