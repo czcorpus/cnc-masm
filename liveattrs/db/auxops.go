@@ -49,9 +49,14 @@ func GetSubcSize(laDB *sql.DB, corpusInfo *corpus.DBInfo, corpora []string, attr
 		AlignedCorpora:      corpora[1:],
 		EmptyValPlaceholder: "", // TODO !!!!
 	}
-	sql, args := sizeCalc.Query()
-	cur := laDB.QueryRow(sql, args...)
-	var ans int
-	err := cur.Scan(&ans)
-	return ans, err
+	sqlq, args := sizeCalc.Query()
+	cur := laDB.QueryRow(sqlq, args...)
+	var ans sql.NullInt64
+	if err := cur.Scan(&ans); err != nil {
+		return 0, err
+	}
+	if ans.Valid {
+		return int(ans.Int64), nil
+	}
+	return 0, nil
 }
