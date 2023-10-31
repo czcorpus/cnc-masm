@@ -42,14 +42,14 @@ func (ssize *SubcSize) Query() (ansSQL string, whereValues []any) {
 		"t1.corpus_id = ?",
 		"t1.poscount is NOT NULL",
 	}
-	whereValues = []any{ssize.CorpusInfo.GroupedName()}
+	whereValues = []any{ssize.CorpusInfo.Name}
 	for i, item := range ssize.AlignedCorpora {
 		iOffs := i + 2
 		joinSQL = append(
 			joinSQL,
 			fmt.Sprintf(
 				"JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id",
-				ssize.CorpusInfo.GroupedName(), iOffs, iOffs,
+				ssize.CorpusInfo.Name, iOffs, iOffs,
 			),
 		)
 		whereSQL = append(
@@ -64,7 +64,7 @@ func (ssize *SubcSize) Query() (ansSQL string, whereValues []any) {
 		emptyValPlaceholder: ssize.EmptyValPlaceholder,
 		bibLabel:            ssize.CorpusInfo.BibLabelAttr,
 	}
-	where2, args2 := aargs.ExportSQL("t1", ssize.CorpusInfo.GroupedName())
+	where2, args2 := aargs.ExportSQL("t1", ssize.CorpusInfo.Name)
 	whereSQL = append(whereSQL, where2)
 	whereValues = append(whereValues, args2...)
 	ansSQL = fmt.Sprintf(
