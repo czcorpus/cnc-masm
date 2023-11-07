@@ -49,7 +49,7 @@ func (ssize *SubcSize) Query() (ansSQL string, whereValues []any) {
 			joinSQL,
 			fmt.Sprintf(
 				"JOIN `%s_liveattrs_entry` AS t%d ON t1.item_id = t%d.item_id",
-				ssize.CorpusInfo.Name, iOffs, iOffs,
+				ssize.CorpusInfo.GroupedName(), iOffs, iOffs,
 			),
 		)
 		whereSQL = append(
