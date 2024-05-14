@@ -47,6 +47,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	vteDb "github.com/czcorpus/vert-tagextract/v2/db"
 	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
 	vteProc "github.com/czcorpus/vert-tagextract/v2/proc"
 	"github.com/google/uuid"
@@ -133,13 +134,12 @@ func (a *Actions) applyNgramConf(targetConf *vteCnf.VTEConf, jsonArgs *liveattrs
 	if len(jsonArgs.Ngrams.VertColumns) > 0 {
 		targetConf.Ngrams.NgramSize = jsonArgs.Ngrams.NgramSize
 		targetConf.Ngrams.CalcARF = jsonArgs.Ngrams.CalcARF
-		targetConf.Ngrams.AttrColumns = make([]int, len(jsonArgs.Ngrams.VertColumns))
-		targetConf.Ngrams.ColumnMods = make([]string, len(jsonArgs.Ngrams.VertColumns))
-		targetConf.Ngrams.UniqKeyColumns = make([]int, len(jsonArgs.Ngrams.VertColumns))
+		targetConf.Ngrams.VertColumns = make(vteDb.VertColumns, len(jsonArgs.Ngrams.VertColumns))
 		for i, item := range jsonArgs.Ngrams.VertColumns {
-			targetConf.Ngrams.AttrColumns[i] = item.Idx
-			targetConf.Ngrams.ColumnMods[i] = item.TransformFn
-			targetConf.Ngrams.UniqKeyColumns[i] = item.Idx
+			targetConf.Ngrams.VertColumns[i] = vteDb.VertColumn{
+				Idx:   item.Idx,
+				ModFn: item.TransformFn,
+			}
 		}
 	}
 }
