@@ -14,3 +14,4 @@ masm
 *.out
 
 locales/*/out.gotext.json
+Makefile

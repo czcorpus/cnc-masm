@@ -62,10 +62,11 @@ func applyPosProperties(
 	conf *cnf.VTEConf,
 	posIdx int, posTagset string,
 ) (*modders.StringTransformerChain, error) {
-	for i, col := range conf.Ngrams.AttrColumns {
-		if posIdx == col {
-			fn, modderSpecif := posExtractorFactory(conf.Ngrams.ColumnMods[i], posTagset)
-			conf.Ngrams.ColumnMods[i] = modderSpecif
+	for i, col := range conf.Ngrams.VertColumns {
+		if posIdx == col.Idx {
+			fn, modderSpecif := posExtractorFactory(col.ModFn, posTagset)
+			col.ModFn = modderSpecif
+			conf.Ngrams.VertColumns[i] = col
 			return fn, nil
 		}
 	}
