@@ -1,6 +1,6 @@
 # CNC-MASM
 
-*M*anatee *A*ssets, *S*ervices and *M*etadata is a set of REST services for 
+**M**issing **A**ssets and **S**ervices in **M**anatee is a set of REST services for 
 enhancing [KonText](https://github.com/czcorpus/kontext) installations. 
 But it can be also run as a standalone service for:
 - generating n-grams,
@@ -28,17 +28,9 @@ For more information, see the [API.md](./API.md).
 
 see [API.md](./API.md)
 
-
 ## How to build the project
 
-To build MASM, your system must contain:
-  * Python3 (to run the installer script)
-  * [Manatee-open](https://nlp.fi.muni.cz/trac/noske) (at least the core shared libraries)
-  * [Go language](https://go.dev/) (to compile MASM)
-
-To start the building process, just run:
-```
-./build3 [manatee version]
-```
-The concrete supported versions of Manatee-open are: `2.167.8`,  `2.167.10`,  `2.208`, `2.223.6`. In most cases, the latest version is the best option to use.
-Once build, a standalone binary `masm3` should be created in the working directory.
+1. Get the sources (`git clone --depth 1 https://github.com/czcorpus/cnc-masm.git`)
+2. `go mod tidy`
+3. `./configure`
+4. `make`
