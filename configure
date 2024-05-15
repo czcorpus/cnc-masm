@@ -10,11 +10,11 @@ cat > Makefile <<EOF
 all: test-and-build
 
 build:
-	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build -o masm3
 
 test-and-build:
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go test $(go list ./... | grep -v "github.com/czcorpus/mquery-sru/cmd/testing" | tr '\n' ' ')
-	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build -o masm3
 
 tools:
 	@go install github.com/czcorpus/manabuild@latest
