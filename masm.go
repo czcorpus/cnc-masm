@@ -225,6 +225,10 @@ func main() {
 		"/liveAttributes/:corpusId/conf", liveattrsActions.ViewConf)
 	engine.PUT(
 		"/liveAttributes/:corpusId/conf", liveattrsActions.CreateConf)
+	engine.PATCH(
+		"/liveAttributes/:corpusId/conf", liveattrsActions.PatchConfig)
+	engine.DELETE(
+		"/liveAttributes/:corpusId/confCache", liveattrsActions.FlushCache)
 	engine.POST(
 		"/liveAttributes/:corpusId/query", liveattrsActions.Query)
 	engine.POST(
