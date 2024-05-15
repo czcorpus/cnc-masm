@@ -20,6 +20,7 @@ package actions
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/laconf"
@@ -89,7 +90,13 @@ func (a *Actions) createConf(
 		return conf, jsonArgs, err
 	}
 	err = a.ensureVerticalFile(conf, corpusInfo)
-	a.applyNgramConf(conf, jsonArgs)
+	if err != nil {
+		return conf, jsonArgs, fmt.Errorf("failed to create conf: %w", err)
+	}
+	err = a.applyNgramConf(conf, jsonArgs)
+	if err != nil {
+		return conf, jsonArgs, fmt.Errorf("failed to create conf: %w", err)
+	}
 
 	return conf, jsonArgs, err
 }
@@ -97,7 +104,14 @@ func (a *Actions) createConf(
 func (a *Actions) ViewConf(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to get liveattrs conf for %s: %w"
-	conf, err := a.laConfCache.GetWithoutPasswords(corpusID)
+	var conf *vteCnf.VTEConf
+	var err error
+	if ctx.Request.URL.Query().Get("noCache") == "1" {
+		conf, err = a.laConfCache.GetUncachedWithoutPasswords(corpusID)
+
+	} else {
+		conf, err = a.laConfCache.GetWithoutPasswords(corpusID)
+	}
 	if err == laconf.ErrorNoSuchConfig {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
 
@@ -131,4 +145,42 @@ func (a *Actions) CreateConf(ctx *gin.Context) {
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, newConf)
+}
+
+func (a *Actions) FlushCache(ctx *gin.Context) {
+	ok := a.laConfCache.Uncache(ctx.Param("corpusId"))
+	if !ok {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("config not in cache"), http.StatusNotFound)
+		return
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]bool{"ok": true})
+}
+
+func (a *Actions) PatchConfig(ctx *gin.Context) {
+	conf, err := a.laConfCache.Get(ctx.Param("corpusId"))
+	if err == laconf.ErrorNoSuchConfig {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no such config"), http.StatusNotFound)
+		return
+	}
+
+	jsonArgs, err := a.getJsonArgs(ctx.Request)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
+		return
+	}
+	if jsonArgs == nil {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no update data provided"), http.StatusBadRequest)
+		return
+	}
+	err = a.applyNgramConf(conf, jsonArgs)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
+		return
+	}
+	if len(jsonArgs.VerticalFiles) > 0 {
+		conf.VerticalFile = ""
+		conf.VerticalFiles = jsonArgs.VerticalFiles
+	}
+	a.laConfCache.Save(conf)
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]bool{"ok": true})
 }

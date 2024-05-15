@@ -5,8 +5,8 @@ go 1.21
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/czcorpus/cnc-gokit v0.9.0
-	github.com/czcorpus/manabuild v0.1.2
-	github.com/czcorpus/vert-tagextract/v2 v2.4.1
+	github.com/czcorpus/manabuild v0.1.3
+	github.com/czcorpus/vert-tagextract/v2 v2.4.2
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.3.0

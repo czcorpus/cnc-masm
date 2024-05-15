@@ -176,15 +176,7 @@ type LiveAttrsBuildConfProvider struct {
 	data         map[string]*vteconf.VTEConf
 }
 
-// Get returns an existing liveattrs configuration file. In case the
-// file does not exist the method will not create it for you (as it
-// requires additional arguments to determine specific properties).
-// In case there is no other error but the configuration does not exist,
-// the method returns ErrorNoSuchConfig error
-func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf, error) {
-	if v, ok := lcache.data[corpname]; ok {
-		return v, nil
-	}
+func (lcache *LiveAttrsBuildConfProvider) loadFromFile(corpname string, storeToCache bool) (*vteconf.VTEConf, error) {
 	confPath := path.Join(lcache.confDirPath, corpname+".json")
 	isFile, err := fs.IsFile(confPath)
 	if err != nil {
@@ -195,7 +187,9 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 		if err != nil {
 			return nil, err
 		}
-		lcache.data[corpname] = v
+		if storeToCache {
+			lcache.data[corpname] = v
+		}
 		if lcache.globalDBConf.Type == "mysql" {
 			v.DB = *lcache.globalDBConf
 		}
@@ -204,14 +198,39 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 	return nil, ErrorNoSuchConfig
 }
 
+// Get returns an existing liveattrs configuration file. In case the
+// file does not exist the method will not create it for you (as it
+// requires additional arguments to determine specific properties).
+// In case there is no other error but the configuration does not exist,
+// the method returns ErrorNoSuchConfig error
+func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf, error) {
+	if v, ok := lcache.data[corpname]; ok {
+		return v, nil
+	}
+	return lcache.loadFromFile(corpname, true)
+}
+
+func (lcache *LiveAttrsBuildConfProvider) withRemovedSensitiveData(conf vteconf.VTEConf) vteconf.VTEConf {
+	conf.DB.Password = jobs.PasswordReplacement
+	return conf
+}
+
 // GetWithoutPasswords is a variant of Get with passwords and similar stuff removed
 func (lcache *LiveAttrsBuildConfProvider) GetWithoutPasswords(corpname string) (*vteconf.VTEConf, error) {
 	entry, err := lcache.Get(corpname)
 	if err != nil {
 		return nil, err
 	}
-	ans := *entry
-	ans.DB.Password = jobs.PasswordReplacement
+	ans := lcache.withRemovedSensitiveData(*entry)
+	return &ans, nil
+}
+
+func (lcache *LiveAttrsBuildConfProvider) GetUncachedWithoutPasswords(corpname string) (*vteconf.VTEConf, error) {
+	entry, err := lcache.loadFromFile(corpname, false)
+	if err != nil {
+		return nil, err
+	}
+	ans := lcache.withRemovedSensitiveData(*entry)
 	return &ans, nil
 }
 
@@ -231,6 +250,14 @@ func (lcache *LiveAttrsBuildConfProvider) Save(data *vteconf.VTEConf) error {
 		data.DB = *lcache.globalDBConf
 	}
 	return nil
+}
+
+// Uncache removes item corpusID from cache and returns true if the item
+// was present. Otherwise does nothing and returns false.
+func (lcache *LiveAttrsBuildConfProvider) Uncache(corpusID string) bool {
+	_, ok := lcache.data[corpusID]
+	delete(lcache.data, corpusID)
+	return ok
 }
 
 // Clear removes a configuration from memory and from filesystem

@@ -47,14 +47,11 @@ import (
 func (a *Actions) Create(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to generate liveattrs for %s: %w"
-	noCache := false
-	if ctx.Request.URL.Query().Get("noCache") == "1" {
-		noCache = true
-	}
+	reconfigure := ctx.Request.URL.Query().Get("reconfigure") == "1"
 
 	var err error
 	var conf *vteCnf.VTEConf
-	if !noCache {
+	if !reconfigure {
 		conf, err = a.laConfCache.Get(corpusID)
 	}
 

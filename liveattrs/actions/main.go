@@ -47,7 +47,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	vteDb "github.com/czcorpus/vert-tagextract/v2/db"
 	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
 	vteProc "github.com/czcorpus/vert-tagextract/v2/proc"
 	"github.com/google/uuid"
@@ -130,18 +129,28 @@ func (a *Actions) OnExit() {
 	close(a.usageData)
 }
 
-func (a *Actions) applyNgramConf(targetConf *vteCnf.VTEConf, jsonArgs *liveattrsJsonArgs) {
-	if len(jsonArgs.Ngrams.VertColumns) > 0 {
-		targetConf.Ngrams.NgramSize = jsonArgs.Ngrams.NgramSize
-		targetConf.Ngrams.CalcARF = jsonArgs.Ngrams.CalcARF
-		targetConf.Ngrams.VertColumns = make(vteDb.VertColumns, len(jsonArgs.Ngrams.VertColumns))
-		for i, item := range jsonArgs.Ngrams.VertColumns {
-			targetConf.Ngrams.VertColumns[i] = vteDb.VertColumn{
-				Idx:   item.Idx,
-				ModFn: item.TransformFn,
-			}
-		}
+// applyNgramConf based on configuration stored in `jsonArgs`
+//
+// NOTE: no n-gram config means "do not touch the current" while zero
+// content n-gram config will rewrite the current one by empty values
+func (a *Actions) applyNgramConf(targetConf *vteCnf.VTEConf, jsonArgs *liveattrsJsonArgs) error {
+	if jsonArgs.Ngrams == nil { // won't update anything
+		return nil
 	}
+	if jsonArgs.Ngrams.IsZero() { // data filled but zero => will overwrite everything
+		targetConf.Ngrams = *jsonArgs.Ngrams
+		return nil
+	}
+	if len(jsonArgs.Ngrams.VertColumns) > 0 {
+		if jsonArgs.Ngrams.NgramSize <= 0 {
+			return fmt.Errorf("invalid n-gram size: %d", jsonArgs.Ngrams.NgramSize)
+		}
+		targetConf.Ngrams = *jsonArgs.Ngrams
+
+	} else if jsonArgs.Ngrams.NgramSize > 0 {
+		return fmt.Errorf("missing columns to extract n-grams from")
+	}
+	return nil
 }
 
 func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.Info) error {
@@ -169,20 +178,9 @@ func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.I
 	return nil
 }
 
-type ngramColumn struct {
-	Idx         int    `json:"idx"`
-	TransformFn string `json:"transformFn"`
-}
-
-type ngramConf struct {
-	VertColumns []ngramColumn `json:"vertColumns"`
-	NgramSize   int           `json:"ngramSize"`
-	CalcARF     bool          `json:"calcARF"`
-}
-
 type liveattrsJsonArgs struct {
-	VerticalFiles []string  `json:"verticalFiles"`
-	Ngrams        ngramConf `json:"ngrams"`
+	VerticalFiles []string          `json:"verticalFiles"`
+	Ngrams        *vteCnf.NgramConf `json:"ngrams"`
 }
 
 // createDataFromJobStatus starts data extraction and generation
