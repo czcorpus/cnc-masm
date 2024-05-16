@@ -19,83 +19,113 @@
 package actions
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"masm/v3/liveattrs/db/freqdb"
 	"masm/v3/liveattrs/laconf"
 	"masm/v3/liveattrs/qs"
 	"net/http"
-	"strconv"
+	"path/filepath"
 
-	"github.com/czcorpus/vert-tagextract/v2/cnf"
-	"github.com/czcorpus/vert-tagextract/v2/ptcount/modders"
 	"github.com/gin-gonic/gin"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
-var (
-	errorPosNotDefined = errors.New("PoS not defined")
-)
-
-func appendPosModder(prev, curr string) string {
-	if prev == "" {
-		return curr
-	}
-	return prev + ":" + curr
-}
-
-// posExtractorFactory creates a proper modders.StringTransformer instance
-// to extract PoS in MASM and also a string representation of it for proper
-// vert-tagexract configuration.
-func posExtractorFactory(
-	currMods string,
-	tagsetName string,
-) (*modders.StringTransformerChain, string) {
-	modderSpecif := appendPosModder(currMods, tagsetName)
-	return modders.NewStringTransformerChain(modderSpecif), modderSpecif
-}
-
-// applyPosProperties takes posIdx and posTagset and adds a column modder
-// to Ngrams.columnMods column matching the "PoS" one (preserving string modders
-// already configured there!).
-func applyPosProperties(
-	conf *cnf.VTEConf,
-	posIdx int, posTagset string,
-) (*modders.StringTransformerChain, error) {
-	for i, col := range conf.Ngrams.VertColumns {
-		if posIdx == col.Idx {
-			fn, modderSpecif := posExtractorFactory(col.ModFn, posTagset)
-			col.ModFn = modderSpecif
-			conf.Ngrams.VertColumns[i] = col
-			return fn, nil
+func getFirstSupportedTagset(values []string) qs.SupportedTagset {
+	for _, v := range values {
+		sv := qs.SupportedTagset(v)
+		if sv.Validate() == nil {
+			return sv
 		}
 	}
-	return modders.NewStringTransformerChain(""), errorPosNotDefined
+	return ""
+}
+
+type reqArgs struct {
+	ColMapping *freqdb.QSAttributes `json:"colMapping,omitempty"`
+
+	// PosColIdx defines a vertical column number (starting from zero)
+	// where PoS can be extracted. In case no direct "pos" tag exists,
+	// a "tag" can be used along with a proper "transformFn" defined
+	// in the data extraction configuration ("vertColumns" section).
+	PosColIdx int                `json:"posColIdx"` // TODO do we need this?
+	PosTagset qs.SupportedTagset `json:"posTagset"`
+}
+
+func (args reqArgs) Validate() error {
+	if args.PosColIdx < 0 {
+		return errors.New("invalid value for posColIdx")
+	}
+	if err := args.PosTagset.Validate(); err != nil {
+		return fmt.Errorf("failed to validate tagset: %w", err)
+	}
+
+	if args.ColMapping != nil {
+		tmp := make(map[int]int)
+		tmp[args.ColMapping.Lemma]++
+		tmp[args.ColMapping.Sublemma]++
+		tmp[args.ColMapping.Word]++
+		tmp[args.ColMapping.Tag]++
+
+		if len(tmp) < 4 {
+			return errors.New(
+				"each of the lemma, sublemma, word, tag must be mapped to a unique table column")
+		}
+	}
+	return nil
+}
+
+func (a *Actions) getNgramArgs(req *http.Request) (reqArgs, error) {
+	var jsonArgs reqArgs
+	err := json.NewDecoder(req.Body).Decode(&jsonArgs)
+	if err == io.EOF {
+		err = nil
+	}
+	return jsonArgs, err
 }
 
 func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to generate n-grams for %s: %w"
-	// PosColumnIdx defines a vertical column number (starting from zero)
-	// where PoS can be extracted. In case no direct "pos" tag exists,
-	// a "tag" can be used along with a proper "transformFn" defined
-	// in the data extraction configuration ("vertColumns" section).
-	// Also note that the value must be present in the "vertColumns" section
-	// otherwise, the action produces an error
-	posColumnIdx, err := strconv.Atoi(ctx.Request.URL.Query().Get("posColIdx"))
+
+	args, err := a.getNgramArgs(ctx.Request)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer,
-			uniresp.NewActionError("invalid value for posColIdx: %w", err),
-			http.StatusBadRequest)
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
+		return
+	}
+	if err = args.Validate(); err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
 		return
 	}
 
-	posTagset := ctx.Request.URL.Query().Get("posTagset")
-	if posTagset == "" {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError("missing URL argument posTagset"), http.StatusBadRequest)
-		return
+	if args.ColMapping == nil {
+		regPath := filepath.Join(a.conf.Corp.RegistryDirPaths[0], corpusID) // TODO the [0]
+		corpTagsets, err := a.cncDB.GetCorpusTagsets(corpusID)
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		tagset := getFirstSupportedTagset(corpTagsets)
+		if tagset == "" {
+			uniresp.RespondWithErrorJSON(
+				ctx, fmt.Errorf("cannot find a suitable default tagset"), http.StatusUnprocessableEntity)
+			return
+		}
+		attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		args.ColMapping = &attrMapping
+		// now we need to revalidate to make sure the inference provided correct setup
+		if err = args.Validate(); err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
+			return
+		}
+
 	}
 
 	laConf, err := a.laConfCache.Get(corpusID)
@@ -108,7 +138,7 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	posFn, err := applyPosProperties(laConf, posColumnIdx, posTagset)
+	posFn, err := applyPosProperties(laConf, args.PosColIdx, args.PosTagset)
 
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
@@ -123,6 +153,7 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 		corpusDBInfo.GroupedName(),
 		corpusDBInfo.Name,
 		posFn,
+		*args.ColMapping,
 	)
 	jobInfo, err := generator.GenerateAfter(corpusID, ctx.Request.URL.Query().Get("parentJobId"))
 	if err != nil {
@@ -131,31 +162,4 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 		return
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, jobInfo.FullInfo())
-}
-
-func (a *Actions) CreateQuerySuggestions(ctx *gin.Context) {
-	corpusID := ctx.Param("corpusId")
-	baseErrTpl := "failed to generate query suggestions for %s: %w"
-	multiValuesEnabled := ctx.Request.URL.Query().Get("multiValuesEnabled") == "1"
-
-	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
-		return
-	}
-	exporter := qs.NewExporter(
-		a.conf.Ngram,
-		a.laDB,
-		corpusDBInfo.GroupedName(),
-		multiValuesEnabled,
-		a.jobActions,
-	)
-	jobInfo, err := exporter.EnqueueExportJob(ctx.Request.URL.Query().Get("parentJobId"))
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
-		return
-	}
-	uniresp.WriteJSONResponse(ctx.Writer, jobInfo)
 }
