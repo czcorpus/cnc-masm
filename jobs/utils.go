@@ -18,10 +18,6 @@
 
 package jobs
 
-const (
-	PasswordReplacement = "*****"
-)
-
 // ErrorToString is a helper function for exporting job status
 // to JSON. It just ensures string is always returned no matter
 // err is nil or not.

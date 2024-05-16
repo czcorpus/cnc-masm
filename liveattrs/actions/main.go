@@ -47,6 +47,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	"github.com/czcorpus/vert-tagextract/v2/fs"
 	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
 	vteProc "github.com/czcorpus/vert-tagextract/v2/proc"
 	"github.com/google/uuid"
@@ -129,34 +130,71 @@ func (a *Actions) OnExit() {
 	close(a.usageData)
 }
 
-// applyNgramConf based on configuration stored in `jsonArgs`
+// applyPatchArgs based on configuration stored in `jsonArgs`
 //
 // NOTE: no n-gram config means "do not touch the current" while zero
 // content n-gram config will rewrite the current one by empty values
-func (a *Actions) applyNgramConf(targetConf *vteCnf.VTEConf, jsonArgs *liveattrsJsonArgs) error {
-	if jsonArgs.Ngrams == nil { // won't update anything
-		return nil
-	}
-	if jsonArgs.Ngrams.IsZero() { // data filled but zero => will overwrite everything
-		targetConf.Ngrams = *jsonArgs.Ngrams
-		return nil
-	}
-	if len(jsonArgs.Ngrams.VertColumns) > 0 {
-		if jsonArgs.Ngrams.NgramSize <= 0 {
-			return fmt.Errorf("invalid n-gram size: %d", jsonArgs.Ngrams.NgramSize)
-		}
-		targetConf.Ngrams = *jsonArgs.Ngrams
+func (a *Actions) applyPatchArgs(
+	targetConf *vteCnf.VTEConf,
+	jsonArgs *laconf.PatchArgs,
+) error {
+	if jsonArgs.Ngrams != nil {
+		if jsonArgs.Ngrams.IsZero() { // data filled but zero => will overwrite everything
+			targetConf.Ngrams = *jsonArgs.Ngrams
 
-	} else if jsonArgs.Ngrams.NgramSize > 0 {
-		return fmt.Errorf("missing columns to extract n-grams from")
+		} else if len(jsonArgs.Ngrams.VertColumns) > 0 {
+			if jsonArgs.Ngrams.NgramSize <= 0 {
+				return fmt.Errorf("invalid n-gram size: %d", jsonArgs.Ngrams.NgramSize)
+			}
+			targetConf.Ngrams = *jsonArgs.Ngrams
+
+		} else if jsonArgs.Ngrams.NgramSize > 0 {
+			return fmt.Errorf("missing columns to extract n-grams from")
+		}
 	}
+
+	if jsonArgs.VerticalFiles != nil {
+		targetConf.VerticalFile = ""
+		targetConf.VerticalFiles = jsonArgs.VerticalFiles
+	}
+
+	if jsonArgs.AtomStructure != nil {
+		targetConf.AtomStructure = *jsonArgs.AtomStructure
+	}
+
+	if jsonArgs.BibView != nil {
+		targetConf.BibView = *jsonArgs.BibView
+	}
+
+	if jsonArgs.MaxNumErrors != nil {
+		targetConf.MaxNumErrors = *jsonArgs.MaxNumErrors
+	}
+
+	if jsonArgs.SelfJoin != nil {
+		targetConf.SelfJoin = *jsonArgs.SelfJoin
+	}
+
 	return nil
 }
 
 func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.Info) error {
+	confVerticals := vconf.GetDefinedVerticals()
+	for _, cvert := range confVerticals {
+		if !fs.IsFile(cvert) {
+			return fmt.Errorf("defined vertical not found: %s", cvert)
+		}
+	}
+	if len(confVerticals) > 0 {
+		return nil
+	}
+	// we have nothing, let's try registry and some inference:
+
 	var verticalPath string
 	if corpusInfo.RegistryConf.Vertical.FileExists {
 		verticalPath = corpusInfo.RegistryConf.Vertical.VisiblePath()
+		log.Debug().
+			Str("path", verticalPath).
+			Msgf("vertical not configured, using registry VERTICAL")
 
 	} else {
 		vpInfo, err := corpus.FindVerticalFile(a.conf.LA.VerticalFilesDirPath, corpusInfo.ID)
@@ -176,11 +214,6 @@ func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.I
 	}
 	vconf.VerticalFile = verticalPath
 	return nil
-}
-
-type liveattrsJsonArgs struct {
-	VerticalFiles []string          `json:"verticalFiles"`
-	Ngrams        *vteCnf.NgramConf `json:"ngrams"`
 }
 
 // createDataFromJobStatus starts data extraction and generation

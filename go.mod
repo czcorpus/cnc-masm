@@ -16,6 +16,10 @@ require (
 	golang.org/x/text v0.14.0
 )
 
+replace (
+	"github.com/czcorpus/vert-tagextract/v2" => "/home/tomas/work/korpus/tools/vert-tagextract"
+)
+
 require (
 	github.com/briandowns/spinner v1.23.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect

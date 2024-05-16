@@ -25,15 +25,14 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/laconf"
 	"net/http"
-	"strconv"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
 	"github.com/gin-gonic/gin"
 )
 
-func (a *Actions) getJsonArgs(req *http.Request) (*liveattrsJsonArgs, error) {
-	var jsonArgs liveattrsJsonArgs
+func (a *Actions) getJsonArgs(req *http.Request) (*laconf.PatchArgs, error) {
+	var jsonArgs laconf.PatchArgs
 	err := json.NewDecoder(req.Body).Decode(&jsonArgs)
 	if err == io.EOF {
 		err = nil
@@ -43,62 +42,41 @@ func (a *Actions) getJsonArgs(req *http.Request) (*liveattrsJsonArgs, error) {
 
 // createConf creates a data extraction configuration
 // (for vert-tagextract library) based on provided corpus
-// (= effectively a vertical file) and request data.
-// Please note that JSON data provided in request body
-// can be understood either as a "transient" parameters
-// for a single job or they can be saved along with other
-// parameters to the returned vteCnf.VTEConf value. For the
-// transient mode, *liveattrsJsonArgs can be used to access
-// provided values.
+// (= effectively a vertical file) and request data
+// (where it expects JSON version of liveattrsJsonArgs).
 func (a *Actions) createConf(
 	corpusID string,
-	req *http.Request,
-	saveJSONArgs bool,
-	maxNumErr int,
-) (*vteCnf.VTEConf, *liveattrsJsonArgs, error) {
+	jsonArgs *laconf.PatchArgs,
+) (*vteCnf.VTEConf, error) {
 	corpusInfo, err := corpus.GetCorpusInfo(corpusID, a.conf.Corp, false)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
-		return nil, nil, err
-	}
-	maxNumErrReq := req.URL.Query().Get("maxNumErrors")
-	if maxNumErrReq != "" {
-		maxNumErr, err = strconv.Atoi(maxNumErrReq)
-		if err != nil {
-			return nil, nil, err
-		}
+		return nil, err
 	}
 
-	jsonArgs, err := a.getJsonArgs(req)
-	if err != nil {
-		return nil, nil, err
-	}
 	conf, err := laconf.Create(
 		a.conf.LA,
 		corpusInfo,
 		corpusDBInfo,
-		req.URL.Query().Get("atomStructure"),
-		req.URL.Query().Get("bibIdAttr"),
-		req.URL.Query()["mergeAttr"],
-		req.URL.Query().Get("mergeFn"), // e.g. "identity", "intecorp"
-		maxNumErr,
+		jsonArgs,
 	)
 	if err != nil {
-		return conf, jsonArgs, err
-	}
-	err = a.ensureVerticalFile(conf, corpusInfo)
-	if err != nil {
-		return conf, jsonArgs, fmt.Errorf("failed to create conf: %w", err)
-	}
-	err = a.applyNgramConf(conf, jsonArgs)
-	if err != nil {
-		return conf, jsonArgs, fmt.Errorf("failed to create conf: %w", err)
+		return conf, err
 	}
 
-	return conf, jsonArgs, err
+	err = a.applyPatchArgs(conf, jsonArgs)
+	if err != nil {
+		return conf, fmt.Errorf("failed to create conf: %w", err)
+	}
+
+	err = a.ensureVerticalFile(conf, corpusInfo)
+	if err != nil {
+		return conf, fmt.Errorf("failed to create conf: %w", err)
+	}
+	return conf, err
 }
 
 func (a *Actions) ViewConf(ctx *gin.Context) {
@@ -125,7 +103,15 @@ func (a *Actions) ViewConf(ctx *gin.Context) {
 func (a *Actions) CreateConf(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to create liveattrs config for %s: %w"
-	newConf, _, err := a.createConf(corpusID, ctx.Request, true, a.conf.LA.VertMaxNumErrors)
+	jsonArgs, err := a.getJsonArgs(ctx.Request)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
+			http.StatusBadRequest,
+		)
+	}
+	newConf, err := a.createConf(corpusID, jsonArgs)
 	if err == ErrorMissingVertical {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusConflict)
 		return
@@ -144,7 +130,8 @@ func (a *Actions) CreateConf(ctx *gin.Context) {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 		return
 	}
-	uniresp.WriteJSONResponse(ctx.Writer, newConf)
+	expConf := newConf.WithoutPasswords()
+	uniresp.WriteJSONResponse(ctx.Writer, &expConf)
 }
 
 func (a *Actions) FlushCache(ctx *gin.Context) {
@@ -157,7 +144,8 @@ func (a *Actions) FlushCache(ctx *gin.Context) {
 }
 
 func (a *Actions) PatchConfig(ctx *gin.Context) {
-	conf, err := a.laConfCache.Get(ctx.Param("corpusId"))
+	corpusID := ctx.Param("corpusId")
+	conf, err := a.laConfCache.Get(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
 		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no such config"), http.StatusNotFound)
 		return
@@ -172,15 +160,25 @@ func (a *Actions) PatchConfig(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no update data provided"), http.StatusBadRequest)
 		return
 	}
-	err = a.applyNgramConf(conf, jsonArgs)
+	err = a.applyPatchArgs(conf, jsonArgs)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 		return
 	}
-	if len(jsonArgs.VerticalFiles) > 0 {
-		conf.VerticalFile = ""
-		conf.VerticalFiles = jsonArgs.VerticalFiles
+
+	corpusInfo, err := corpus.GetCorpusInfo(corpusID, a.conf.Corp, false)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
 	}
+
+	err = a.ensureVerticalFile(conf, corpusInfo)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+
 	a.laConfCache.Save(conf)
-	uniresp.WriteJSONResponse(ctx.Writer, map[string]bool{"ok": true})
+	out := conf.WithoutPasswords()
+	uniresp.WriteJSONResponse(ctx.Writer, &out)
 }

@@ -33,17 +33,17 @@ import (
 )
 
 // Create starts a process of creating fresh liveattrs data for a a specified corpus.
+//
 // URL args:
-//   - atomStructure - a minimal structure masm will be able to search for (typically 'doc', 'text')
-//   - noCache - if '1' then masm regenerates data extraction configuration based on actual corpus
-//     registry file
-//   - bibIdAttr - if defined then masm will create bibliography entries with IDs matching values from
-//     from referred bibIdAttr values
-//   - maxNumErrors - limit number of parsing errors for processed vertical file(s)
-//   - skipNgrams - if '1' then n-grams won't be generated even if they are (pre)configured
-//     (either via previous PUT /liveAttributes/{corpusId}/conf or by passing JSON args with n-gram
-//     configuration). In case the setting cannot have an effect (= n-grams are not configured),
-//     the setting is silently ignored.
+//   - reconfigure - ignore the stored liveattrs config (if any) and generate a new one
+//     based on corpus properties and provided PatchArgs. The resulting new config will
+//     be stored replacing the previous one. In case the option is not set, then the
+//     provided PatchArgs will be applied only to a temporary copy of a respective config
+//     keeping the stored value intact.
+//
+// request body:
+//
+//	The method expects laconf.PatchArgs JSON
 func (a *Actions) Create(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to generate liveattrs for %s: %w"
@@ -55,13 +55,20 @@ func (a *Actions) Create(ctx *gin.Context) {
 		conf, err = a.laConfCache.Get(corpusID)
 	}
 
-	var jsonArgs *liveattrsJsonArgs
-	var noConfVertical bool
+	jsonArgs, err := a.getJsonArgs(ctx.Request)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			err,
+			http.StatusBadRequest,
+		)
+		return
+	}
+
 	if conf == nil {
 		var newConf *vteCnf.VTEConf
 		var err error
-		newConf, jsonArgs, err = a.createConf(corpusID, ctx.Request, false, a.conf.LA.VertMaxNumErrors)
-		noConfVertical = (err == ErrorMissingVertical)
+		newConf, err = a.createConf(corpusID, jsonArgs)
 		if err != nil && err != ErrorMissingVertical {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
@@ -79,28 +86,14 @@ func (a *Actions) Create(ctx *gin.Context) {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
 			return
 		}
-
-	} else {
-		jsonArgs, err = a.getJsonArgs(ctx.Request)
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
-			return
-		}
 	}
 
 	runtimeConf := *conf
-	if len(jsonArgs.VerticalFiles) > 0 {
-		runtimeConf.VerticalFile = ""
-		runtimeConf.VerticalFiles = jsonArgs.VerticalFiles
-		noConfVertical = false
-	}
-	if noConfVertical {
+	a.applyPatchArgs(&runtimeConf, jsonArgs)
+	if !runtimeConf.HasConfiguredVertical() {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusConflict)
 		return
-	}
-	if jsonArgs.Ngrams.NgramSize > 0 && ctx.Request.URL.Query().Get("skipNgrams") == "1" {
-		runtimeConf.Ngrams = vteCnf.NgramConf{}
 	}
 
 	// TODO search collisions only in liveattrs type jobs
