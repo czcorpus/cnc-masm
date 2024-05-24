@@ -1,29 +1,32 @@
 module masm/v3
 
-go 1.21
+go 1.21.5
+
+toolchain go1.22.2
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/czcorpus/cnc-gokit v0.9.0
 	github.com/czcorpus/manabuild v0.1.3
+	github.com/czcorpus/rexplorer v0.0.2
 	github.com/czcorpus/vert-tagextract/v2 v2.4.2
+	github.com/davecgh/go-spew v1.1.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.3.0
 	github.com/mna/pigeon v1.2.1
 	github.com/rs/zerolog v1.32.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/text v0.14.0
 )
 
-replace github.com/czcorpus/vert-tagextract/v2 => /home/tomas/work/korpus/tools/vert-tagextract
+replace github.com/czcorpus/vert-tagextract/v2 => /home/tomas/work/tools/vert-tagextract
 
 require (
 	github.com/briandowns/spinner v1.23.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -46,11 +49,9 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/mod v0.13.0 // indirect
 	golang.org/x/net v0.16.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
-	golang.org/x/tools v0.14.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

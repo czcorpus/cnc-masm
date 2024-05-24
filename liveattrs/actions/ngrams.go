@@ -21,54 +21,58 @@ package actions
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"masm/v3/liveattrs/db/freqdb"
 	"masm/v3/liveattrs/laconf"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
+func getFirstSupportedTagset(values []string) qs.SupportedTagset {
+	for _, v := range values {
+		sv := qs.SupportedTagset(v)
+		if sv.Validate() == nil {
+			return sv
+		}
+	}
+	return ""
+}
+
 type reqArgs struct {
-	ColMapping freqdb.QSAttributes `json:"colMapping"`
+	ColMapping *freqdb.QSAttributes `json:"colMapping,omitempty"`
 
 	// PosColIdx defines a vertical column number (starting from zero)
 	// where PoS can be extracted. In case no direct "pos" tag exists,
 	// a "tag" can be used along with a proper "transformFn" defined
 	// in the data extraction configuration ("vertColumns" section).
-	PosColIdx int    `json:"posColIdx"` // TODO do we need this?
-	PosTagset string `json:"posTagset"`
+	PosColIdx int                `json:"posColIdx"` // TODO do we need this?
+	PosTagset qs.SupportedTagset `json:"posTagset"`
 }
 
 func (args reqArgs) Validate() error {
 	if args.PosColIdx < 0 {
 		return errors.New("invalid value for posColIdx")
 	}
-	if args.PosTagset == "" {
-		return errors.New("missing posTagset")
+	if err := args.PosTagset.Validate(); err != nil {
+		return fmt.Errorf("failed to validate tagset: %w", err)
 	}
-	if args.ColMapping.Lemma == "" {
-		return errors.New("missing column mapping for lemma")
-	}
-	if args.ColMapping.Sublemma == "" {
-		return errors.New("missing column mapping for sublemma")
-	}
-	if args.ColMapping.Word == "" {
-		return errors.New("missing column mapping for word")
-	}
-	if args.ColMapping.Tag == "" {
-		return errors.New("missing column mapping for tag")
-	}
-	tmp := make(map[string]int)
-	tmp[args.ColMapping.Lemma]++
-	tmp[args.ColMapping.Sublemma]++
-	tmp[args.ColMapping.Word]++
-	tmp[args.ColMapping.Tag]++
-	if len(tmp) < 4 {
-		return errors.New(
-			"each of the lemma, sublemma, word, tag must be mapped to a unique table column")
+
+	if args.ColMapping != nil {
+		tmp := make(map[int]int)
+		tmp[args.ColMapping.Lemma]++
+		tmp[args.ColMapping.Sublemma]++
+		tmp[args.ColMapping.Word]++
+		tmp[args.ColMapping.Tag]++
+
+		if len(tmp) < 4 {
+			return errors.New(
+				"each of the lemma, sublemma, word, tag must be mapped to a unique table column")
+		}
 	}
 	return nil
 }
@@ -96,6 +100,33 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 		return
 	}
 
+	if args.ColMapping == nil {
+		regPath := filepath.Join(a.conf.Corp.RegistryDirPaths[0], corpusID) // TODO the [0]
+		corpTagsets, err := a.cncDB.GetCorpusTagsets(corpusID)
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		tagset := getFirstSupportedTagset(corpTagsets)
+		if tagset == "" {
+			uniresp.RespondWithErrorJSON(
+				ctx, fmt.Errorf("cannot find a suitable default tagset"), http.StatusUnprocessableEntity)
+			return
+		}
+		attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		args.ColMapping = &attrMapping
+		// now we need to revalidate to make sure the inference provided correct setup
+		if err = args.Validate(); err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusUnprocessableEntity)
+			return
+		}
+
+	}
+
 	laConf, err := a.laConfCache.Get(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
@@ -121,7 +152,7 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 		corpusDBInfo.GroupedName(),
 		corpusDBInfo.Name,
 		posFn,
-		args.ColMapping,
+		*args.ColMapping,
 	)
 	jobInfo, err := generator.GenerateAfter(corpusID, ctx.Request.URL.Query().Get("parentJobId"))
 	if err != nil {

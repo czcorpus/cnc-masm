@@ -24,14 +24,17 @@ import (
 	"io"
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/laconf"
+	"masm/v3/liveattrs/qs"
 	"net/http"
+	"path/filepath"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	"github.com/czcorpus/vert-tagextract/v2/db"
 	"github.com/gin-gonic/gin"
 )
 
-func (a *Actions) getJsonArgs(req *http.Request) (*laconf.PatchArgs, error) {
+func (a *Actions) getPatchArgs(req *http.Request) (*laconf.PatchArgs, error) {
 	var jsonArgs laconf.PatchArgs
 	err := json.NewDecoder(req.Body).Decode(&jsonArgs)
 	if err == io.EOF {
@@ -79,6 +82,8 @@ func (a *Actions) createConf(
 	return conf, err
 }
 
+// ViewConf shows actual liveattrs processing configuration.
+// Note: passwords are replaced with multiple asterisk characters.
 func (a *Actions) ViewConf(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to get liveattrs conf for %s: %w"
@@ -100,10 +105,15 @@ func (a *Actions) ViewConf(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, conf)
 }
 
+// CreateConf creates a new liveattrs processing configuration
+// for a specified corpus. In case user does not fill in the information
+// regarding n-gram processing, no defaults are used. To attach
+// n-gram information automatically, PatchConfig is used (with URL
+// arg. auto-kontext-setup=1).
 func (a *Actions) CreateConf(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	baseErrTpl := "failed to create liveattrs config for %s: %w"
-	jsonArgs, err := a.getJsonArgs(ctx.Request)
+	jsonArgs, err := a.getPatchArgs(ctx.Request)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,
@@ -134,6 +144,10 @@ func (a *Actions) CreateConf(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, &expConf)
 }
 
+// FlushCache removes an actual cached liveattrs configuration
+// for a specified corpus. This is mostly useful in cases where
+// a manual editation of liveattrs config was done and we need
+// masm to use the actual file version.
 func (a *Actions) FlushCache(ctx *gin.Context) {
 	ok := a.laConfCache.Uncache(ctx.Param("corpusId"))
 	if !ok {
@@ -143,6 +157,12 @@ func (a *Actions) FlushCache(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]bool{"ok": true})
 }
 
+// PatchConfig allows for updating liveattrs processing
+// configuration (see laconf.PatchArgs).
+// It also allows a semi-automatic mode (using url query
+// argument auto-kontext-setup=1) where the columns to be
+// fetched from a corresponding vertical and other parameters
+// with respect to a typical CNC setup used for its corpora.
 func (a *Actions) PatchConfig(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	conf, err := a.laConfCache.Get(corpusID)
@@ -151,15 +171,56 @@ func (a *Actions) PatchConfig(ctx *gin.Context) {
 		return
 	}
 
-	jsonArgs, err := a.getJsonArgs(ctx.Request)
+	inferNgramColsStr, ok := ctx.GetQuery("auto-kontext-setup")
+	if !ok {
+		inferNgramColsStr = "0"
+	}
+	inferNgramCols := inferNgramColsStr == "1"
+
+	jsonArgs, err := a.getPatchArgs(ctx.Request)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 		return
 	}
-	if jsonArgs == nil {
+	if jsonArgs == nil && !inferNgramCols {
 		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no update data provided"), http.StatusBadRequest)
 		return
 	}
+
+	if inferNgramCols {
+		regPath := filepath.Join(a.conf.Corp.RegistryDirPaths[0], corpusID)
+		corpTagsets, err := a.cncDB.GetCorpusTagsets(corpusID)
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		tagset := getFirstSupportedTagset(corpTagsets)
+		if tagset == "" {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+			return
+		}
+		columns := attrMapping.GetColIndexes()
+		if jsonArgs.Ngrams == nil {
+			jsonArgs.Ngrams = &vteCnf.NgramConf{
+				VertColumns: make(db.VertColumns, 0, len(columns)),
+			}
+
+		} else if len(jsonArgs.Ngrams.VertColumns) > 0 {
+			jsonArgs.Ngrams.VertColumns = make(db.VertColumns, 0, len(columns))
+		}
+		jsonArgs.Ngrams.NgramSize = 1
+		for _, v := range columns {
+			jsonArgs.Ngrams.VertColumns = append(
+				jsonArgs.Ngrams.VertColumns, db.VertColumn{Idx: v},
+			)
+		}
+	}
+
 	err = a.applyPatchArgs(conf, jsonArgs)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
@@ -181,4 +242,35 @@ func (a *Actions) PatchConfig(ctx *gin.Context) {
 	a.laConfCache.Save(conf)
 	out := conf.WithoutPasswords()
 	uniresp.WriteJSONResponse(ctx.Writer, &out)
+}
+
+// QSDefaults shows the default configuration for
+// extracting n-grams for KonText query suggestion
+// engine and KonText tag builder widget
+// This is mostly for overview purposes
+func (a *Actions) QSDefaults(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
+	regPath := filepath.Join(a.conf.Corp.RegistryDirPaths[0], corpusID)
+	corpTagsets, err := a.cncDB.GetCorpusTagsets(corpusID)
+	tagset := getFirstSupportedTagset(corpTagsets)
+	if tagset == "" {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no supported tagset"), http.StatusUnprocessableEntity)
+		return
+	}
+	attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+	ans := vteCnf.NgramConf{
+		NgramSize: 1,
+		VertColumns: db.VertColumns{
+			db.VertColumn{Idx: attrMapping.Word, Role: "word"},
+			db.VertColumn{Idx: attrMapping.Lemma, Role: "lemma"},
+			db.VertColumn{Idx: attrMapping.Sublemma, Role: "sublemma"},
+			db.VertColumn{Idx: attrMapping.Tag, Role: "tag"},
+		},
+	}
+
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }

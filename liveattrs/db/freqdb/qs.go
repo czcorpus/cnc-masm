@@ -18,13 +18,40 @@
 
 package freqdb
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
+
+const (
+	AttrWord     = "word"
+	AttrSublemma = "sublemma"
+	AttrLemma    = "lemma"
+	AttrTag      = "tag"
+)
 
 type QSAttributes struct {
-	Word     string
-	Sublemma string
-	Lemma    string
-	Tag      string
+	Word     int `json:"word"`
+	Sublemma int `json:"sublemma"`
+	Lemma    int `json:"lemma"`
+	Tag      int `json:"tag"`
+}
+
+func colIdxToName(idx int) string {
+	return fmt.Sprintf("col%d", idx)
+}
+
+func (qsa QSAttributes) GetColIndexes() []int {
+	ans := []int{
+		qsa.Word,
+		qsa.Lemma,
+		qsa.Sublemma,
+		qsa.Tag,
+	}
+	sort.SliceStable(ans, func(i, j int) bool {
+		return ans[i] < ans[j]
+	})
+	return ans
 }
 
 // ExportCols exports columns based on their universal
@@ -37,13 +64,13 @@ func (qsa QSAttributes) ExportCols(values ...string) []string {
 	for _, v := range values {
 		switch v {
 		case "word":
-			ans = append(ans, qsa.Word)
+			ans = append(ans, colIdxToName(qsa.Word))
 		case "lemma":
-			ans = append(ans, qsa.Lemma)
+			ans = append(ans, colIdxToName(qsa.Lemma))
 		case "sublemma":
-			ans = append(ans, qsa.Sublemma)
+			ans = append(ans, colIdxToName(qsa.Sublemma))
 		case "tag":
-			ans = append(ans, qsa.Tag)
+			ans = append(ans, colIdxToName(qsa.Tag))
 		default:
 			panic(fmt.Sprintf("unknown query suggestion attribute: %s", v))
 		}

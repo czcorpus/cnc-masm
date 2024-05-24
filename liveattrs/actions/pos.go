@@ -20,6 +20,7 @@ package actions
 
 import (
 	"errors"
+	"masm/v3/liveattrs/qs"
 
 	"github.com/czcorpus/vert-tagextract/v2/cnf"
 	"github.com/czcorpus/vert-tagextract/v2/ptcount/modders"
@@ -29,11 +30,11 @@ var (
 	errorPosNotDefined = errors.New("PoS not defined")
 )
 
-func appendPosModder(prev, curr string) string {
+func appendPosModder(prev string, curr qs.SupportedTagset) string {
 	if prev == "" {
-		return curr
+		return string(curr)
 	}
-	return prev + ":" + curr
+	return prev + ":" + string(curr)
 }
 
 // posExtractorFactory creates a proper modders.StringTransformer instance
@@ -41,7 +42,7 @@ func appendPosModder(prev, curr string) string {
 // vert-tagexract configuration.
 func posExtractorFactory(
 	currMods string,
-	tagsetName string,
+	tagsetName qs.SupportedTagset,
 ) (*modders.StringTransformerChain, string) {
 	modderSpecif := appendPosModder(currMods, tagsetName)
 	return modders.NewStringTransformerChain(modderSpecif), modderSpecif
@@ -52,7 +53,8 @@ func posExtractorFactory(
 // already configured there!).
 func applyPosProperties(
 	conf *cnf.VTEConf,
-	posIdx int, posTagset string,
+	posIdx int,
+	posTagset qs.SupportedTagset,
 ) (*modders.StringTransformerChain, error) {
 	for i, col := range conf.Ngrams.VertColumns {
 		if posIdx == col.Idx {

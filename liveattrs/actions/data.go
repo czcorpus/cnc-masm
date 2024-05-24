@@ -55,7 +55,7 @@ func (a *Actions) Create(ctx *gin.Context) {
 		conf, err = a.laConfCache.Get(corpusID)
 	}
 
-	jsonArgs, err := a.getJsonArgs(ctx.Request)
+	jsonArgs, err := a.getPatchArgs(ctx.Request)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,
