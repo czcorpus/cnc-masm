@@ -16,6 +16,8 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
+//go:generate pigeon -o ./registry/parser/parser.go ./registry/parser/grammar.peg
+
 package main
 
 import (
@@ -227,6 +229,8 @@ func main() {
 		"/liveAttributes/:corpusId/conf", liveattrsActions.CreateConf)
 	engine.PATCH(
 		"/liveAttributes/:corpusId/conf", liveattrsActions.PatchConfig)
+	engine.GET(
+		"/liveAttributes/:corpusId/qsDefaults", liveattrsActions.QSDefaults)
 	engine.DELETE(
 		"/liveAttributes/:corpusId/confCache", liveattrsActions.FlushCache)
 	engine.POST(

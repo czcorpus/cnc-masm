@@ -192,13 +192,33 @@ func (c *CNCMySQLHandler) GetSimpleQueryDefaultAttrs(corpusID string) ([]string,
 	return attrs, nil
 }
 
+func (c *CNCMySQLHandler) GetCorpusTagsets(corpusID string) ([]string, error) {
+	rows, err := c.conn.Query(
+		"SELECT tagset_name FROM corpus_tagset WHERE corpus_name = ?",
+		corpusID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get corpus tagsets: %w", err)
+	}
+	ans := make([]string, 0, 5)
+	var val string
+	for rows.Next() {
+		err := rows.Scan(&val)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get corpus tagsets: %w", err)
+		}
+		ans = append(ans, val)
+	}
+	return ans, nil
+}
+
 func (c *CNCMySQLHandler) GetCorpusTagsetAttrs(corpusID string) ([]string, error) {
 	rows, err := c.conn.Query(
 		"SELECT pos_attr FROM corpus_tagset WHERE corpus_name = ? and pos_attr IS NOT NULL",
 		corpusID,
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get corpus tagset attrs: %w", err)
 	}
 
 	var attr string

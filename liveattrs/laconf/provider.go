@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"masm/v3/corpus"
 	"masm/v3/general/collections"
-	"masm/v3/jobs"
 	"masm/v3/liveattrs"
 	"masm/v3/liveattrs/utils"
 	"os"
@@ -49,36 +48,34 @@ func Create(
 	conf *liveattrs.Conf,
 	corpusInfo *corpus.Info,
 	corpusDBInfo *corpus.DBInfo,
-	atomStructure string,
-	bibIdAttr string,
-	mergeAttrs []string,
-	mergeFn string,
-	maxNumErrors int,
+	jsonArgs *PatchArgs,
 ) (*vteconf.VTEConf, error) {
-
+	maxNumErr := conf.VertMaxNumErrors
+	if jsonArgs.MaxNumErrors != nil {
+		maxNumErr = *jsonArgs.MaxNumErrors
+	}
 	newConf := vteconf.VTEConf{
 		Corpus:              corpusInfo.ID,
 		ParallelCorpus:      corpusDBInfo.ParallelCorpus,
 		AtomParentStructure: "",
 		StackStructEval:     false,
-		MaxNumErrors:        maxNumErrors,
-		Ngrams:              vteconf.NgramConf{},
+		MaxNumErrors:        maxNumErr,
+		Ngrams:              jsonArgs.GetNgrams(),
 		Encoding:            "UTF-8",
 		IndexedCols:         []string{},
-		VerticalFile:        corpusInfo.RegistryConf.Vertical.VisiblePath(),
 	}
 
 	newConf.Structures = corpusInfo.RegistryConf.SubcorpAttrs
-	if bibIdAttr != "" {
+	if jsonArgs.BibView != nil {
 		bibView := vtedb.BibViewConf{}
-		bibView.IDAttr = utils.ImportKey(bibIdAttr)
+		bibView.IDAttr = utils.ImportKey(jsonArgs.BibView.IDAttr)
 		for stru, attrs := range corpusInfo.RegistryConf.SubcorpAttrs {
 			for _, attr := range attrs {
 				bibView.Cols = append(bibView.Cols, fmt.Sprintf("%s_%s", stru, attr))
 			}
 		}
 		newConf.BibView = bibView
-		bibIdElms := strings.Split(bibIdAttr, ".")
+		bibIdElms := strings.Split(jsonArgs.BibView.IDAttr, ".")
 		tmp, ok := newConf.Structures[bibIdElms[0]]
 		if ok {
 			if !collections.SliceContains(tmp, bibIdElms[1]) {
@@ -89,7 +86,7 @@ func Create(
 			newConf.Structures[bibIdElms[0]] = []string{bibIdElms[1]}
 		}
 	}
-	if atomStructure == "" {
+	if jsonArgs.AtomStructure == nil {
 		if len(newConf.Structures) == 1 {
 			for k := range newConf.Structures {
 				newConf.AtomStructure = k
@@ -102,7 +99,7 @@ func Create(
 		}
 
 	} else {
-		newConf.AtomStructure = atomStructure
+		newConf.AtomStructure = jsonArgs.GetAtomStructure()
 	}
 	atomExists := false
 	for _, st := range corpusInfo.IndexedStructs {
@@ -115,9 +112,9 @@ func Create(
 		return nil, fmt.Errorf("atom structure '%s' does not exist in corpus %s", newConf.AtomStructure, corpusInfo.ID)
 	}
 
-	if len(mergeAttrs) > 0 {
-		newConf.SelfJoin.ArgColumns = make([]string, len(mergeAttrs))
-		for i, argCol := range mergeAttrs {
+	if jsonArgs.SelfJoin != nil {
+		newConf.SelfJoin.ArgColumns = make([]string, len(jsonArgs.SelfJoin.ArgColumns))
+		for i, argCol := range jsonArgs.SelfJoin.ArgColumns {
 			tmp := strings.Split(argCol, ".")
 			if len(tmp) != 2 {
 				return nil, fmt.Errorf("invalid mergeAttr format: %s", argCol)
@@ -133,7 +130,7 @@ func Create(
 				newConf.Structures[tmp[0]] = []string{tmp[1]}
 			}
 		}
-		newConf.SelfJoin.GeneratorFn = mergeFn
+		newConf.SelfJoin.GeneratorFn = jsonArgs.SelfJoin.GeneratorFn
 	}
 	if conf.DB.Type == "mysql" {
 		newConf.DB = vtedb.Conf{
@@ -211,8 +208,7 @@ func (lcache *LiveAttrsBuildConfProvider) Get(corpname string) (*vteconf.VTEConf
 }
 
 func (lcache *LiveAttrsBuildConfProvider) withRemovedSensitiveData(conf vteconf.VTEConf) vteconf.VTEConf {
-	conf.DB.Password = jobs.PasswordReplacement
-	return conf
+	return conf.WithoutPasswords()
 }
 
 // GetWithoutPasswords is a variant of Get with passwords and similar stuff removed

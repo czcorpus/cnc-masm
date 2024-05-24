@@ -37,7 +37,7 @@ type JobInfoArgs struct {
 
 func (jargs JobInfoArgs) WithoutPasswords() JobInfoArgs {
 	ans := jargs
-	ans.VteConf.DB.Password = jobs.PasswordReplacement
+	ans.VteConf = ans.VteConf.WithoutPasswords()
 	return ans
 }
 

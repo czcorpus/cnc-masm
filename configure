@@ -19,6 +19,9 @@ test-and-build:
 tools:
 	@go install github.com/czcorpus/manabuild@latest
 
+generate:
+	@go generate ./masm.go
+
 install:
 # TODO
 	@cp ./mquery-sru /usr/local/bin

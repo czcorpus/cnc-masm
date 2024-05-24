@@ -30,6 +30,7 @@ import (
 	"masm/v3/jobs"
 	"masm/v3/liveattrs/db"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/czcorpus/vert-tagextract/v2/ptcount/modders"
@@ -50,6 +51,7 @@ type NgramFreqGenerator struct {
 	corpusName  string
 	posFn       *modders.StringTransformerChain
 	jobActions  *jobs.Actions
+	qsaAttrs    QSAttributes
 }
 
 func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
@@ -174,10 +176,13 @@ func (nfg *NgramFreqGenerator) procLine(
 
 func (nfg *NgramFreqGenerator) findTotalNumLines() (int, error) {
 	// TODO the following query is not general enough
-	row := nfg.db.QueryRow(fmt.Sprintf(
-		"SELECT COUNT(*) "+
-			"FROM %s_colcounts "+
-			"WHERE col4 <> ? ", nfg.groupedName), NonWordCSCNC2020Tag)
+	row := nfg.db.QueryRow(
+		fmt.Sprintf(
+			"SELECT COUNT(*) "+
+				"FROM %s_colcounts "+
+				"WHERE %s <> ? ", nfg.groupedName, nfg.qsaAttrs.ExportCols("tag")[0]),
+		NonWordCSCNC2020Tag,
+	)
 	if row.Err() != nil {
 		return -1, row.Err()
 	}
@@ -216,11 +221,18 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 	var numStop int
 	t0 := time.Now()
 	// TODO the following query is not general enough
-	rows, err := nfg.db.Query(fmt.Sprintf(
-		"SELECT col0, col2, col3, col4, `count` AS abs, arf "+
-			"FROM %s_colcounts "+
-			"WHERE col4 <> ? "+
-			"ORDER BY col2, col3, col4, col0 ", nfg.groupedName), NonWordCSCNC2020Tag)
+	rows, err := nfg.db.Query(
+		fmt.Sprintf(
+			"SELECT %s, `count` AS abs, arf "+
+				"FROM %s_colcounts "+
+				"WHERE col4 <> ? "+
+				"ORDER BY %s ",
+			strings.Join(nfg.qsaAttrs.ExportCols("word", "sublemma", "lemma", "tag"), ", "),
+			nfg.groupedName,
+			strings.Join(nfg.qsaAttrs.ExportCols("lemma", "sublemma", "word", "tag"), ", "),
+		),
+		NonWordCSCNC2020Tag,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to run n-gram generator: %w", err)
 	}
@@ -359,6 +371,7 @@ func NewNgramFreqGenerator(
 	groupedName string,
 	corpusName string,
 	posFn *modders.StringTransformerChain,
+	qsaAttrs QSAttributes,
 ) *NgramFreqGenerator {
 	return &NgramFreqGenerator{
 		db:          db,
@@ -366,5 +379,6 @@ func NewNgramFreqGenerator(
 		groupedName: groupedName,
 		corpusName:  corpusName,
 		posFn:       posFn,
+		qsaAttrs:    qsaAttrs,
 	}
 }
