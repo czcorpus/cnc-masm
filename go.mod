@@ -9,19 +9,16 @@ require (
 	github.com/czcorpus/cnc-gokit v0.9.0
 	github.com/czcorpus/manabuild v0.1.3
 	github.com/czcorpus/rexplorer v0.0.2
-	github.com/czcorpus/vert-tagextract/v2 v2.4.2
+	github.com/czcorpus/vert-tagextract/v2 v2.4.3
 	github.com/davecgh/go-spew v1.1.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/uuid v1.3.0
-	github.com/mna/pigeon v1.2.1
 	github.com/rs/zerolog v1.32.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/text v0.14.0
 )
-
-replace github.com/czcorpus/vert-tagextract/v2 => /home/tomas/work/tools/vert-tagextract
 
 require (
 	github.com/briandowns/spinner v1.23.0 // indirect

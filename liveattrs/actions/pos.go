@@ -51,6 +51,8 @@ func posExtractorFactory(
 // applyPosProperties takes posIdx and posTagset and adds a column modder
 // to Ngrams.columnMods column matching the "PoS" one (preserving string modders
 // already configured there!).
+// In case posIdx argument points to a non-existing vertical column,
+// the function returns errorPosNotDefined.
 func applyPosProperties(
 	conf *cnf.VTEConf,
 	posIdx int,

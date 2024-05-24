@@ -25,6 +25,7 @@ import (
 	"io"
 	"masm/v3/liveattrs/db/freqdb"
 	"masm/v3/liveattrs/laconf"
+	"masm/v3/liveattrs/qs"
 	"net/http"
 	"path/filepath"
 
@@ -129,7 +130,11 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 
 	laConf, err := a.laConfCache.Get(corpusID)
 	if err == laconf.ErrorNoSuchConfig {
-		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError(baseErrTpl, corpusID, err),
+			http.StatusNotFound,
+		)
 		return
 
 	} else if err != nil {
@@ -138,11 +143,30 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 		return
 	}
 	posFn, err := applyPosProperties(laConf, args.PosColIdx, args.PosTagset)
+	if err == errorPosNotDefined {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError(baseErrTpl, corpusID, err),
+			http.StatusUnprocessableEntity,
+		)
+		return
+
+	} else if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError(baseErrTpl, corpusID, err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 
 	corpusDBInfo, err := a.cncDB.LoadInfo(corpusID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
+			ctx.Writer,
+			uniresp.NewActionError(baseErrTpl, corpusID, err),
+			http.StatusInternalServerError,
+		)
 		return
 	}
 
