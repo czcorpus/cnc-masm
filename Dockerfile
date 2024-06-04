@@ -13,7 +13,10 @@ RUN git clone https://github.com/czcorpus/manabuild \
 
 WORKDIR /opt/masm
 COPY . .
-RUN PATH=$PATH:/usr/local/go/bin:/root/go/bin && ./configure && make build
+RUN git config --global --add safe.directory /opt/masm \
+    && PATH=$PATH:/usr/local/go/bin:/root/go/bin \
+    && ./configure \
+    && make build
 
 EXPOSE 8088
 CMD ["./masm3", "start", "conf-docker.json"]
