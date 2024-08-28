@@ -39,7 +39,6 @@ import (
 
 	"masm/v3/cncdb"
 	"masm/v3/cnf"
-	"masm/v3/corpdata"
 	"masm/v3/corpus"
 	"masm/v3/corpus/query"
 	"masm/v3/db/mysql"
@@ -59,10 +58,6 @@ var (
 	buildDate string
 	gitCommit string
 )
-
-type ExitHandler interface {
-	OnExit()
-}
 
 func init() {
 	gob.Register(&liveattrs.LiveAttrsJobInfo{})
@@ -95,10 +90,12 @@ func main() {
 	logging.SetupLogging(conf.LogFile, conf.LogLevel)
 	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
 	cnf.ApplyDefaults(conf)
-	syscallChan := make(chan os.Signal, 1)
-	signal.Notify(syscallChan, os.Interrupt)
-	signal.Notify(syscallChan, syscall.SIGTERM)
-	exitEvent := make(chan os.Signal)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
 
 	cTableName := "corpora"
 	if conf.CNCDB.OverrideCorporaTableName != "" {
@@ -151,10 +148,8 @@ func main() {
 
 	rootActions := root.Actions{Version: version, Conf: conf}
 
-	corpdataActions := corpdata.NewActions(conf, version)
-
 	jobStopChannel := make(chan string)
-	jobActions := jobs.NewActions(conf.Jobs, conf.Language, exitEvent, jobStopChannel)
+	jobActions := jobs.NewActions(conf.Jobs, conf.Language, ctx, jobStopChannel)
 
 	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions, cncDB)
 
@@ -169,7 +164,7 @@ func main() {
 			KonText: conf.Kontext,
 			Corp:    conf.CorporaSetup,
 		},
-		exitEvent,
+		ctx,
 		jobStopChannel,
 		jobActions,
 		cncDB,
@@ -177,14 +172,13 @@ func main() {
 		version,
 	)
 	registryActions := registry.NewActions(conf.CorporaSetup)
-
 	for _, dj := range jobActions.GetDetachedJobs() {
 		if dj.IsFinished() {
 			continue
 		}
 		switch tdj := dj.(type) {
 		case *liveattrs.LiveAttrsJobInfo:
-			err := liveattrsActions.RestartLiveAttrsJob(tdj)
+			err := liveattrsActions.RestartLiveAttrsJob(ctx, tdj)
 			if err != nil {
 				log.Error().Err(err).Msgf("Failed to restart job %s. The job will be removed.", tdj.ID)
 			}
@@ -321,17 +315,6 @@ func main() {
 		"/registry/defaults/structure/multisep",
 		registryActions.GetStructMultisepDefaults)
 
-	go func(exitHandlers []ExitHandler) {
-		select {
-		case evt := <-syscallChan:
-			for _, h := range exitHandlers {
-				h.OnExit()
-			}
-			exitEvent <- evt
-			close(exitEvent)
-		}
-	}([]ExitHandler{corpdataActions, jobActions, corpusActions, liveattrsActions})
-
 	cncdbActions := cncdb.NewActions(conf.CNCDB, conf.CorporaSetup, cncDB)
 	engine.POST(
 		"/corpora-database/:corpusId/auto-update",
@@ -357,18 +340,17 @@ func main() {
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {
-			log.Error().Err(err).Msg("")
+			log.Error().Err(err).Send()
 		}
-		syscallChan <- syscall.SIGTERM
 	}()
 
-	select {
-	case <-exitEvent:
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := srv.Shutdown(ctx)
-		if err != nil {
-			log.Info().Err(err).Msg("Shutdown request error")
-		}
+	<-ctx.Done()
+	log.Info().Err(err).Msg("Shutdown request error")
+
+	ctxShutDown, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctxShutDown); err != nil {
+		log.Fatal().Err(err).Msg("Server forced to shutdown")
 	}
 }

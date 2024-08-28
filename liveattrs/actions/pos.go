@@ -22,8 +22,8 @@ import (
 	"errors"
 	"masm/v3/liveattrs/qs"
 
-	"github.com/czcorpus/vert-tagextract/v2/cnf"
-	"github.com/czcorpus/vert-tagextract/v2/ptcount/modders"
+	"github.com/czcorpus/vert-tagextract/v3/cnf"
+	"github.com/czcorpus/vert-tagextract/v3/ptcount/modders"
 )
 
 var (

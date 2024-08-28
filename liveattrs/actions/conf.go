@@ -29,8 +29,8 @@ import (
 	"path/filepath"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	"github.com/czcorpus/vert-tagextract/v2/db"
+	vteCnf "github.com/czcorpus/vert-tagextract/v3/cnf"
+	"github.com/czcorpus/vert-tagextract/v3/db"
 	"github.com/gin-gonic/gin"
 )
 

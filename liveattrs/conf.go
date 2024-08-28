@@ -19,7 +19,7 @@
 package liveattrs
 
 import (
-	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
+	vtedb "github.com/czcorpus/vert-tagextract/v3/db"
 )
 
 type Conf struct {

@@ -22,7 +22,7 @@ import (
 	"masm/v3/jobs"
 	"time"
 
-	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	vteCnf "github.com/czcorpus/vert-tagextract/v3/cnf"
 )
 
 const (
@@ -146,5 +146,6 @@ func (j LiveAttrsJobInfo) WithError(err error) jobs.GeneralJobInfo {
 		Error:       err,
 		NumRestarts: j.NumRestarts,
 		Args:        j.Args,
+		Finished:    true,
 	}
 }

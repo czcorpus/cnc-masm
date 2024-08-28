@@ -29,7 +29,7 @@ import (
 	"reflect"
 	"strings"
 
-	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	vteconf "github.com/czcorpus/vert-tagextract/v3/cnf"
 	"github.com/rs/zerolog/log"
 )
 

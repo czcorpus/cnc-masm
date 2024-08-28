@@ -33,8 +33,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/czcorpus/cnc-gokit/fs"
-	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	vtedb "github.com/czcorpus/vert-tagextract/v2/db"
+	vteconf "github.com/czcorpus/vert-tagextract/v3/cnf"
+	vtedb "github.com/czcorpus/vert-tagextract/v3/db"
 )
 
 var (

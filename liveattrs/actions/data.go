@@ -27,7 +27,7 @@ import (
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	vteCnf "github.com/czcorpus/vert-tagextract/v3/cnf"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -125,7 +125,7 @@ func (a *Actions) Create(ctx *gin.Context) {
 			NoCorpusUpdate: noCorpusUpdate == "1",
 		},
 	}
-	a.createDataFromJobStatus(status)
+	a.generateData(status)
 	uniresp.WriteJSONResponseWithStatus(ctx.Writer, http.StatusCreated, status.FullInfo())
 }
 

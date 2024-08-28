@@ -19,8 +19,8 @@
 package laconf
 
 import (
-	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	vteDb "github.com/czcorpus/vert-tagextract/v2/db"
+	vteCnf "github.com/czcorpus/vert-tagextract/v3/cnf"
+	vteDb "github.com/czcorpus/vert-tagextract/v3/db"
 )
 
 // PatchArgs is a subset of vert-tagextract's VTEConf
