@@ -19,6 +19,7 @@
 package actions
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -37,7 +38,6 @@ import (
 	"masm/v3/liveattrs/request/query"
 	"masm/v3/liveattrs/request/response"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -46,10 +46,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 
-	vteCnf "github.com/czcorpus/vert-tagextract/v2/cnf"
-	"github.com/czcorpus/vert-tagextract/v2/fs"
-	vteLib "github.com/czcorpus/vert-tagextract/v2/library"
-	vteProc "github.com/czcorpus/vert-tagextract/v2/proc"
+	vteCnf "github.com/czcorpus/vert-tagextract/v3/cnf"
+	"github.com/czcorpus/vert-tagextract/v3/fs"
+	vteLib "github.com/czcorpus/vert-tagextract/v3/library"
+	vteProc "github.com/czcorpus/vert-tagextract/v3/proc"
 	"github.com/google/uuid"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -97,12 +97,8 @@ type LAConf struct {
 type Actions struct {
 	conf LAConf
 
-	// exitEvent channel recieves value once user (or OS) terminates masm process
-	exitEvent <-chan os.Signal
-
-	// vteExitEvent stores "exit" channels for running vert-tagextract jobs
-	// (max 1 per corpus)
-	vteExitEvents map[string]chan os.Signal
+	// ctx controls cancellation
+	ctx context.Context
 
 	// jobStopChannel receives job ID based on user interaction with job HTTP API in
 	// case users asks for stopping the vte process
@@ -124,6 +120,8 @@ type Actions struct {
 	structAttrStats *db.StructAttrUsage
 
 	usageData chan<- db.RequestData
+
+	vteJobCancel map[string]context.CancelFunc
 }
 
 func (a *Actions) OnExit() {
@@ -216,15 +214,16 @@ func (a *Actions) ensureVerticalFile(vconf *vteCnf.VTEConf, corpusInfo *corpus.I
 	return nil
 }
 
-// createDataFromJobStatus starts data extraction and generation
+// generateData starts data extraction and generation
 // based on (initial) job status
-func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobInfo) {
+func (a *Actions) generateData(initialStatus *liveattrs.LiveAttrsJobInfo) {
+	jctx, cancel := context.WithCancel(a.ctx)
+	a.vteJobCancel[initialStatus.ID] = cancel
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
-		a.vteExitEvents[initialStatus.ID] = make(chan os.Signal)
 		procStatus, err := vteLib.ExtractData(
+			jctx,
 			&initialStatus.Args.VteConf,
 			initialStatus.Args.Append,
-			a.vteExitEvents[initialStatus.ID],
 		)
 		if err != nil {
 			updateJobChan <- initialStatus.WithError(
@@ -234,8 +233,7 @@ func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobI
 		go func() {
 			defer func() {
 				close(updateJobChan)
-				close(a.vteExitEvents[initialStatus.ID])
-				delete(a.vteExitEvents, initialStatus.ID)
+				delete(a.vteJobCancel, initialStatus.ID)
 			}()
 			jobStatus := liveattrs.LiveAttrsJobInfo{
 				ID:          initialStatus.ID,
@@ -309,9 +307,10 @@ func (a *Actions) createDataFromJobStatus(initialStatus *liveattrs.LiveAttrsJobI
 func (a *Actions) runStopJobListener() {
 	for id := range a.jobStopChannel {
 		if job, ok := a.jobActions.GetJob(id); ok {
-			if tJob, ok2 := job.(*liveattrs.LiveAttrsJobInfo); ok2 {
-				if stopChan, ok3 := a.vteExitEvents[tJob.ID]; ok3 {
-					stopChan <- os.Interrupt
+			if tJob, ok2 := job.(liveattrs.LiveAttrsJobInfo); ok2 {
+				if cancel, ok3 := a.vteJobCancel[tJob.ID]; ok3 {
+					cancel()
+					log.Debug().Msg("cancelled job on user request")
 				}
 			}
 		}
@@ -502,7 +501,7 @@ func (a *Actions) UpdateIndexes(ctx *gin.Context) {
 	uniresp.WriteJSONResponseWithStatus(ctx.Writer, http.StatusCreated, &newStatus)
 }
 
-func (a *Actions) RestartLiveAttrsJob(jinfo *liveattrs.LiveAttrsJobInfo) error {
+func (a *Actions) RestartLiveAttrsJob(ctx context.Context, jinfo *liveattrs.LiveAttrsJobInfo) error {
 	err := a.jobActions.TestAllowsJobRestart(jinfo)
 	if err != nil {
 		return err
@@ -510,7 +509,8 @@ func (a *Actions) RestartLiveAttrsJob(jinfo *liveattrs.LiveAttrsJobInfo) error {
 	jinfo.Start = jobs.CurrentDatetime()
 	jinfo.NumRestarts++
 	jinfo.Update = jobs.CurrentDatetime()
-	a.createDataFromJobStatus(jinfo)
+
+	a.generateData(jinfo)
 	log.Info().Msgf("Restarted liveAttributes job %s", jinfo.ID)
 	return nil
 }
@@ -544,7 +544,7 @@ func (a *Actions) InferredAtomStructure(ctx *gin.Context) {
 // NewActions is the default factory for Actions
 func NewActions(
 	conf LAConf,
-	exitEvent <-chan os.Signal,
+	ctx context.Context,
 	jobStopChannel <-chan string,
 	jobActions *jobs.Actions,
 	cncDB *cncdb.CNCMySQLHandler,
@@ -552,18 +552,9 @@ func NewActions(
 	version general.VersionInfo,
 ) *Actions {
 	usageChan := make(chan db.RequestData)
-	vteExitEvents := make(map[string]chan os.Signal)
-	go func() {
-		for v := range exitEvent {
-			for _, ch := range vteExitEvents {
-				ch <- v
-			}
-		}
-	}()
 	actions := &Actions{
 		conf:           conf,
-		exitEvent:      exitEvent,
-		vteExitEvents:  vteExitEvents,
+		ctx:            ctx,
 		jobActions:     jobActions,
 		jobStopChannel: jobStopChannel,
 		laConfCache: laconf.NewLiveAttrsBuildConfProvider(
@@ -575,6 +566,7 @@ func NewActions(
 		eqCache:         cache.NewEmptyQueryCache(),
 		structAttrStats: db.NewStructAttrUsage(laDB, usageChan),
 		usageData:       usageChan,
+		vteJobCancel:    make(map[string]context.CancelFunc),
 	}
 	go actions.structAttrStats.RunHandler()
 	go actions.runStopJobListener()

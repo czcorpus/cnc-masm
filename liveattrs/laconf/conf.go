@@ -21,7 +21,7 @@ package laconf
 import (
 	"fmt"
 
-	vteconf "github.com/czcorpus/vert-tagextract/v2/cnf"
+	vteconf "github.com/czcorpus/vert-tagextract/v3/cnf"
 )
 
 func GetSubcorpAttrs(vteConf *vteconf.VTEConf) []string {

@@ -50,8 +50,6 @@ type Actions struct {
 	infoProvider CorpusInfoProvider
 }
 
-func (a *Actions) OnExit() {}
-
 // GetCorpusInfo provides some basic information about stored data
 func (a *Actions) GetCorpusInfo(ctx *gin.Context) {
 	var err error

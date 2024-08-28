@@ -19,9 +19,9 @@
 package jobs
 
 import (
+	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"reflect"
 	"sort"
 	"sync"
@@ -52,6 +52,7 @@ type TableUpdate struct {
 
 // Actions contains async job-related actions
 type Actions struct {
+	ctx              context.Context
 	conf             *Conf
 	jobList          map[string]GeneralJobInfo
 	jobListLock      sync.Mutex
@@ -63,8 +64,8 @@ type Actions struct {
 	jobStop          chan<- string
 	msgPrinter       *message.Printer
 
-	// tableUpdate is the only way jobList is actually
-	// updated
+	// tableUpdate represents a single "point" through which jobs
+	// are updated
 	tableUpdate chan TableUpdate
 
 	notificationRecipients map[string][]string
@@ -114,7 +115,7 @@ func (a *Actions) dequeueAndRunJob() {
 			Str("jobType", initState.GetType()).
 			Str("corpus", initState.GetCorpus()).
 			Msgf("Dequeued a new job")
-		updateJobChan := a.addJobInfo(initState)
+		updateJobChan := a.registerJob(initState)
 		go func() {
 			(*fn)(updateJobChan)
 		}()
@@ -128,14 +129,14 @@ func (a *Actions) dequeueAndRunJob() {
 func (a *Actions) dequeueJobAsFailed(err error) {
 	_, initState, _ := a.jobQueue.Dequeue()
 	finalState := initState.WithError(err)
-	updateJobChan := a.addJobInfo(finalState)
+	updateJobChan := a.registerJob(finalState)
 	updateJobChan <- finalState.AsFinished()
 	log.Error().Err(err).Send()
 }
 
-// addJobInfo add a new job to the job table and provides
+// registerJob adds a new job to the job table and provides
 // a channel to update its status
-func (a *Actions) addJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
+func (a *Actions) registerJob(j GeneralJobInfo) chan GeneralJobInfo {
 	_, ok := a.detachedJobs[j.GetID()]
 	if ok {
 		log.Info().Msgf("Registering again detached job %s", j.GetID())
@@ -146,7 +147,7 @@ func (a *Actions) addJobInfo(j GeneralJobInfo) chan GeneralJobInfo {
 	a.jobListLock.Lock()
 	a.jobList[j.GetID()] = j
 	a.jobListLock.Unlock()
-	syncUpdates := make(chan GeneralJobInfo, 10)
+	syncUpdates := make(chan GeneralJobInfo, 100)
 	go func() {
 		var item GeneralJobInfo
 		for item = range syncUpdates {
@@ -228,18 +229,21 @@ func (a *Actions) ClearIfFinished(ctx *gin.Context) {
 	}
 }
 
-func (a *Actions) OnExit() {
-	if a.conf.StatusDataPath != "" {
-		log.Info().Msgf("saving state to %s", a.conf.StatusDataPath)
-		jobList := a.createJobList(true)
-		err := jobList.Serialize(a.conf.StatusDataPath)
-		if err != nil {
-			log.Error().Err(err)
-		}
+func (a *Actions) goWaitExit() {
+	go func() {
+		<-a.ctx.Done()
+		if a.conf.StatusDataPath != "" {
+			log.Info().Msgf("saving state to %s", a.conf.StatusDataPath)
+			jobList := a.createJobList(true)
+			err := jobList.Serialize(a.conf.StatusDataPath)
+			if err != nil {
+				log.Error().Err(err)
+			}
 
-	} else {
-		log.Warn().Msg("no status file specified, discarding job list")
-	}
+		} else {
+			log.Warn().Msg("no status file specified, discarding job list")
+		}
+	}()
 }
 
 func (a *Actions) GetDetachedJobs() []GeneralJobInfo {
@@ -414,7 +418,7 @@ func (a *Actions) Utilization(ctx *gin.Context) {
 func NewActions(
 	conf *Conf,
 	lang string,
-	exitEvent <-chan os.Signal,
+	ctx context.Context,
 	jobStop chan<- string,
 ) *Actions {
 	ans := &Actions{
@@ -427,7 +431,9 @@ func NewActions(
 		msgPrinter:             message.NewPrinter(message.MatchLanguage(lang)),
 		jobQueue:               &JobQueue{},
 		jobDeps:                make(JobsDeps),
+		ctx:                    ctx,
 	}
+	ans.goWaitExit()
 	isFile, err := fs.IsFile(conf.StatusDataPath)
 	if err != nil {
 		log.Error().Err(err)
@@ -446,7 +452,7 @@ func NewActions(
 		}
 	}
 
-	// here we listen for exit events and clean finished
+	// here we listen for context Done() and clean finished
 	// jobs info regularly
 	ticker := time.NewTicker(1 * time.Hour)
 	go func() {
@@ -456,7 +462,7 @@ func NewActions(
 				ans.tableUpdate <- TableUpdate{
 					action: tableActionClearOldJobs,
 				}
-			case <-exitEvent:
+			case <-ctx.Done():
 				ticker.Stop()
 				return
 			}
@@ -512,7 +518,7 @@ func NewActions(
 					}
 					ans.jobQueueLock.Unlock()
 				}
-			case <-exitEvent:
+			case <-ctx.Done():
 				ticker.Stop()
 				return
 			}
@@ -540,6 +546,12 @@ func NewActions(
 				ans.jobListLock.Unlock()
 				ans.jobDeps.SetParentFinished(upd.itemID, upd.data.GetError() != nil)
 				recipients, ok := ans.notificationRecipients[upd.itemID]
+				logAction := log.Info().Str("jobId", upd.itemID)
+				if upd.data != nil {
+					dur := time.Since(time.Time(upd.data.GetStartDT()))
+					logAction.Float64("duration", dur.Seconds())
+				}
+				logAction.Msg("job finished")
 				if ok {
 					jdesc := extractJobDescription(ans.msgPrinter, upd.data)
 					subject := ans.msgPrinter.Sprintf("Job of type \"%s\" finished", jdesc)

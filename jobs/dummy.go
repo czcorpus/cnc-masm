@@ -26,7 +26,7 @@ type DummyJobResult struct {
 	Payload string `json:"payload"`
 }
 
-//DummyJobInfo collects information about corpus data synchronization job
+// DummyJobInfo collects information about corpus data synchronization job
 type DummyJobInfo struct {
 	ID          string          `json:"id"`
 	Type        string          `json:"type"`
@@ -122,7 +122,7 @@ func (j DummyJobInfo) WithError(err error) GeneralJobInfo {
 		CorpusID:    j.CorpusID,
 		Start:       j.Start,
 		Update:      JSONTime(time.Now()),
-		Finished:    j.Finished,
+		Finished:    true,
 		Error:       err,
 		Result:      j.Result,
 		NumRestarts: j.NumRestarts,

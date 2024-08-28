@@ -33,7 +33,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/vert-tagextract/v2/ptcount/modders"
+	"github.com/czcorpus/vert-tagextract/v3/ptcount/modders"
 	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"

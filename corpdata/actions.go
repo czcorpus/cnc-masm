@@ -44,8 +44,6 @@ type Actions struct {
 	version general.VersionInfo
 }
 
-func (a *Actions) OnExit() {}
-
 // NewActions is the default factory
 func NewActions(conf *cnf.Conf, version general.VersionInfo) *Actions {
 	return &Actions{conf: conf, version: version}

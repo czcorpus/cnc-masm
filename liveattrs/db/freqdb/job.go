@@ -123,7 +123,7 @@ func (j NgramJobInfo) WithError(err error) jobs.GeneralJobInfo {
 		CorpusID:    j.CorpusID,
 		Start:       j.Start,
 		Update:      jobs.JSONTime(time.Now()),
-		Finished:    j.Finished,
+		Finished:    true,
 		Error:       err,
 		Result:      j.Result,
 		NumRestarts: j.NumRestarts,

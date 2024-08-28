@@ -22,7 +22,7 @@ import (
 	"database/sql"
 	"time"
 
-	db "github.com/czcorpus/vert-tagextract/v2/db"
+	db "github.com/czcorpus/vert-tagextract/v3/db"
 	"github.com/go-sql-driver/mysql"
 )
 
