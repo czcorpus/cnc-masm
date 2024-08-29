@@ -75,7 +75,7 @@ func Create(
 			}
 		}
 		newConf.BibView = bibView
-		bibIdElms := strings.Split(jsonArgs.BibView.IDAttr, ".")
+		bibIdElms := strings.Split(jsonArgs.BibView.IDAttr, "_")
 		tmp, ok := newConf.Structures[bibIdElms[0]]
 		if ok {
 			if !collections.SliceContains(tmp, bibIdElms[1]) {
@@ -115,9 +115,9 @@ func Create(
 	if jsonArgs.SelfJoin != nil {
 		newConf.SelfJoin.ArgColumns = make([]string, len(jsonArgs.SelfJoin.ArgColumns))
 		for i, argCol := range jsonArgs.SelfJoin.ArgColumns {
-			tmp := strings.Split(argCol, ".")
+			tmp := strings.Split(argCol, "_")
 			if len(tmp) != 2 {
-				return nil, fmt.Errorf("invalid mergeAttr format: %s", argCol)
+				return nil, fmt.Errorf("invalid mergeAttr format (must be struct_attr): %s", argCol)
 			}
 			newConf.SelfJoin.ArgColumns[i] = tmp[0] + "_" + tmp[1]
 			_, ok := newConf.Structures[tmp[0]]
