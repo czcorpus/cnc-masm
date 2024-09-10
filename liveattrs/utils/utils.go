@@ -41,7 +41,7 @@ func ShortenVal(v string, maxLength int) string {
 }
 
 func ImportKey(k string) string {
-	return strings.Replace(k, ".", "_", 1)
+	return strings.Replace(strings.TrimPrefix(k, "!"), ".", "_", 1)
 }
 
 func ExportKey(k string) string {

@@ -36,7 +36,10 @@ type Attrs map[string]any
 func (q Attrs) GetRegexpAttrVal(attr string) (string, bool) {
 	v, ok := q[attr]
 	if !ok {
-		return "", false
+		v, ok = q["!"+attr]
+		if !ok {
+			return "", false
+		}
 	}
 	tm, ok := v.(map[string]any)
 	if ok && tm["regexp"] != "" {
@@ -56,7 +59,10 @@ func (q Attrs) GetRegexpAttrVal(attr string) (string, bool) {
 func (q Attrs) GetListingOf(attr string) ([]string, error) {
 	v, ok := q[attr]
 	if !ok {
-		return []string{}, nil
+		v, ok = q["!"+attr]
+		if !ok {
+			return []string{}, nil
+		}
 	}
 
 	tv, ok := v.([]any)

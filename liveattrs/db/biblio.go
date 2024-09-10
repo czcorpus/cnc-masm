@@ -200,13 +200,22 @@ func attrsToSQL(attrs query.Attrs) (string, []any) {
 	sql := make([]string, 0, len(attrs))
 	sqlValues := make([]any, 0, len(attrs)*2)
 	for attr, values := range attrs {
+		exclude := strings.HasPrefix(attr, "!")
 		switch tValues := values.(type) {
 		case []any:
 			if len(tValues) > 0 {
-				sql = append(
-					sql,
-					fmt.Sprintf(" t1.%s IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))),
-				)
+				if exclude {
+					sql = append(
+						sql,
+						fmt.Sprintf(" t1.%s NOT IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))),
+					)
+
+				} else {
+					sql = append(
+						sql,
+						fmt.Sprintf(" t1.%s IN (%s) ", utils.ImportKey(attr), mkPlaceholder(len(tValues))),
+					)
+				}
 				for _, v := range tValues {
 					sqlValues = append(sqlValues, v)
 				}
@@ -214,10 +223,18 @@ func attrsToSQL(attrs query.Attrs) (string, []any) {
 		case map[string]any:
 			v := extractRegexp(tValues)
 			if v != "" {
-				sql = append(
-					sql,
-					fmt.Sprintf("t1.%s REGEXP ?", utils.ImportKey(attr)),
-				)
+				if exclude {
+					sql = append(
+						sql,
+						fmt.Sprintf("t1.%s NOT REGEXP ?", utils.ImportKey(attr)),
+					)
+
+				} else {
+					sql = append(
+						sql,
+						fmt.Sprintf("t1.%s REGEXP ?", utils.ImportKey(attr)),
+					)
+				}
 				sqlValues = append(sqlValues, v)
 
 			} else {
