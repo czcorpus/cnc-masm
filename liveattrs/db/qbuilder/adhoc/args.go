@@ -48,6 +48,7 @@ func (args *PredicateArgs) ExportSQL(itemPrefix, corpusID string) (string, []any
 	where := make([]string, 0, 20)
 	sqlValues := make([]any, 0, 20)
 	for dkey, values := range args.data {
+		exclude := strings.HasPrefix(dkey, "!")
 		key := utils.ImportKey(dkey)
 		cnfItem := make([]string, 0, 20)
 		switch tValues := values.(type) {
@@ -62,7 +63,7 @@ func (args *PredicateArgs) ExportSQL(itemPrefix, corpusID string) (string, []any
 						cnfItem,
 						fmt.Sprintf(
 							"%s.%s %s ?",
-							itemPrefix, key, qbuilder.CmpOperator(tValue),
+							itemPrefix, key, qbuilder.CmpOperator(tValue, exclude),
 						),
 					)
 					sqlValues = append(sqlValues, args.importValue(tValue))
@@ -73,24 +74,38 @@ func (args *PredicateArgs) ExportSQL(itemPrefix, corpusID string) (string, []any
 						fmt.Sprintf(
 							"%s.%s %s ?",
 							itemPrefix, args.bibLabel,
-							qbuilder.CmpOperator(tValue[1:]),
+							qbuilder.CmpOperator(tValue[1:], exclude),
 						),
 					)
 					sqlValues = append(sqlValues, args.importValue(tValue[1:]))
 				}
 			}
 		case string:
-			cnfItem = append(
-				cnfItem,
-				fmt.Sprintf(
-					"%s.%s LIKE ?",
-					itemPrefix, key),
-			)
+			if exclude {
+				cnfItem = append(
+					cnfItem,
+					fmt.Sprintf(
+						"%s.%s NOT LIKE ?",
+						itemPrefix, key),
+				)
+
+			} else {
+				cnfItem = append(
+					cnfItem,
+					fmt.Sprintf(
+						"%s.%s LIKE ?",
+						itemPrefix, key),
+				)
+			}
 			sqlValues = append(sqlValues, args.importValue(tValues))
 		case map[string]any:
 			regexpVal, ok := args.data.GetRegexpAttrVal(dkey)
 			if ok {
-				cnfItem = append(cnfItem, fmt.Sprintf("%s.%s REGEXP ?", itemPrefix, key))
+				if exclude {
+					cnfItem = append(cnfItem, fmt.Sprintf("%s.%s NOT REGEXP ?", itemPrefix, key))
+				} else {
+					cnfItem = append(cnfItem, fmt.Sprintf("%s.%s REGEXP ?", itemPrefix, key))
+				}
 				sqlValues = append(sqlValues, args.importValue(regexpVal))
 
 				// TODO add support for this
@@ -104,13 +119,17 @@ func (args *PredicateArgs) ExportSQL(itemPrefix, corpusID string) (string, []any
 				cnfItem,
 				fmt.Sprintf(
 					"LOWER(%s.%s) %s LOWER(?)",
-					itemPrefix, key, qbuilder.CmpOperator(fmt.Sprintf("%v", tValues)),
+					itemPrefix, key, qbuilder.CmpOperator(fmt.Sprintf("%v", tValues), exclude),
 				),
 			)
 			sqlValues = append(sqlValues, args.importValue(fmt.Sprintf("%v", tValues)))
 		}
 		if len(cnfItem) > 0 {
-			where = append(where, fmt.Sprintf("(%s)", strings.Join(cnfItem, " OR ")))
+			if exclude {
+				where = append(where, fmt.Sprintf("(%s)", strings.Join(cnfItem, " AND ")))
+			} else {
+				where = append(where, fmt.Sprintf("(%s)", strings.Join(cnfItem, " OR ")))
+			}
 		}
 	}
 	where = append(where, fmt.Sprintf("%s.corpus_id = ?", itemPrefix))

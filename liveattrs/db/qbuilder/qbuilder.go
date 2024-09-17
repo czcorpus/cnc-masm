@@ -20,9 +20,15 @@ package qbuilder
 
 import "strings"
 
-func CmpOperator(val string) string {
+func CmpOperator(val string, exclude bool) string {
 	if strings.Contains(val, "%") {
+		if exclude {
+			return "NOT LIKE"
+		}
 		return "LIKE"
+	}
+	if exclude {
+		return "!="
 	}
 	return "="
 }
