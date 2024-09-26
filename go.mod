@@ -1,8 +1,6 @@
 module masm/v3
 
-go 1.21.5
-
-toolchain go1.22.2
+go 1.23.1
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1
@@ -22,8 +20,8 @@ require (
 
 require (
 	github.com/briandowns/spinner v1.23.0 // indirect
-	github.com/bytedance/sonic v1.11.8 // indirect
-	github.com/bytedance/sonic/loader v0.1.1 // indirect
+	github.com/bytedance/sonic v1.12.2 // indirect
+	github.com/bytedance/sonic/loader v0.2.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
