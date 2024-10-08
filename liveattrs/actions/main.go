@@ -273,9 +273,7 @@ func (a *Actions) generateData(initialStatus *liveattrs.LiveAttrsJobInfo) {
 					}
 					var bibIDStruct, bibIDAttr string
 					if jobStatus.Args.VteConf.BibView.IDAttr != "" {
-						bibIDAttrElms := strings.SplitN(jobStatus.Args.VteConf.BibView.IDAttr, "_", 2)
-						bibIDStruct = bibIDAttrElms[0]
-						bibIDAttr = bibIDAttrElms[1]
+						bibIDStruct, bibIDAttr = jobStatus.Args.VteConf.BibView.IDAttrElements()
 					}
 					err = a.cncDB.SetLiveAttrs(
 						transact, jobStatus.CorpusID, bibIDStruct, bibIDAttr)
