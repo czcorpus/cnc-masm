@@ -131,14 +131,12 @@ func (a *Actions) DocumentList(ctx *gin.Context) {
 	}
 	page, err := strconv.Atoi(spage)
 	if err != nil {
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer,
-				uniresp.NewActionError(baseErrTpl, corpusID, err),
-				http.StatusBadRequest,
-			)
-			return
-		}
+		uniresp.WriteJSONErrorResponse(
+			ctx.Writer,
+			uniresp.NewActionError(baseErrTpl, corpusID, err),
+			http.StatusBadRequest,
+		)
+		return
 	}
 	spageSize := ctx.Request.URL.Query().Get("pageSize")
 	if spageSize == "" {

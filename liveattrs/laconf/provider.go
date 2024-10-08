@@ -75,15 +75,15 @@ func Create(
 			}
 		}
 		newConf.BibView = bibView
-		bibIdElms := strings.Split(jsonArgs.BibView.IDAttr, "_")
-		tmp, ok := newConf.Structures[bibIdElms[0]]
+		bibIdStruct, bibIdAttr := jsonArgs.BibView.IDAttrElements()
+		tmp, ok := newConf.Structures[bibIdStruct]
 		if ok {
-			if !collections.SliceContains(tmp, bibIdElms[1]) {
-				newConf.Structures[bibIdElms[0]] = append(newConf.Structures[bibIdElms[0]], bibIdElms[1])
+			if !collections.SliceContains(tmp, bibIdAttr) {
+				newConf.Structures[bibIdStruct] = append(newConf.Structures[bibIdStruct], bibIdAttr)
 			}
 
 		} else {
-			newConf.Structures[bibIdElms[0]] = []string{bibIdElms[1]}
+			newConf.Structures[bibIdStruct] = []string{bibIdAttr}
 		}
 	}
 	if jsonArgs.AtomStructure == nil {
