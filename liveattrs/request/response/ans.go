@@ -20,6 +20,7 @@ package response
 
 import (
 	"encoding/json"
+	"fmt"
 	"masm/v3/general/collections"
 	"sort"
 	"strings"
@@ -81,11 +82,25 @@ func (qa *QueryAns) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (qa *QueryAns) AddListedValue(attr string, v *ListedValue) {
-	entry := qa.AttrValues[attr]
+func (qa *QueryAns) AddListedValue(attr string, v *ListedValue) error {
+	entry, ok := qa.AttrValues[attr]
+	if !ok {
+		return fmt.Errorf("failed to add listed value: attribute %s not found", attr)
+	}
 	tEntry, ok := entry.([]*ListedValue)
-	if ok {
-		qa.AttrValues[attr] = append(tEntry, v)
+	if !ok {
+		return fmt.Errorf("failed to add listed value: attribute %s not a list type", attr)
+	}
+	qa.AttrValues[attr] = append(tEntry, v)
+	return nil
+}
+
+func (qa *QueryAns) CutoffValues(cutoff int) {
+	for attr, items := range qa.AttrValues {
+		tEntry, ok := items.([]*ListedValue)
+		if ok && len(tEntry) > cutoff {
+			qa.AttrValues[attr] = tEntry[:cutoff]
+		}
 	}
 }
 
@@ -107,7 +122,7 @@ func ExportAttrValues(
 	for k, v := range data.AttrValues {
 		switch tVal := v.(type) {
 		case []*ListedValue:
-			if maxAttrListSize == 0 || len(tVal) < maxAttrListSize ||
+			if maxAttrListSize == 0 || len(tVal) <= maxAttrListSize ||
 				collections.SliceContains(expandAttrs, k) {
 				sort.Slice(
 					tVal,

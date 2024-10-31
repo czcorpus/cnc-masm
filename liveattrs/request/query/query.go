@@ -93,4 +93,9 @@ type Payload struct {
 	Attrs            Attrs    `json:"attrs"`
 	AutocompleteAttr string   `json:"autocompleteAttr"`
 	MaxAttrListSize  int      `json:"maxAttrListSize"`
+
+	// ApplyCutoff, if set true, then in case a result returns more than MaxAttrListSize,
+	// the list is cut to the MaxAttrListSize and the response is behaving like there
+	// is no problem with too much matching items
+	ApplyCutoff bool `json:"applyCutoff"`
 }
