@@ -63,7 +63,9 @@ func groupBibItems(data *response.QueryAns, bibLabel string) {
 }
 
 func (a *Actions) getAttrValues(
-	corpusInfo *corpus.DBInfo, qry query.Payload) (*response.QueryAns, error) {
+	corpusInfo *corpus.DBInfo,
+	qry query.Payload,
+) (*response.QueryAns, error) {
 
 	laConf, err := a.laConfCache.Get(corpusInfo.Name) // set(self._get_subcorp_attrs(corpus))
 	if err != nil {
@@ -175,7 +177,9 @@ func (a *Actions) getAttrValues(
 	}
 	for attr, v := range tmpAns {
 		for _, c := range v {
-			ans.AddListedValue(attr, c)
+			if err := ans.AddListedValue(attr, c); err != nil {
+				return nil, fmt.Errorf("failed to execute getAttrValues(): %w", err)
+			}
 		}
 	}
 	// now each line contains: (shortened_label, identifier, label, num_grouped_items, num_positions)
@@ -187,6 +191,11 @@ func (a *Actions) getAttrValues(
 	if maxAttrListSize == 0 {
 		maxAttrListSize = dfltMaxAttrListSize
 	}
+
+	if qry.ApplyCutoff {
+		ans.CutoffValues(maxAttrListSize)
+	}
+
 	response.ExportAttrValues(
 		&ans,
 		qBuilder.AlignedCorpora,
