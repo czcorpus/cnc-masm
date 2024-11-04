@@ -42,6 +42,7 @@ type QueryAns struct {
 	Poscount       int
 	AttrValues     map[string]any
 	AlignedCorpora []string
+	AppliedCutoff  int
 }
 
 func (qa *QueryAns) MarshalJSON() ([]byte, error) {
@@ -75,10 +76,12 @@ func (qa *QueryAns) MarshalJSON() ([]byte, error) {
 		Poscount       int            `json:"poscount"`
 		AttrValues     map[string]any `json:"attr_values"`
 		AlignedCorpora []string       `json:"aligned"`
+		AppliedCutoff  int            `json:"applied_cutoff,omitempty"`
 	}{
 		Poscount:       qa.Poscount,
 		AttrValues:     expAllAttrValues,
 		AlignedCorpora: qa.AlignedCorpora,
+		AppliedCutoff:  qa.AppliedCutoff,
 	})
 }
 
@@ -96,11 +99,16 @@ func (qa *QueryAns) AddListedValue(attr string, v *ListedValue) error {
 }
 
 func (qa *QueryAns) CutoffValues(cutoff int) {
+	var cutoffApplied bool
 	for attr, items := range qa.AttrValues {
 		tEntry, ok := items.([]*ListedValue)
 		if ok && len(tEntry) > cutoff {
 			qa.AttrValues[attr] = tEntry[:cutoff]
+			cutoffApplied = true
 		}
+	}
+	if cutoffApplied {
+		qa.AppliedCutoff += cutoff
 	}
 }
 
