@@ -47,19 +47,14 @@ type Conf struct {
 	ServerReadTimeoutSecs  int                    `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                    `json:"serverWriteTimeoutSecs"`
 	CorporaSetup           *corpus.CorporaSetup   `json:"corporaSetup"`
-	LogFile                string                 `json:"logFile"`
+	Logging                logging.LoggingConf    `json:"logging"`
 	CNCDB                  *corpus.DatabaseSetup  `json:"cncDb"`
 	LiveAttrs              *liveattrs.Conf        `json:"liveAttrs"`
 	Jobs                   *jobs.Conf             `json:"jobs"`
 	Kontext                *kontext.Conf          `json:"kontext"`
 	NgramDB                *liveattrs.NgramDBConf `json:"ngramDb"`
-	LogLevel               logging.LogLevel       `json:"logLevel"`
 	Language               string                 `json:"language"`
 	srcPath                string
-}
-
-func (conf *Conf) IsDebugMode() bool {
-	return conf.LogLevel == "debug"
 }
 
 func (conf *Conf) GetLocation() *time.Location { // TODO
