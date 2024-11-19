@@ -87,7 +87,7 @@ func main() {
 		log.Fatal().Msgf("Unknown action %s", action)
 	}
 	conf := cnf.LoadConfig(flag.Arg(1))
-	logging.SetupLogging(conf.LogFile, conf.LogLevel)
+	logging.SetupLogging(conf.Logging)
 	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
 	cnf.ApplyDefaults(conf)
 
@@ -135,7 +135,7 @@ func main() {
 	}
 	log.Info().Msgf("LiveAttrs SQL database(s): %s", dbInfo)
 
-	if !conf.LogLevel.IsDebugMode() {
+	if !conf.Logging.Level.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -323,7 +323,7 @@ func main() {
 		"/corpora-database/:corpusId/kontextDefaults",
 		cncdbActions.InferKontextDefaults)
 
-	if conf.LogLevel.IsDebugMode() {
+	if conf.Logging.Level.IsDebugMode() {
 		debugActions := debug.NewActions(jobActions)
 		engine.POST("/debug/createJob", debugActions.CreateDummyJob)
 		engine.POST("/debug/finishJob/:jobId", debugActions.FinishDummyJob)

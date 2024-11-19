@@ -1,8 +1,10 @@
 {
     "listenAddress" : "127.0.0.1",
     "listenPort": 8080,
-    "logFile": "/a/path/to/a/log/file",
-    "logLevel": "info",
+    "logging": {
+        "path": "/a/path/to/a/log/file",
+        "level": "info"
+    },
     "serverReadTimeoutSecs": 120,
     "corporaSetup": {
         "registryDirPaths": ["/var/local/corpora/registry"],
