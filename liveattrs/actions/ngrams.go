@@ -31,14 +31,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/czcorpus/cnc-gokit/strutil"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
-func getFirstSupportedTagset(values []string) qs.SupportedTagset {
+func getFirstSupportedTagset(values []qs.SupportedTagset) qs.SupportedTagset {
 	for _, v := range values {
-		sv := qs.SupportedTagset(v)
-		if sv.Validate() == nil {
-			return sv
+		if v.Validate() == nil {
+			return v
 		}
 	}
 	return ""
@@ -101,17 +101,34 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 		return
 	}
 
+	var tagset qs.SupportedTagset
+
 	if args.ColMapping == nil {
 		regPath := filepath.Join(a.conf.Corp.RegistryDirPaths[0], corpusID) // TODO the [0]
-		corpTagsets, err := a.cncDB.GetCorpusTagsets(corpusID)
-		if err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
+
+		var corpTagsets []qs.SupportedTagset
+		var err error
+
+		if args.PosTagset != "" {
+			corpTagsets = []qs.SupportedTagset{args.PosTagset}
+
+		} else {
+			corpTagsets, err = a.cncDB.GetCorpusTagsets(corpusID)
+			if err != nil {
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+				return
+			}
 		}
-		tagset := getFirstSupportedTagset(corpTagsets)
+		tagset = getFirstSupportedTagset(corpTagsets)
 		if tagset == "" {
+			avail := strutil.JoinAny(corpTagsets, func(v qs.SupportedTagset) string { return v.String() }, ", ")
 			uniresp.RespondWithErrorJSON(
-				ctx, fmt.Errorf("cannot find a suitable default tagset"), http.StatusUnprocessableEntity)
+				ctx, fmt.Errorf(
+					"cannot find a suitable default tagset for %s (found: %s)",
+					corpusID, avail,
+				),
+				http.StatusUnprocessableEntity,
+			)
 			return
 		}
 		attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
@@ -126,6 +143,8 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 			return
 		}
 
+	} else {
+		tagset = args.PosTagset
 	}
 
 	laConf, err := a.laConfCache.Get(corpusID)
@@ -142,7 +161,7 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	posFn, err := applyPosProperties(laConf, args.PosColIdx, args.PosTagset)
+	posFn, err := applyPosProperties(laConf, args.PosColIdx, tagset)
 	if err == errorPosNotDefined {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,

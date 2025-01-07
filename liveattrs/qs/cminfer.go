@@ -39,6 +39,10 @@ func (st SupportedTagset) Validate() error {
 	return fmt.Errorf("invalid tagset type: %s", st)
 }
 
+func (st SupportedTagset) String() string {
+	return string(st)
+}
+
 const (
 	TagsetCSCNC2000SPK SupportedTagset = "cs_cnc2000_spk"
 	TagsetCSCNC2000    SupportedTagset = "cs_cnc2000"

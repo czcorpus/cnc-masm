@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/czcorpus/cnc-gokit v0.11.0
+	github.com/czcorpus/cnc-gokit v0.11.2
 	github.com/czcorpus/manabuild v0.1.3
 	github.com/czcorpus/rexplorer v0.0.2
 	github.com/czcorpus/vert-tagextract/v3 v3.0.6
