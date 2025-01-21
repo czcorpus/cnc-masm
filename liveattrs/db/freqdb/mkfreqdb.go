@@ -25,6 +25,7 @@ tagset and positional attribute types and order.
 package freqdb
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"masm/v3/jobs"
@@ -34,7 +35,6 @@ import (
 	"time"
 
 	"github.com/czcorpus/vert-tagextract/v3/ptcount/modders"
-	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
@@ -55,40 +55,45 @@ type NgramFreqGenerator struct {
 }
 
 func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
-	_, err := tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s_word", nfg.groupedName))
-	if err != nil {
-		return err
+	errMsgTpl := "failed to create tables: %w"
+
+	if _, err := tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s_term_search", nfg.groupedName)); err != nil {
+		return fmt.Errorf(errMsgTpl, err)
 	}
-	_, err = tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s_sublemma", nfg.groupedName))
-	if err != nil {
-		return err
+	if _, err := tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s_word", nfg.groupedName)); err != nil {
+		return fmt.Errorf(errMsgTpl, err)
 	}
-	_, err = tx.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s_lemma", nfg.groupedName))
-	if err != nil {
-		return err
+	if _, err := tx.Exec(fmt.Sprintf(
+		`CREATE TABLE %s_word (
+		id varchar(40),
+		value VARCHAR(80),
+		lemma VARCHAR(80),
+		sublemma VARCHAR(80),
+		pos VARCHAR(80),
+		count INTEGER,
+		arf FLOAT,
+		PRIMARY KEY (id)
+		) COLLATE utf8mb4_bin`,
+		nfg.groupedName)); err != nil {
+		return fmt.Errorf(errMsgTpl, err)
 	}
-	_, err = tx.Exec(fmt.Sprintf(
-		`CREATE TABLE %s_lemma (value VARCHAR(80), pos VARCHAR(80), count INTEGER, arf FLOAT,
-			is_pname TINYINT, PRIMARY KEY(value, pos)) COLLATE utf8mb4_bin`,
-		nfg.groupedName))
-	if err != nil {
-		return err
+	if _, err := tx.Exec(fmt.Sprintf(
+		`CREATE TABLE %s_term_search (
+			id int auto_increment,
+			word_id varchar(40) NOT NULL,
+			value VARCHAR(80),
+			PRIMARY KEY (id),
+			FOREIGN KEY (word_id) REFERENCES %s_word(id)
+		) COLLATE utf8mb4_bin`,
+		nfg.groupedName, nfg.groupedName)); err != nil {
+		return fmt.Errorf(errMsgTpl, err)
 	}
-	_, err = tx.Exec(fmt.Sprintf(
-		`CREATE TABLE %s_sublemma (value VARCHAR(80), lemma VARCHAR(80), pos VARCHAR(80), count INTEGER,
-			PRIMARY KEY (value, lemma, pos),
-			FOREIGN KEY (lemma, pos) REFERENCES %s_lemma(value, pos)) COLLATE utf8mb4_bin`,
-		nfg.groupedName, nfg.groupedName))
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(fmt.Sprintf(
-		`CREATE TABLE %s_word (value VARCHAR(80), lemma VARCHAR(80), sublemma VARCHAR(80), pos VARCHAR(80),
-			count INTEGER, arf FLOAT, PRIMARY KEY (value, lemma, sublemma, pos),
-			FOREIGN KEY (sublemma, lemma, pos) REFERENCES %s_sublemma(value, lemma, pos)) COLLATE utf8mb4_bin`,
-		nfg.groupedName, nfg.groupedName))
-	if err != nil {
-		return err
+
+	if _, err := tx.Exec(fmt.Sprintf(
+		`CREATE index %s_term_search_value_idx ON %s_term_search(value)`,
+		nfg.groupedName, nfg.groupedName,
+	)); err != nil {
+		return fmt.Errorf(errMsgTpl, err)
 	}
 	return nil
 }
@@ -100,78 +105,29 @@ func (nfg *NgramFreqGenerator) createTables(tx *sql.Tx) error {
 // won't be able to detect end of the current lemma forms (and sublemmas).
 func (nfg *NgramFreqGenerator) procLine(
 	tx *sql.Tx,
-	item *ngRecord,
-	currLemma *ngRecord,
-	words []*ngRecord,
-	sublemmas map[string]int,
-) ([]*ngRecord, map[string]int, *ngRecord, error) {
-	if currLemma == nil || item.lemma != currLemma.lemma || item.tag != currLemma.tag {
-		// note: we take advantage of the fact that  currLemma == nil <=> len(words) == 0
-		// (see currLemma.* accesses below)
-		if len(words) > 0 {
-			_, err := tx.Exec(
-				fmt.Sprintf(
-					"INSERT INTO %s_lemma (value, pos, count, arf, is_pname) VALUES (?, ?, ?, ?, ?)",
-					nfg.groupedName,
-				),
-				currLemma.lemma, nfg.posFn.Transform(currLemma.tag), getLemmaTotal(words), getLemmaArf(words),
-				startsWithUpcase(currLemma.lemma),
-			)
-			terr, ok := err.(*mysql.MySQLError)
-			if ok && terr.Number == duplicateRowErrNo {
-				tx.Exec(fmt.Sprintf(
-					`UPDATE %s_lemma
-					SET count = count + ?, arf = arf + ?
-					WHERE value = ? AND pos = ?`, nfg.groupedName),
-					getLemmaTotal(words), getLemmaArf(words), currLemma.lemma,
-					nfg.posFn.Transform(currLemma.tag))
+	word *ngRecord,
+) error {
 
-			} else if err != nil {
-				return nil, map[string]int{}, nil, err
-			}
-			for subl := range sublemmas {
-				_, err := tx.Exec(fmt.Sprintf(
-					`INSERT INTO %s_sublemma (value, lemma, pos, count) VALUES (?, ?, ?, ?)`,
-					nfg.groupedName),
-					subl, currLemma.lemma, nfg.posFn.Transform(currLemma.tag), sublemmas[subl])
-				terr, ok := err.(*mysql.MySQLError)
-				if ok && terr.Number == duplicateRowErrNo {
-					_, err := tx.Exec(fmt.Sprintf(
-						`UPDATE %s_sublemma SET count = count + ?
-						WHERE value = ? AND lemma = ? AND pos = ?`, nfg.groupedName),
-						sublemmas[subl], subl, currLemma.lemma, nfg.posFn.Transform(currLemma.tag))
-					if err != nil {
-						return nil, map[string]int{}, nil, err
-					}
-				} else if err != nil {
-					return nil, map[string]int{}, nil, err
-				}
-			}
-			for _, word := range words {
-				_, err := tx.Exec(fmt.Sprintf(
-					`INSERT INTO %s_word (value, lemma, sublemma, pos, count, arf)
-					VALUES (?, ?, ?, ?, ?, ?)`, nfg.groupedName),
-					word.word, word.lemma, word.sublemma, nfg.posFn.Transform(word.tag), word.abs, word.arf)
-				terr, ok := err.(*mysql.MySQLError)
-				if ok && terr.Number == duplicateRowErrNo {
-					_, err := tx.Exec(fmt.Sprintf(
-						`UPDATE %s_word
-						SET count = count + ?, arf = arf + ?
-						WHERE value = ? AND lemma = ? AND pos = ?`, nfg.groupedName),
-						word.abs, word.arf, word.word, word.lemma, nfg.posFn.Transform(word.tag))
-					if err != nil {
-						return nil, map[string]int{}, nil, err
-					}
-				}
-			}
-		}
-		currLemma = item
-		words = []*ngRecord{}
-		sublemmas = make(map[string]int)
+	if _, err := tx.Exec(fmt.Sprintf(
+		`INSERT INTO %s_word (id, value, lemma, sublemma, pos, count, arf)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`, nfg.groupedName),
+		word.hashId, word.word, word.lemma, word.sublemma, nfg.posFn.Transform(word.tag), word.abs, word.arf,
+	); err != nil {
+		return fmt.Errorf("failed to process word line: %w", err)
 	}
-	words = append(words, item)
-	sublemmas[item.sublemma] += 1
-	return words, sublemmas, currLemma, nil
+	for trm, _ := range map[string]bool{word.word: true, word.lemma: true, word.sublemma: true} {
+		if _, err := tx.Exec(
+			fmt.Sprintf(
+				`INSERT INTO %s_term_search (value, word_id) VALUES (?, ?)`,
+				nfg.groupedName,
+			),
+			trm,
+			word.hashId,
+		); err != nil {
+			return fmt.Errorf("failed to process word line: %w", err)
+		}
+	}
+	return nil
 }
 
 func (nfg *NgramFreqGenerator) findTotalNumLines() (int, error) {
@@ -198,9 +154,15 @@ func (nfg *NgramFreqGenerator) findTotalNumLines() (int, error) {
 // An existing database transaction must be provided along with current calculation status (which is
 // progressively updated) and a status channel where the status is sent each time some significant
 // update is encountered (typically - a chunk of items is finished or an error occurs)
-func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, statusChan chan<- genNgramsStatus) error {
+func (nfg *NgramFreqGenerator) run(
+	ctx context.Context,
+	tx *sql.Tx,
+	currStatus *genNgramsStatus,
+	statusChan chan<- genNgramsStatus,
+) error {
 
 	total, err := nfg.findTotalNumLines()
+	log.Debug().Int("numProcess", total).Msg("starting to process colcounts table for ngrams")
 	if err != nil {
 		return fmt.Errorf("failed to run n-gram generator: %w", err)
 	}
@@ -221,29 +183,27 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 	var numStop int
 	t0 := time.Now()
 	// TODO the following query is not general enough
-	rows, err := nfg.db.Query(
+	rows, err := nfg.db.QueryContext(
+		ctx,
 		fmt.Sprintf(
-			"SELECT %s, `count` AS abs, arf "+
+			"SELECT hash_id, %s, `count` AS abs, arf "+
 				"FROM %s_colcounts "+
-				"WHERE col4 <> ? "+
-				"ORDER BY %s ",
+				"WHERE col%d <> ? ",
 			strings.Join(nfg.qsaAttrs.ExportCols("word", "sublemma", "lemma", "tag"), ", "),
 			nfg.groupedName,
-			strings.Join(nfg.qsaAttrs.ExportCols("lemma", "sublemma", "word", "tag"), ", "),
+			nfg.qsaAttrs.Tag,
 		),
 		NonWordCSCNC2020Tag,
 	)
+	log.Debug().Msg("table selection done, moving to import")
 	if err != nil {
 		return fmt.Errorf("failed to run n-gram generator: %w", err)
 	}
-	var currLemma *ngRecord
-	words := make([]*ngRecord, 0)
-	sublemmas := make(map[string]int)
 	var numProcessed int
 	for rows.Next() {
 		rec := new(ngRecord)
 		// 'word', 'lemma', 'sublemma', 'tag', 'abs', 'arf'
-		err := rows.Scan(&rec.word, &rec.lemma, &rec.sublemma, &rec.tag, &rec.abs, &rec.arf)
+		err := rows.Scan(&rec.hashId, &rec.word, &rec.lemma, &rec.sublemma, &rec.tag, &rec.abs, &rec.arf)
 		if err != nil {
 			return fmt.Errorf("failed to run n-gram generator: %w", err)
 		}
@@ -251,11 +211,9 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 			numStop++
 			continue
 		}
-		words, sublemmas, currLemma, err = nfg.procLine(tx, rec, currLemma, words, sublemmas)
-		if err != nil {
+		if err := nfg.procLine(tx, rec); err != nil {
 			return fmt.Errorf("failed to run n-gram generator: %w", err)
 		}
-		sublemmas[rec.sublemma] += 1
 		numProcessed++
 		if numProcessed%reportEachNthItem == 0 {
 			procTime := time.Since(t0).Seconds()
@@ -263,23 +221,28 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 			currStatus.AvgSpeedItemsPerSec = int(math.RoundToEven(float64(numProcessed) / procTime))
 			statusChan <- *currStatus
 		}
+		select {
+		case <-ctx.Done():
+			if currStatus.Error != nil {
+				currStatus.Error = fmt.Errorf("ngram generator cancelled")
+				statusChan <- *currStatus
+				return nil
+			}
+		default:
+		}
 	}
-	// proc the last element
-	lastRec := new(ngRecord)
-	nfg.procLine(tx, lastRec, currLemma, words, sublemmas)
-	numProcessed++
 	currStatus.NumProcLines = numProcessed
 	procTime := time.Since(t0).Seconds()
 	currStatus.AvgSpeedItemsPerSec = int(math.RoundToEven(float64(numProcessed) / procTime))
-	err = db.AddProcTimeEntry(
+	if err := db.AddProcTimeEntry(
 		nfg.db,
 		"ngrams",
 		total,
 		numProcessed,
 		procTime,
-	)
-	if err != nil {
+	); err != nil {
 		log.Err(err).Msg("failed to write proc_time statistics")
+		currStatus.Error = err
 	}
 	statusChan <- *currStatus
 	log.Info().Msgf("num stop words: %d", numStop)
@@ -289,7 +252,7 @@ func (nfg *NgramFreqGenerator) run(tx *sql.Tx, currStatus *genNgramsStatus, stat
 // generateSync (synchronously) generates n-grams from raw liveattrs data
 // provided statusChan is closed by the method once
 // the operation finishes
-func (nfg *NgramFreqGenerator) generateSync(statusChan chan<- genNgramsStatus) {
+func (nfg *NgramFreqGenerator) generateSync(ctx context.Context, statusChan chan<- genNgramsStatus) {
 	var status genNgramsStatus
 	tx, err := nfg.db.Begin()
 	if err != nil {
@@ -307,7 +270,7 @@ func (nfg *NgramFreqGenerator) generateSync(statusChan chan<- genNgramsStatus) {
 		statusChan <- status
 		return
 	}
-	err = nfg.run(tx, &status, statusChan)
+	err = nfg.run(ctx, tx, &status, statusChan)
 	if err != nil {
 		tx.Rollback()
 		status.Error = err
@@ -342,19 +305,26 @@ func (nfg *NgramFreqGenerator) GenerateAfter(corpusID, parentJobID string) (Ngra
 	}
 	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
 		statusChan := make(chan genNgramsStatus)
+		ctx := context.Background()
+		ctx, cancel := context.WithCancel(ctx)
 		go func(runStatus NgramJobInfo) {
 			defer close(updateJobChan)
 			for statUpd := range statusChan {
 				runStatus.Result = statUpd
 				runStatus.Error = statUpd.Error
 				runStatus.Update = jobs.CurrentDatetime()
-				updateJobChan <- &runStatus
+				updateJobChan <- runStatus
+				if runStatus.Error != nil {
+					runStatus.Finished = true
+					cancel()
+				}
 			}
 			runStatus.Update = jobs.CurrentDatetime()
 			runStatus.Finished = true
-			updateJobChan <- &runStatus
+			updateJobChan <- runStatus
 		}(status)
-		nfg.generateSync(statusChan)
+		nfg.generateSync(ctx, statusChan)
+		close(statusChan)
 	}
 	if parentJobID != "" {
 		nfg.jobActions.EqueueJobAfter(&fn, &status, parentJobID)

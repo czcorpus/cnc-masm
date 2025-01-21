@@ -23,9 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"masm/v3/common"
 	"masm/v3/liveattrs/db/freqdb"
 	"masm/v3/liveattrs/laconf"
-	"masm/v3/liveattrs/qs"
 	"net/http"
 	"path/filepath"
 
@@ -35,15 +35,6 @@ import (
 	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
-func getFirstSupportedTagset(values []qs.SupportedTagset) qs.SupportedTagset {
-	for _, v := range values {
-		if v.Validate() == nil {
-			return v
-		}
-	}
-	return ""
-}
-
 type reqArgs struct {
 	ColMapping *freqdb.QSAttributes `json:"colMapping,omitempty"`
 
@@ -51,8 +42,8 @@ type reqArgs struct {
 	// where PoS can be extracted. In case no direct "pos" tag exists,
 	// a "tag" can be used along with a proper "transformFn" defined
 	// in the data extraction configuration ("vertColumns" section).
-	PosColIdx int                `json:"posColIdx"` // TODO do we need this?
-	PosTagset qs.SupportedTagset `json:"posTagset"`
+	PosColIdx int                    `json:"posColIdx"` // TODO do we need this?
+	PosTagset common.SupportedTagset `json:"posTagset"`
 }
 
 func (args reqArgs) Validate() error {
@@ -101,16 +92,16 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 		return
 	}
 
-	var tagset qs.SupportedTagset
+	var tagset common.SupportedTagset
 
 	if args.ColMapping == nil {
-		regPath := filepath.Join(a.conf.Corp.RegistryDirPaths[0], corpusID) // TODO the [0]
+		regPath := filepath.Join(a.corpConf.RegistryDirPaths[0], corpusID) // TODO the [0]
 
-		var corpTagsets []qs.SupportedTagset
+		var corpTagsets []common.SupportedTagset
 		var err error
 
 		if args.PosTagset != "" {
-			corpTagsets = []qs.SupportedTagset{args.PosTagset}
+			corpTagsets = []common.SupportedTagset{args.PosTagset}
 
 		} else {
 			corpTagsets, err = a.cncDB.GetCorpusTagsets(corpusID)
@@ -119,9 +110,9 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 				return
 			}
 		}
-		tagset = getFirstSupportedTagset(corpTagsets)
+		tagset = common.GetFirstSupportedTagset(corpTagsets)
 		if tagset == "" {
-			avail := strutil.JoinAny(corpTagsets, func(v qs.SupportedTagset) string { return v.String() }, ", ")
+			avail := strutil.JoinAny(corpTagsets, func(v common.SupportedTagset) string { return v.String() }, ", ")
 			uniresp.RespondWithErrorJSON(
 				ctx, fmt.Errorf(
 					"cannot find a suitable default tagset for %s (found: %s)",
@@ -131,7 +122,7 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 			)
 			return
 		}
-		attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
+		attrMapping, err := common.InferQSAttrMapping(regPath, tagset)
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 			return
@@ -161,8 +152,8 @@ func (a *Actions) GenerateNgrams(ctx *gin.Context) {
 			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusInternalServerError)
 		return
 	}
-	posFn, err := applyPosProperties(laConf, args.PosColIdx, tagset)
-	if err == errorPosNotDefined {
+	posFn, err := common.ApplyPosProperties(&laConf.Ngrams, args.PosColIdx, tagset)
+	if err == common.ErrorPosNotDefined {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionError(baseErrTpl, corpusID, err),

@@ -42,18 +42,17 @@ const (
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress          string                 `json:"listenAddress"`
-	ListenPort             int                    `json:"listenPort"`
-	ServerReadTimeoutSecs  int                    `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                    `json:"serverWriteTimeoutSecs"`
-	CorporaSetup           *corpus.CorporaSetup   `json:"corporaSetup"`
-	Logging                logging.LoggingConf    `json:"logging"`
-	CNCDB                  *corpus.DatabaseSetup  `json:"cncDb"`
-	LiveAttrs              *liveattrs.Conf        `json:"liveAttrs"`
-	Jobs                   *jobs.Conf             `json:"jobs"`
-	Kontext                *kontext.Conf          `json:"kontext"`
-	NgramDB                *liveattrs.NgramDBConf `json:"ngramDb"`
-	Language               string                 `json:"language"`
+	ListenAddress          string                `json:"listenAddress"`
+	ListenPort             int                   `json:"listenPort"`
+	ServerReadTimeoutSecs  int                   `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                   `json:"serverWriteTimeoutSecs"`
+	CorporaSetup           *corpus.CorporaSetup  `json:"corporaSetup"`
+	Logging                logging.LoggingConf   `json:"logging"`
+	CNCDB                  *corpus.DatabaseSetup `json:"cncDb"`
+	LiveAttrs              *liveattrs.Conf       `json:"liveAttrs"`
+	Jobs                   *jobs.Conf            `json:"jobs"`
+	Kontext                *kontext.Conf         `json:"kontext"`
+	Language               string                `json:"language"`
 	srcPath                string
 }
 
@@ -123,4 +122,20 @@ func ApplyDefaults(conf *Conf) {
 		conf.Jobs.MaxNumConcurrentJobs = v
 		log.Warn().Msgf("jobs.maxNumConcurrentJobs not specified, using default %d", v)
 	}
+}
+
+// ------- live attributes and stuff
+
+type LAConf struct {
+	LA      *liveattrs.Conf
+	KonText *kontext.Conf
+	Corp    *corpus.CorporaSetup
+}
+
+func (lconf *LAConf) LAConf() *liveattrs.Conf {
+	return lconf.LA
+}
+
+func (lconf *LAConf) KonTextConf() *kontext.Conf {
+	return lconf.KonText
 }

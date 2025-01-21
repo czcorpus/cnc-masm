@@ -16,42 +16,36 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package couchdb
+package actions
 
 import (
-	"encoding/json"
+	"masm/v3/dictionary"
 	"net/http"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
-type Storable interface {
-	ToJSON() ([]byte, error)
+func (a *Actions) CreateQuerySuggestions(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
+	// TODO
+	uniresp.WriteJSONResponse(ctx.Writer, corpusID)
 }
 
-type bulkDocs[T Storable] struct {
-	Docs []T `json:"docs"`
-}
+func (a *Actions) GetQuerySuggestions(ctx *gin.Context) {
+	corpusID := ctx.Param("corpusId")
+	term := ctx.Param("term")
 
-func (bd *bulkDocs[T]) ToJSON() ([]byte, error) {
-	return json.Marshal(bd)
-}
-
-// DocHandler is a CouchDB client specifically for
-// handling concrete type of document
-type DocHandler[T Storable] struct {
-	db *ClientBase
-}
-
-func (c *DocHandler[T]) BulkInsert(values []T) error {
-	bdocs := bulkDocs[T]{
-		Docs: make([]T, len(values)),
+	items, err := dictionary.Search(
+		ctx,
+		a.laDB,
+		corpusID,
+		dictionary.SearchWithAnyValue(term),
+	)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
 	}
-	copy(bdocs.Docs, values)
-	_, err := c.db.DoRequest(http.MethodPost, "_bulk_docs", &bdocs)
-	return err
-}
 
-func NewDocHandler[T Storable](cb *ClientBase) *DocHandler[T] {
-	return &DocHandler[T]{
-		db: cb,
-	}
+	uniresp.WriteJSONResponse(ctx.Writer, items)
 }

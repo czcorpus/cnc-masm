@@ -16,25 +16,22 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package qs
+package dictionary
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"masm/v3/common"
-	"masm/v3/db/couchdb"
 	"masm/v3/jobs"
-	"masm/v3/liveattrs"
+	"masm/v3/liveattrs/db/freqdb"
 	"regexp"
 	"strings"
-
-	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 )
 
 const (
-	exportChunkSize = 100
+	maxExpectedNumMatchingLemmas = 30
 )
 
 var (
@@ -103,28 +100,23 @@ func (lemma *Lemma) ToJSON() ([]byte, error) {
 
 type Exporter struct {
 	db                 *sql.DB
-	cb                 *couchdb.ClientBase
 	groupedName        string
 	jobActions         *jobs.Actions
 	multiValuesEnabled bool
 	readAccessUsers    []string
 }
 
-func (exp *Exporter) isValidWord(w string) bool {
-	if exp.multiValuesEnabled {
+func isValidWord(w string, enableMultivalues bool) bool {
+	if enableMultivalues {
 		return validMVWordRegexp.MatchString(w)
 	}
 	return validWordRegexp.MatchString(w)
 }
 
-func (exp *Exporter) processRowsSync(
-	rows *sql.Rows,
-	statusChan chan<- exporterStatus,
-	status exporterStatus,
-) {
-	bulkWriter := couchdb.NewDocHandler[*Lemma](exp.cb)
+func processRowsSync(rows *sql.Rows, enableMultivalues bool) ([]Lemma, error) {
+
 	var idBase, procRecords int
-	chunk := make([]*Lemma, 0, exportChunkSize)
+	matchingLemmas := make([]Lemma, 0, maxExpectedNumMatchingLemmas)
 	var currLemma *Lemma
 	sublemmas := make(map[string]int)
 
@@ -134,20 +126,17 @@ func (exp *Exporter) processRowsSync(
 		var lemmaArf, wordArf float64
 		var isPname bool
 		err := rows.Scan(
-			&wordValue, &lemmaValue, &sublemmaValue, &sublemmaCount,
-			&wordPos, &wordCount, &wordArf, &lemmaPos, &lemmaCount, &lemmaArf,
-			&isPname)
+			&wordValue, &lemmaValue, &sublemmaValue, &wordCount,
+			&wordPos, &wordArf)
 		if err != nil {
-			status.Error = err
-			statusChan <- status
-			return
+			return []Lemma{}, fmt.Errorf("failed to process dictionary rows: %w", err)
 		}
-		if exp.isValidWord(lemmaValue) {
+		if isValidWord(lemmaValue, enableMultivalues) {
 			newLemma := lemmaValue
 			newPos := lemmaPos
 			if currLemma == nil || newLemma != currLemma.Lemma || newPos != currLemma.PoS {
 				if currLemma != nil {
-					chunk = append(chunk, currLemma)
+					matchingLemmas = append(matchingLemmas, *currLemma)
 					currLemma.Sublemmas = make([]Sublemma, 0, len(sublemmas))
 					for sValue, sCount := range sublemmas {
 						currLemma.Sublemmas = append(
@@ -178,134 +167,110 @@ func (exp *Exporter) processRowsSync(
 				},
 			)
 			sublemmas[sublemmaValue] = sublemmaCount
-			if len(chunk) == exportChunkSize {
-				err := bulkWriter.BulkInsert(chunk)
-				if err != nil {
-					status.Error = err
-					statusChan <- status
-					return
-				}
-				chunk = make([]*Lemma, 0, exportChunkSize)
-			}
+
 		}
 		procRecords++
-		if procRecords%100000 == 0 {
-			status.NumProcLines = procRecords
-			statusChan <- status
-			log.Debug().Msgf("Processed %d records", procRecords)
-		}
+
 	}
 	if procRecords == 0 {
-		err := fmt.Errorf("there were no n-gram records to process")
-		status.Error = err
-		statusChan <- status
-		return
+		return []Lemma{}, fmt.Errorf("there were no dictionary rcords to process")
 	}
 	if currLemma != nil {
-		chunk = append(chunk, currLemma)
+		matchingLemmas = append(matchingLemmas, *currLemma)
 	}
-	if len(chunk) > 0 {
-		err := bulkWriter.BulkInsert(chunk)
-		if err != nil {
-			status.Error = err
-		}
-	}
-	statusChan <- status
+	return matchingLemmas, nil
 }
 
-func (exp *Exporter) exportValuesToCouchDBSync(statusChan chan<- exporterStatus) {
-
-	defer close(statusChan) // we rely on the fact that everything is "sync" here
-
-	status := exporterStatus{}
-	couchdbSchema := couchdb.NewSchema(exp.cb)
-	err := couchdbSchema.CreateDatabase(exp.readAccessUsers)
-	if err != nil {
-		status.Error = err
-		statusChan <- status
-		return
-	}
-	err = couchdbSchema.CreateViews()
-	if err != nil {
-		status.Error = err
-		statusChan <- status
-		return
-	}
-	status.TablesReady = true
-	statusChan <- status
-	rows, err := exp.db.Query(fmt.Sprintf( // TODO w.pos AS lemma_pos !?
-		"SELECT w.value, w.lemma, s.value AS sublemma, s.count AS sublemma_count, "+
-			"w.pos, w.count, w.arf, w.pos as lemma_pos, m.count as lemma_count, m.arf as lemma_arf, "+
-			"m.is_pname as lemma_is_pname "+
-			"FROM %s_word AS w "+
-			"JOIN %s_sublemma AS s ON s.value = w.sublemma AND s.lemma = w.lemma AND s.pos = w.pos "+
-			"JOIN %s_lemma AS m ON m.value = s.lemma AND m.pos = s.pos "+
-			"WHERE m.pos != 'X' "+
-			"ORDER BY w.lemma, w.pos, w.value", exp.groupedName, exp.groupedName, exp.groupedName))
-	if err != nil {
-		status.Error = err
-		statusChan <- status
-		return
-	}
-	exp.processRowsSync(rows, statusChan, status)
+type SearchOptions struct {
+	Lemma            string
+	Sublemma         string
+	Word             string
+	AnyValue         string
+	AllowMultivalues bool
 }
 
-func (exp *Exporter) EnqueueExportJob(parentJobID string) (ExportJobInfo, error) {
-
-	jobID, err := uuid.NewUUID()
-	if err != nil {
-		return ExportJobInfo{}, err
+func SearchWithSublemma(v string) SearchOption {
+	return func(c *SearchOptions) {
+		c.Sublemma = v
 	}
-	status := ExportJobInfo{
-		ID:       jobID.String(),
-		Type:     "qs-exporting",
-		CorpusID: exp.groupedName,
-		Start:    jobs.CurrentDatetime(),
-		Update:   jobs.CurrentDatetime(),
-		Finished: false,
-		Args:     ExportJobInfoArgs{MultiValuesEnabled: exp.multiValuesEnabled},
-	}
-	fn := func(updateJobChan chan<- jobs.GeneralJobInfo) {
-		statusChan := make(chan exporterStatus)
-		go func(runStatus ExportJobInfo) {
-			defer close(updateJobChan)
-			for statUpd := range statusChan {
-				runStatus.Result = statUpd
-				runStatus.Error = statUpd.Error
-				runStatus.Update = jobs.CurrentDatetime()
-				updateJobChan <- runStatus
-			}
-			runStatus.Update = jobs.CurrentDatetime()
-			runStatus.Finished = true
-			updateJobChan <- runStatus
-		}(status)
-		exp.exportValuesToCouchDBSync(statusChan)
-	}
-	if parentJobID != "" {
-		exp.jobActions.EqueueJobAfter(&fn, &status, parentJobID)
-
-	} else {
-		exp.jobActions.EnqueueJob(&fn, &status)
-	}
-	return status, nil
 }
 
-func NewExporter(
-	conf *liveattrs.NgramDBConf,
+func SearchWithLemma(v string) SearchOption {
+	return func(c *SearchOptions) {
+		c.Lemma = v
+	}
+}
+
+func SearchWithWord(v string) SearchOption {
+	return func(c *SearchOptions) {
+		c.Word = v
+	}
+}
+
+func SearchWithAnyValue(v string) SearchOption {
+	return func(c *SearchOptions) {
+		c.AnyValue = v
+	}
+}
+
+func SearchWithMultivalues() SearchOption {
+	return func(c *SearchOptions) {
+		c.AllowMultivalues = true
+	}
+}
+
+type SearchOption func(c *SearchOptions)
+
+func Search(
+	ctx context.Context,
 	db *sql.DB,
 	groupedName string,
-	multiValuesEnabled bool,
-	jobActions *jobs.Actions,
-) *Exporter {
-	return &Exporter{
-		cb: &couchdb.ClientBase{
-			BaseURL: conf.URL,
-			DBName:  fmt.Sprintf("%s_sublemmas", groupedName),
-		},
-		db:                 db,
-		groupedName:        groupedName,
-		readAccessUsers:    conf.ReadAccessUsers,
-		jobActions:         jobActions,
-		multiValuesEnabled: multiValuesEnabled,
+	opts ...SearchOption,
+) ([]Lemma, error) {
+
+	status := exporterStatus{}
+	status.TablesReady = true
+	whereSQL := make([]string, 0, 5)
+	whereArgs := make([]any, 0, 5)
+	whereSQL = append(whereSQL, "w.pos != ?")
+	whereArgs = append(whereArgs, freqdb.NonWordCSCNC2020Tag)
+	var srchOpts SearchOptions
+	for _, opt := range opts {
+		opt(&srchOpts)
 	}
+	if srchOpts.Lemma != "" {
+		whereSQL = append(whereSQL, "m.value = ?")
+		whereArgs = append(whereArgs, srchOpts.Lemma)
+	}
+	if srchOpts.Sublemma != "" {
+		whereSQL = append(whereSQL, "s.value = ?")
+		whereArgs = append(whereArgs, srchOpts.Sublemma)
+	}
+	if srchOpts.Word != "" {
+		whereSQL = append(whereSQL, "w.value = ?")
+		whereArgs = append(whereArgs, srchOpts.Word)
+	}
+	if srchOpts.AnyValue != "" {
+		whereSQL = append(whereSQL, "s.value = ?")
+		whereArgs = append(whereArgs, srchOpts.AnyValue)
+	}
+	rows, err := db.QueryContext(
+		ctx,
+		fmt.Sprintf(
+			"SELECT w.value, w.lemma, w.sublemma, w.count, "+
+				"w.pos, w.arf "+
+				"FROM %s_word AS w "+
+				"JOIN %s_term_search AS s ON s.word_id = w.id "+
+				"WHERE %s "+
+				"ORDER BY w.lemma, w.pos, w.sublemma, w.value",
+			groupedName,
+			groupedName,
+			strings.Join(whereSQL, " AND "),
+		),
+		whereArgs...,
+	)
+	if err != nil {
+		return []Lemma{}, fmt.Errorf("failed to search dict. values: %w", err)
+	}
+	return processRowsSync(rows, srchOpts.AllowMultivalues)
 }

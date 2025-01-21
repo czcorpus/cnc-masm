@@ -61,6 +61,7 @@ func (gns genNgramsStatus) MarshalJSON() ([]byte, error) {
 }
 
 type ngRecord struct {
+	hashId   string
 	word     string
 	lemma    string
 	sublemma string

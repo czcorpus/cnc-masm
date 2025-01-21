@@ -16,21 +16,20 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package actions
+package common
 
 import (
 	"errors"
-	"masm/v3/liveattrs/qs"
 
-	"github.com/czcorpus/vert-tagextract/v3/cnf"
+	vteCnf "github.com/czcorpus/vert-tagextract/v3/cnf"
 	"github.com/czcorpus/vert-tagextract/v3/ptcount/modders"
 )
 
 var (
-	errorPosNotDefined = errors.New("PoS not defined")
+	ErrorPosNotDefined = errors.New("PoS not defined")
 )
 
-func appendPosModder(prev string, curr qs.SupportedTagset) string {
+func appendPosModder(prev string, curr SupportedTagset) string {
 	if prev == "" {
 		return string(curr)
 	}
@@ -42,29 +41,38 @@ func appendPosModder(prev string, curr qs.SupportedTagset) string {
 // vert-tagexract configuration.
 func posExtractorFactory(
 	currMods string,
-	tagsetName qs.SupportedTagset,
+	tagsetName SupportedTagset,
 ) (*modders.StringTransformerChain, string) {
 	modderSpecif := appendPosModder(currMods, tagsetName)
 	return modders.NewStringTransformerChain(modderSpecif), modderSpecif
 }
 
-// applyPosProperties takes posIdx and posTagset and adds a column modder
+// ApplyPosProperties takes posIdx and posTagset and adds a column modder
 // to Ngrams.columnMods column matching the "PoS" one (preserving string modders
 // already configured there!).
 // In case posIdx argument points to a non-existing vertical column,
 // the function returns errorPosNotDefined.
-func applyPosProperties(
-	conf *cnf.VTEConf,
+func ApplyPosProperties(
+	conf *vteCnf.NgramConf,
 	posIdx int,
-	posTagset qs.SupportedTagset,
+	posTagset SupportedTagset,
 ) (*modders.StringTransformerChain, error) {
-	for i, col := range conf.Ngrams.VertColumns {
+	for i, col := range conf.VertColumns {
 		if posIdx == col.Idx {
 			fn, modderSpecif := posExtractorFactory(col.ModFn, posTagset)
 			col.ModFn = modderSpecif
-			conf.Ngrams.VertColumns[i] = col
+			conf.VertColumns[i] = col
 			return fn, nil
 		}
 	}
-	return modders.NewStringTransformerChain(""), errorPosNotDefined
+	return modders.NewStringTransformerChain(""), ErrorPosNotDefined
+}
+
+func GetFirstSupportedTagset(values []SupportedTagset) SupportedTagset {
+	for _, v := range values {
+		if v.Validate() == nil {
+			return v
+		}
+	}
+	return ""
 }

@@ -16,7 +16,7 @@
 //  You should have received a copy of the GNU General Public License
 //  along with CNC-MASM.  If not, see <https://www.gnu.org/licenses/>.
 
-package qs
+package common
 
 import (
 	"fmt"
@@ -50,7 +50,13 @@ const (
 )
 
 func InferQSAttrMapping(regPath string, tagset SupportedTagset) (freqdb.QSAttributes, error) {
-	var ans freqdb.QSAttributes
+	ans := freqdb.QSAttributes{
+		Word:     -1,
+		Sublemma: -1,
+		Lemma:    -1,
+		Tag:      -1,
+		Pos:      -1,
+	}
 	regBytes, err := os.ReadFile(regPath)
 	if err != nil {
 		return ans, fmt.Errorf("failed to infer qs attribute mapping: %w", err)
@@ -71,6 +77,8 @@ func InferQSAttrMapping(regPath string, tagset SupportedTagset) (freqdb.QSAttrib
 				ans.Lemma = i
 			case freqdb.AttrTag:
 				ans.Tag = i
+			case freqdb.AttrPos:
+				ans.Pos = i
 			}
 			i++
 		}

@@ -86,12 +86,15 @@ func arrayShowShortened(data []string) string {
 	return strings.Join(ans, ", ")
 }
 
+// --------------
+
 type LAConf struct {
 	LA      *liveattrs.Conf
-	Ngram   *liveattrs.NgramDBConf
 	KonText *kontext.Conf
 	Corp    *corpus.CorporaSetup
 }
+
+// ------------------------
 
 // Actions wraps liveattrs-related actions
 type Actions struct {
@@ -539,7 +542,7 @@ func (a *Actions) InferredAtomStructure(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, &ans)
 }
 
-// NewActions is the default factory for Actions
+// NewActions is the recommended factory for Actions
 func NewActions(
 	conf LAConf,
 	ctx context.Context,
@@ -547,18 +550,16 @@ func NewActions(
 	jobActions *jobs.Actions,
 	cncDB *cncdb.CNCMySQLHandler,
 	laDB *sql.DB,
+	laConfRegistry *laconf.LiveAttrsBuildConfProvider,
 	version general.VersionInfo,
 ) *Actions {
 	usageChan := make(chan db.RequestData)
 	actions := &Actions{
-		conf:           conf,
-		ctx:            ctx,
-		jobActions:     jobActions,
-		jobStopChannel: jobStopChannel,
-		laConfCache: laconf.NewLiveAttrsBuildConfProvider(
-			conf.LA.ConfDirPath,
-			conf.LA.DB,
-		),
+		conf:            conf,
+		ctx:             ctx,
+		jobActions:      jobActions,
+		jobStopChannel:  jobStopChannel,
+		laConfCache:     laConfRegistry,
 		cncDB:           cncDB,
 		laDB:            laDB,
 		eqCache:         cache.NewEmptyQueryCache(),

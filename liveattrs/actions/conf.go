@@ -22,9 +22,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"masm/v3/common"
 	"masm/v3/corpus"
 	"masm/v3/liveattrs/laconf"
-	"masm/v3/liveattrs/qs"
 	"net/http"
 	"path/filepath"
 
@@ -194,12 +194,12 @@ func (a *Actions) PatchConfig(ctx *gin.Context) {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 			return
 		}
-		tagset := getFirstSupportedTagset(corpTagsets)
+		tagset := common.GetFirstSupportedTagset(corpTagsets)
 		if tagset == "" {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 			return
 		}
-		attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
+		attrMapping, err := common.InferQSAttrMapping(regPath, tagset)
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 			return
@@ -252,12 +252,12 @@ func (a *Actions) QSDefaults(ctx *gin.Context) {
 	corpusID := ctx.Param("corpusId")
 	regPath := filepath.Join(a.conf.Corp.RegistryDirPaths[0], corpusID)
 	corpTagsets, err := a.cncDB.GetCorpusTagsets(corpusID)
-	tagset := getFirstSupportedTagset(corpTagsets)
+	tagset := common.GetFirstSupportedTagset(corpTagsets)
 	if tagset == "" {
 		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no supported tagset"), http.StatusUnprocessableEntity)
 		return
 	}
-	attrMapping, err := qs.InferQSAttrMapping(regPath, tagset)
+	attrMapping, err := common.InferQSAttrMapping(regPath, tagset)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return

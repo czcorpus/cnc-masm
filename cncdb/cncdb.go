@@ -22,8 +22,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"masm/v3/common"
 	"masm/v3/corpus"
-	"masm/v3/liveattrs/qs"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -193,7 +193,7 @@ func (c *CNCMySQLHandler) GetSimpleQueryDefaultAttrs(corpusID string) ([]string,
 	return attrs, nil
 }
 
-func (c *CNCMySQLHandler) GetCorpusTagsets(corpusID string) ([]qs.SupportedTagset, error) {
+func (c *CNCMySQLHandler) GetCorpusTagsets(corpusID string) ([]common.SupportedTagset, error) {
 	rows, err := c.conn.Query(
 		"SELECT tagset_name FROM corpus_tagset WHERE corpus_name = ?",
 		corpusID,
@@ -201,14 +201,14 @@ func (c *CNCMySQLHandler) GetCorpusTagsets(corpusID string) ([]qs.SupportedTagse
 	if err != nil {
 		return nil, fmt.Errorf("failed to get corpus tagsets: %w", err)
 	}
-	ans := make([]qs.SupportedTagset, 0, 5)
+	ans := make([]common.SupportedTagset, 0, 5)
 	var val string
 	for rows.Next() {
 		err := rows.Scan(&val)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get corpus tagsets: %w", err)
 		}
-		ans = append(ans, qs.SupportedTagset(val))
+		ans = append(ans, common.SupportedTagset(val))
 	}
 	return ans, nil
 }

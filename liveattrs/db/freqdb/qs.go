@@ -28,6 +28,7 @@ const (
 	AttrSublemma = "sublemma"
 	AttrLemma    = "lemma"
 	AttrTag      = "tag"
+	AttrPos      = "pos"
 )
 
 type QSAttributes struct {
@@ -35,6 +36,7 @@ type QSAttributes struct {
 	Sublemma int `json:"sublemma"`
 	Lemma    int `json:"lemma"`
 	Tag      int `json:"tag"`
+	Pos      int `json:"pos"`
 }
 
 func colIdxToName(idx int) string {
@@ -47,6 +49,7 @@ func (qsa QSAttributes) GetColIndexes() []int {
 		qsa.Lemma,
 		qsa.Sublemma,
 		qsa.Tag,
+		qsa.Pos,
 	}
 	sort.SliceStable(ans, func(i, j int) bool {
 		return ans[i] < ans[j]
@@ -71,6 +74,8 @@ func (qsa QSAttributes) ExportCols(values ...string) []string {
 			ans = append(ans, colIdxToName(qsa.Sublemma))
 		case "tag":
 			ans = append(ans, colIdxToName(qsa.Tag))
+		case "pos":
+			ans = append(ans, colIdxToName(qsa.Pos))
 		default:
 			panic(fmt.Sprintf("unknown query suggestion attribute: %s", v))
 		}

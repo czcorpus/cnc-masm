@@ -43,10 +43,12 @@ import (
 	"masm/v3/corpus/query"
 	"masm/v3/db/mysql"
 	"masm/v3/debug"
+	dictActions "masm/v3/dictionary/actions"
 	"masm/v3/general"
 	"masm/v3/jobs"
 	"masm/v3/liveattrs"
 	laActions "masm/v3/liveattrs/actions"
+	"masm/v3/liveattrs/laconf"
 	"masm/v3/registry"
 	"masm/v3/root"
 
@@ -88,7 +90,7 @@ func main() {
 	}
 	conf := cnf.LoadConfig(flag.Arg(1))
 	logging.SetupLogging(conf.Logging)
-	log.Info().Msg("Starting MASM (Manatee Assets, Services and Metadata)")
+	log.Info().Msg("Starting FRODO")
 	cnf.ApplyDefaults(conf)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -157,10 +159,14 @@ func main() {
 	concCache.RestoreUnboundEntries()
 	concActions := query.NewActions(conf.CorporaSetup, conf.GetLocation(), concCache)
 
+	laConfRegistry := laconf.NewLiveAttrsBuildConfProvider(
+		conf.LiveAttrs.ConfDirPath,
+		conf.LiveAttrs.DB,
+	)
+
 	liveattrsActions := laActions.NewActions(
 		laActions.LAConf{
 			LA:      conf.LiveAttrs,
-			Ngram:   conf.NgramDB,
 			KonText: conf.Kontext,
 			Corp:    conf.CorporaSetup,
 		},
@@ -169,6 +175,7 @@ func main() {
 		jobActions,
 		cncDB,
 		laDB,
+		laConfRegistry,
 		version,
 	)
 	registryActions := registry.NewActions(conf.CorporaSetup)
@@ -202,14 +209,18 @@ func main() {
 
 	engine.GET(
 		"/", rootActions.RootAction)
+	// TODO: can this be removed?
 	engine.GET(
 		"/corpora/:corpusId", corpusActions.GetCorpusInfo)
+	// TODO: remove
 	engine.POST(
 		"/corpora/:corpusId/_syncData", corpusActions.SynchronizeCorpusData)
 
+	// TODO: remove
 	engine.GET(
 		"/freqs/:corpusId", concActions.FreqDistrib)
 
+	// TODO: remove
 	engine.GET(
 		"/collocs/:corpusId", concActions.Collocations)
 
@@ -255,17 +266,32 @@ func main() {
 		"/liveAttributes/:corpusId/inferredAtomStructure",
 		liveattrsActions.InferredAtomStructure)
 	engine.POST(
-		"/liveAttributes/:corpusId/ngrams",
-		liveattrsActions.GenerateNgrams)
-	engine.POST(
-		"/liveAttributes/:corpusId/querySuggestions",
-		liveattrsActions.CreateQuerySuggestions)
-	engine.POST(
 		"/liveAttributes/:corpusId/documentList",
 		liveattrsActions.DocumentList)
 	engine.POST(
 		"/liveAttributes/:corpusId/numMatchingDocuments",
 		liveattrsActions.NumMatchingDocuments)
+
+	dictActionsHandler := dictActions.NewActions(
+		ctx,
+		conf.CorporaSetup,
+		jobStopChannel,
+		jobActions,
+		cncDB,
+		laDB,
+		laConfRegistry,
+		version,
+	)
+
+	engine.POST(
+		"/dictionary/:corpusId/ngrams",
+		dictActionsHandler.GenerateNgrams)
+	engine.POST(
+		"/dictionary/:corpusId/querySuggestions",
+		dictActionsHandler.CreateQuerySuggestions)
+	engine.GET(
+		"/dictionary/:corpusId/querySuggestions/:term",
+		dictActionsHandler.GetQuerySuggestions)
 
 	engine.GET(
 		"/jobs", jobActions.JobList)

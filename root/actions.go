@@ -49,7 +49,7 @@ func (a *Actions) RootAction(ctx *gin.Context) {
 		Host     string              `json:"host"`
 		ConfPath string              `json:"confPath"`
 	}{
-		Name:     "MASM - Manatee Assets, Services and Metadata",
+		Name:     "FRODO - Frequency Registry Of Dictionary Objects",
 		Version:  a.Version,
 		Host:     host,
 		ConfPath: a.Conf.GetSourcePath(),

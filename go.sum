@@ -20,6 +20,8 @@ github.com/czcorpus/manabuild v0.1.3 h1:dcTMpRtUUHhm1H+7532MeNFID0WyRVDorydROgbb
 github.com/czcorpus/manabuild v0.1.3/go.mod h1:dj2iAsZObs4yJhF6KkQs5oH2AAyZlrmaNwMGV44hLbk=
 github.com/czcorpus/rexplorer v0.0.2 h1:e8DuZGX/CYXv3Y2ovhMvntXH6QgAgQ3droZV+1w153k=
 github.com/czcorpus/rexplorer v0.0.2/go.mod h1:9KwJWUp9tqn5gDjN3sS2jcsaaMWsfi3qPaqN5s9DY9Y=
+github.com/czcorpus/vert-tagextract/v2 v2.5.0 h1:qw7uq4MxI0czEoHAawdl0qu5lu2C2aQyEzzXuRHyC6w=
+github.com/czcorpus/vert-tagextract/v2 v2.5.0/go.mod h1:8El+TatQW5D4nf7f1eMVpnHgGs4UIanaw8N0rjaIEaA=
 github.com/czcorpus/vert-tagextract/v3 v3.0.6 h1:EmLxpyYIT6HA9DiV6g3WIbwj4Ci1QZNJKedgfKhm8KE=
 github.com/czcorpus/vert-tagextract/v3 v3.0.6/go.mod h1:LvRy+pKZZ9AL82zAzfkqKncsFh1CpYLbvnNdmcoXnGo=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

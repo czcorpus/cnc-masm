@@ -32,8 +32,3 @@ type Conf struct {
 	VertMaxNumErrors     int    `json:"vertMaxNumErrors"`
 	VerticalFilesDirPath string `json:"verticalFilesDirPath"`
 }
-
-type NgramDBConf struct {
-	URL             string   `json:"url"`
-	ReadAccessUsers []string `json:"readAccessUsers"`
-}
