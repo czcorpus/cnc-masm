@@ -59,7 +59,7 @@ func (a *Actions) Create(ctx *gin.Context) {
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,
-			err,
+			fmt.Errorf("failed to parse patch args: %w", err),
 			http.StatusBadRequest,
 		)
 		return
@@ -70,20 +70,31 @@ func (a *Actions) Create(ctx *gin.Context) {
 		var err error
 		newConf, err = a.createConf(corpusID, jsonArgs)
 		if err != nil && err != ErrorMissingVertical {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("failed to create liveattrs config for %s: %w", corpusID, err),
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
 		err = a.laConfCache.Save(newConf)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				fmt.Errorf("failed to save liveattrs config for %s: %w", corpusID, err),
+				http.StatusInternalServerError,
+			)
 			return
 		}
 
 		conf, err = a.laConfCache.Get(corpusID)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusBadRequest)
+			uniresp.RespondWithErrorJSON(
+				ctx,
+				uniresp.NewActionError("failed to save liveattrs config for %s: %w", corpusID, err),
+				http.StatusInternalServerError,
+			)
 			return
 		}
 	}
@@ -91,8 +102,11 @@ func (a *Actions) Create(ctx *gin.Context) {
 	runtimeConf := *conf
 	a.applyPatchArgs(&runtimeConf, jsonArgs)
 	if !runtimeConf.HasConfiguredVertical() {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError(baseErrTpl, corpusID, err), http.StatusConflict)
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("cannot process liveattrs - there is no configured vertical file"),
+			http.StatusConflict,
+		)
 		return
 	}
 
