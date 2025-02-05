@@ -111,27 +111,6 @@ func (cache *Cache) RestoreUnboundEntries() error {
 	return iterErr
 }
 
-func (cache *Cache) restoreIfUnboundEntry(corpusID, query string) CacheEntry {
-	targetPath := cache.mkPath(corpusID, query)
-	now := time.Now().In(cache.loc)
-	ans := CacheEntry{PromisedAt: now, FulfilledAt: now}
-	isFile, err := fs.IsFile(targetPath)
-	if err != nil {
-		log.Error().
-			Err(err).
-			Str("path", targetPath).
-			Msg("failed to determine cache file status")
-		ans.Err = err
-
-	} else if !isFile {
-		ans.Err = ErrEntryNotFound
-
-	} else {
-		ans.FilePath = targetPath
-	}
-	return ans
-}
-
 func (cache *Cache) Promise(corpusID, query string, fn func(path string) error) <-chan CacheEntry {
 	targetPath := cache.mkPath(corpusID, query)
 	entry := CacheEntry{

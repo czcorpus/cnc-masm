@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"masm/v3/corpus"
-	"masm/v3/liveattrs/qs"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -56,46 +55,6 @@ func (c *CNCMySQLHandler) UpdateDefaultViewOpts(transact *sql.Tx, corpus string,
 	_, err = transact.Exec(
 		fmt.Sprintf("UPDATE %s SET default_view_opts = ? WHERE name = ?", c.corporaTableName),
 		string(data),
-		corpus,
-	)
-	return err
-}
-
-func (c *CNCMySQLHandler) SetLiveAttrs(
-	transact *sql.Tx,
-	corpus, bibIDStruct, bibIDAttr string,
-) error {
-	if bibIDAttr != "" && bibIDStruct == "" || bibIDAttr == "" && bibIDStruct != "" {
-		return fmt.Errorf("SetLiveAttrs requires either both bibIDStruct, bibIDAttr empty or defined")
-	}
-	var err error
-	if bibIDAttr != "" {
-		_, err = transact.Exec(
-			fmt.Sprintf(
-				`UPDATE %s SET text_types_db = 'enabled', bib_id_struct = ?, bib_id_attr = ?
-					WHERE name = ?`, c.corporaTableName),
-			bibIDStruct,
-			bibIDAttr,
-			corpus,
-		)
-
-	} else {
-		_, err = transact.Exec(
-			fmt.Sprintf(
-				`UPDATE %s SET text_types_db = 'enabled', bib_id_struct = NULL, bib_id_attr = NULL
-					WHERE name = ?`, c.corporaTableName),
-			corpus,
-		)
-
-	}
-	return err
-}
-
-func (c *CNCMySQLHandler) UnsetLiveAttrs(transact *sql.Tx, corpus string) error {
-	_, err := transact.Exec(
-		fmt.Sprintf(
-			`UPDATE %s SET text_types_db = NULL, bib_id_struct = NULL, bib_id_attr = NULL
-			 WHERE name = ?`, c.corporaTableName),
 		corpus,
 	)
 	return err
@@ -191,26 +150,6 @@ func (c *CNCMySQLHandler) GetSimpleQueryDefaultAttrs(corpusID string) ([]string,
 		attrs = append(attrs, attr)
 	}
 	return attrs, nil
-}
-
-func (c *CNCMySQLHandler) GetCorpusTagsets(corpusID string) ([]qs.SupportedTagset, error) {
-	rows, err := c.conn.Query(
-		"SELECT tagset_name FROM corpus_tagset WHERE corpus_name = ?",
-		corpusID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get corpus tagsets: %w", err)
-	}
-	ans := make([]qs.SupportedTagset, 0, 5)
-	var val string
-	for rows.Next() {
-		err := rows.Scan(&val)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get corpus tagsets: %w", err)
-		}
-		ans = append(ans, qs.SupportedTagset(val))
-	}
-	return ans, nil
 }
 
 func (c *CNCMySQLHandler) GetCorpusTagsetAttrs(corpusID string) ([]string, error) {

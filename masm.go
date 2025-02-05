@@ -22,7 +22,6 @@ package main
 
 import (
 	"context"
-	"encoding/gob"
 	"flag"
 	"fmt"
 	"net/http"
@@ -41,16 +40,9 @@ import (
 	"masm/v3/cnf"
 	"masm/v3/corpus"
 	"masm/v3/corpus/query"
-	"masm/v3/db/mysql"
-	"masm/v3/debug"
 	"masm/v3/general"
-	"masm/v3/jobs"
-	"masm/v3/liveattrs"
-	laActions "masm/v3/liveattrs/actions"
 	"masm/v3/registry"
 	"masm/v3/root"
-
-	_ "masm/v3/translations"
 )
 
 var (
@@ -58,12 +50,6 @@ var (
 	buildDate string
 	gitCommit string
 )
-
-func init() {
-	gob.Register(&liveattrs.LiveAttrsJobInfo{})
-	gob.Register(&liveattrs.IdxUpdateJobInfo{})
-	gob.Register(&corpus.JobInfo{})
-}
 
 func main() {
 	version := general.VersionInfo{
@@ -122,19 +108,6 @@ func main() {
 	}
 	log.Info().Msgf("CNC SQL database: %s@%s", conf.CNCDB.Name, conf.CNCDB.Host)
 
-	laDB, err := mysql.OpenDB(conf.LiveAttrs.DB)
-	if err != nil {
-		log.Fatal().Err(err)
-	}
-	var dbInfo string
-	if conf.LiveAttrs.DB.Type == "mysql" {
-		dbInfo = fmt.Sprintf("%s@%s", conf.LiveAttrs.DB.Name, conf.LiveAttrs.DB.Host)
-
-	} else {
-		dbInfo = fmt.Sprintf("file://%s/*.db", conf.LiveAttrs.TextTypesDbDirPath)
-	}
-	log.Info().Msgf("LiveAttrs SQL database(s): %s", dbInfo)
-
 	if !conf.Logging.Level.IsDebugMode() {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -148,146 +121,24 @@ func main() {
 
 	rootActions := root.Actions{Version: version, Conf: conf}
 
-	jobStopChannel := make(chan string)
-	jobActions := jobs.NewActions(conf.Jobs, conf.Language, ctx, jobStopChannel)
-
-	corpusActions := corpus.NewActions(conf.CorporaSetup, conf.Jobs, jobActions, cncDB)
+	corpusActions := corpus.NewActions(conf.CorporaSetup, cncDB)
 
 	concCache := query.NewCache(conf.CorporaSetup.ConcCacheDirPath, conf.GetLocation())
 	concCache.RestoreUnboundEntries()
 	concActions := query.NewActions(conf.CorporaSetup, conf.GetLocation(), concCache)
 
-	liveattrsActions := laActions.NewActions(
-		laActions.LAConf{
-			LA:      conf.LiveAttrs,
-			Ngram:   conf.NgramDB,
-			KonText: conf.Kontext,
-			Corp:    conf.CorporaSetup,
-		},
-		ctx,
-		jobStopChannel,
-		jobActions,
-		cncDB,
-		laDB,
-		version,
-	)
 	registryActions := registry.NewActions(conf.CorporaSetup)
-	for _, dj := range jobActions.GetDetachedJobs() {
-		if dj.IsFinished() {
-			continue
-		}
-		switch tdj := dj.(type) {
-		case *liveattrs.LiveAttrsJobInfo:
-			err := liveattrsActions.RestartLiveAttrsJob(ctx, tdj)
-			if err != nil {
-				log.Error().Err(err).Msgf("Failed to restart job %s. The job will be removed.", tdj.ID)
-			}
-			jobActions.ClearDetachedJob(tdj.ID)
-		case *liveattrs.IdxUpdateJobInfo:
-			err := liveattrsActions.RestartIdxUpdateJob(tdj)
-			if err != nil {
-				log.Error().Err(err).Msgf("Failed to restart job %s. The job will be removed.", tdj.ID)
-			}
-			jobActions.ClearDetachedJob(tdj.ID)
-		case *corpus.JobInfo:
-			err := corpusActions.RestartJob(tdj)
-			if err != nil {
-				log.Error().Err(err).Msgf("Failed to restart job %s. The job will be removed.", tdj.ID)
-			}
-			jobActions.ClearDetachedJob(tdj.ID)
-		default:
-			log.Error().Msg("unknown detached job type")
-		}
-	}
 
 	engine.GET(
 		"/", rootActions.RootAction)
 	engine.GET(
 		"/corpora/:corpusId", corpusActions.GetCorpusInfo)
-	engine.POST(
-		"/corpora/:corpusId/_syncData", corpusActions.SynchronizeCorpusData)
 
 	engine.GET(
 		"/freqs/:corpusId", concActions.FreqDistrib)
 
 	engine.GET(
 		"/collocs/:corpusId", concActions.Collocations)
-
-	engine.POST(
-		"/liveAttributes/:corpusId/data", liveattrsActions.Create)
-	engine.DELETE(
-		"/liveAttributes/:corpusId/data", liveattrsActions.Delete)
-	engine.GET(
-		"/liveAttributes/:corpusId/conf", liveattrsActions.ViewConf)
-	engine.PUT(
-		"/liveAttributes/:corpusId/conf", liveattrsActions.CreateConf)
-	engine.PATCH(
-		"/liveAttributes/:corpusId/conf", liveattrsActions.PatchConfig)
-	engine.GET(
-		"/liveAttributes/:corpusId/qsDefaults", liveattrsActions.QSDefaults)
-	engine.DELETE(
-		"/liveAttributes/:corpusId/confCache", liveattrsActions.FlushCache)
-	engine.POST(
-		"/liveAttributes/:corpusId/query", liveattrsActions.Query)
-	engine.POST(
-		"/liveAttributes/:corpusId/fillAttrs", liveattrsActions.FillAttrs)
-	engine.POST(
-		"/liveAttributes/:corpusId/selectionSubcSize",
-		liveattrsActions.GetAdhocSubcSize)
-	engine.POST(
-		"/liveAttributes/:corpusId/attrValAutocomplete",
-		liveattrsActions.AttrValAutocomplete)
-	engine.POST(
-		"/liveAttributes/:corpusId/getBibliography",
-		liveattrsActions.GetBibliography)
-	engine.POST(
-		"/liveAttributes/:corpusId/findBibTitles",
-		liveattrsActions.FindBibTitles)
-	engine.GET(
-		"/liveAttributes/:corpusId/stats", liveattrsActions.Stats)
-	engine.POST(
-		"/liveAttributes/:corpusId/updateIndexes",
-		liveattrsActions.UpdateIndexes)
-	engine.POST(
-		"/liveAttributes/:corpusId/mixSubcorpus",
-		liveattrsActions.MixSubcorpus)
-	engine.GET(
-		"/liveAttributes/:corpusId/inferredAtomStructure",
-		liveattrsActions.InferredAtomStructure)
-	engine.POST(
-		"/liveAttributes/:corpusId/ngrams",
-		liveattrsActions.GenerateNgrams)
-	engine.POST(
-		"/liveAttributes/:corpusId/querySuggestions",
-		liveattrsActions.CreateQuerySuggestions)
-	engine.POST(
-		"/liveAttributes/:corpusId/documentList",
-		liveattrsActions.DocumentList)
-	engine.POST(
-		"/liveAttributes/:corpusId/numMatchingDocuments",
-		liveattrsActions.NumMatchingDocuments)
-
-	engine.GET(
-		"/jobs", jobActions.JobList)
-	engine.GET(
-		"/jobs/utilization", jobActions.Utilization)
-	engine.GET(
-		"/jobs/:jobId", jobActions.JobInfo)
-	engine.DELETE(
-		"/jobs/:jobId", jobActions.Delete)
-	engine.GET(
-		"/jobs/:jobId/clearIfFinished", jobActions.ClearIfFinished)
-	engine.GET(
-		"/jobs/:jobId/emailNotification", jobActions.GetNotifications)
-	engine.GET(
-		"/jobs/:jobId/emailNotification/:address",
-		jobActions.CheckNotification)
-	engine.PUT(
-		"/jobs/:jobId/emailNotification/:address",
-		jobActions.AddNotification)
-	engine.DELETE(
-		"/jobs/:jobId/emailNotification/:address",
-		jobActions.RemoveNotification)
 
 	engine.GET(
 		"/registry/defaults/attribute/dynamic-functions",
@@ -322,12 +173,6 @@ func main() {
 	engine.PUT(
 		"/corpora-database/:corpusId/kontextDefaults",
 		cncdbActions.InferKontextDefaults)
-
-	if conf.Logging.Level.IsDebugMode() {
-		debugActions := debug.NewActions(jobActions)
-		engine.POST("/debug/createJob", debugActions.CreateDummyJob)
-		engine.POST("/debug/finishJob/:jobId", debugActions.FinishDummyJob)
-	}
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ListenAddress, conf.ListenPort)
 	srv := &http.Server{

@@ -21,12 +21,8 @@ package cnf
 import (
 	"encoding/json"
 	"masm/v3/corpus"
-	"masm/v3/jobs"
-	"masm/v3/kontext"
-	"masm/v3/liveattrs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/logging"
@@ -42,18 +38,14 @@ const (
 
 // Conf is a global configuration of the app
 type Conf struct {
-	ListenAddress          string                 `json:"listenAddress"`
-	ListenPort             int                    `json:"listenPort"`
-	ServerReadTimeoutSecs  int                    `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                    `json:"serverWriteTimeoutSecs"`
-	CorporaSetup           *corpus.CorporaSetup   `json:"corporaSetup"`
-	Logging                logging.LoggingConf    `json:"logging"`
-	CNCDB                  *corpus.DatabaseSetup  `json:"cncDb"`
-	LiveAttrs              *liveattrs.Conf        `json:"liveAttrs"`
-	Jobs                   *jobs.Conf             `json:"jobs"`
-	Kontext                *kontext.Conf          `json:"kontext"`
-	NgramDB                *liveattrs.NgramDBConf `json:"ngramDb"`
-	Language               string                 `json:"language"`
+	ListenAddress          string                `json:"listenAddress"`
+	ListenPort             int                   `json:"listenPort"`
+	ServerReadTimeoutSecs  int                   `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                   `json:"serverWriteTimeoutSecs"`
+	CorporaSetup           *corpus.CorporaSetup  `json:"corporaSetup"`
+	Logging                logging.LoggingConf   `json:"logging"`
+	CNCDB                  *corpus.DatabaseSetup `json:"cncDb"`
+	Language               string                `json:"language"`
 	srcPath                string
 }
 
@@ -104,23 +96,8 @@ func ApplyDefaults(conf *Conf) {
 			dfltServerWriteTimeoutSecs,
 		)
 	}
-	if conf.LiveAttrs.VertMaxNumErrors == 0 {
-		conf.LiveAttrs.VertMaxNumErrors = dfltVertMaxNumErrors
-		log.Warn().Msgf(
-			"liveAttrs.vertMaxNumErrors not specified, using default: %d",
-			dfltVertMaxNumErrors,
-		)
-	}
 	if conf.Language == "" {
 		conf.Language = dfltLanguage
 		log.Warn().Msgf("language not specified, using default: %s", conf.Language)
-	}
-	if conf.Jobs.MaxNumConcurrentJobs == 0 {
-		v := dfltMaxNumConcurrentJobs
-		if v >= runtime.NumCPU() {
-			v = runtime.NumCPU()
-		}
-		conf.Jobs.MaxNumConcurrentJobs = v
-		log.Warn().Msgf("jobs.maxNumConcurrentJobs not specified, using default %d", v)
 	}
 }

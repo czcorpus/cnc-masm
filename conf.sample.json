@@ -9,11 +9,6 @@
     "corporaSetup": {
         "registryDirPaths": ["/var/local/corpora/registry"],
         "textTypesDbDirPath": "/var/local/corpora/metadata",
-        "corpusDataPath": {
-            "abstract": "/var/local/corpora/indexed-abstract",
-            "cnc": "/var/local/corpora/indexed",
-            "kontext": "/var/local/corpora/indexed-fast"
-        },
         "altAccessMapping": {
             "omezeni": ""
         },
@@ -21,26 +16,10 @@
         "wordSketchDefDirPath": "/var/local/corpora/ske-wsdef",
         "manateeDynlibPath": "/a/path/to/ucnkdynfn.so"
     },
-    "kontextSoftResetURL": ["http://localhost:8080/kontext-services/soft-reset-all"],
     "cncDb": {
         "host": "kontext_db_host",
         "user": "kontext",
         "passwd": "********",
         "db": "kontext"
-    },
-    "liveAttrs": {
-        "db": {
-            "type": "mysql",
-            "host": "liveattrs_db_host",
-            "name": "liveattrs",
-            "user": "liveattrs",
-            "password": "********"
-        },
-        "confDirPath": "/a/dir/path/where/liveattrs/config/will/be/stored",
-        "vertMaxNumErrors": 100
-    },
-    "jobs": {
-        "statusDataPath": "/a/path/where/masm/status/will/be/stored.bin",
-        "maxNumRestarts": 3
     }
 }
