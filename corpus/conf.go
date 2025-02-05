@@ -38,30 +38,15 @@ func (cv CorpusVariant) SubDir() string {
 	return string(cv)
 }
 
-// CorporaDataPaths describes three
-// different ways how paths to corpora
-// data are specified:
-// 1) CNC - a global storage path (typically slow but reliable)
-// 2) Kontext - a special fast storage for KonText
-// 3) abstract - a path for data consumers; points to either
-// (1) or (2)
-type CorporaDataPaths struct {
-	Abstract string `json:"abstract"`
-	CNC      string `json:"cnc"`
-	Kontext  string `json:"kontext"`
-}
-
 // CorporaSetup defines masm application configuration related
 // to a corpus
 type CorporaSetup struct {
 	RegistryDirPaths     []string          `json:"registryDirPaths"`
 	RegistryTmpDir       string            `json:"registryTmpDir"`
-	CorpusDataPath       CorporaDataPaths  `json:"corpusDataPath"`
 	ConcCacheDirPath     string            `json:"concCacheDirPath"`
 	AligndefDirPath      string            `json:"aligndefDirPath"`
 	AltAccessMapping     map[string]string `json:"altAccessMapping"` // registry => data mapping
 	WordSketchDefDirPath string            `json:"wordSketchDefDirPath"`
-	SyncAllowedCorpora   []string          `json:"syncAllowedCorpora"`
 	ManateeDynlibPath    string            `json:"manateeDynlibPath"`
 }
 
@@ -75,19 +60,6 @@ func (cs *CorporaSetup) GetFirstValidRegistry(corpusID, subDir string) string {
 		}
 	}
 	return ""
-}
-
-func (cs *CorporaSetup) GetCorpusCNCDataPath() string {
-	return cs.CorpusDataPath.CNC
-}
-
-func (cs *CorporaSetup) AllowsSyncForCorpus(name string) bool {
-	for _, v := range cs.SyncAllowedCorpora {
-		if v == name {
-			return true
-		}
-	}
-	return false
 }
 
 func (cs *CorporaSetup) SubdirIsInAltAccessMapping(subdir string) bool {

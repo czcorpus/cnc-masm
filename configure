@@ -34,6 +34,9 @@ all: test-and-build
 build:
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o masm3
 
+deadcode:
+	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" deadcode .
+
 test-and-build:
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go test $(go list ./... | grep -v "github.com/czcorpus/mquery-sru/cmd/testing" | tr '\n' ' ')
 	@CGO_CXXFLAGS="${CGO_CXXFLAGS}" CGO_CPPFLAGS="${CGO_CPPFLAGS}" CGO_LDFLAGS="${CGO_LDFLAGS}" go build \${LDFLAGS} -o masm3

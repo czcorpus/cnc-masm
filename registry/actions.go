@@ -26,7 +26,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Actions wraps liveattrs-related actions
 type Actions struct {
 	conf *corpus.CorporaSetup
 }

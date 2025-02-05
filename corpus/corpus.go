@@ -115,43 +115,6 @@ func bindValueToPath(value, path string) (FileMappedValue, error) {
 	return ans, nil
 }
 
-func FindVerticalFile(basePath, corpusID string) (FileMappedValue, error) {
-	if basePath == "" {
-		panic("FindVerticalFile error - basePath cannot be empty")
-	}
-	suffixes := []string{".tar.gz", ".tar.bz2", ".tgz", ".tbz2", ".7z", ".gz", ".zip", ".tar", ".rar", ""}
-	var verticalPath string
-	if IsIntercorpFilename(corpusID) {
-		verticalPath = filepath.Join(basePath, GenCorpusGroupName(corpusID), corpusID)
-
-	} else {
-		verticalPath = filepath.Join(basePath, corpusID, "vertikala")
-	}
-
-	ans := FileMappedValue{Value: verticalPath}
-	for _, suff := range suffixes {
-		fullPath := verticalPath + suff
-		if fs.PathExists(fullPath) {
-			mTime, err := fs.GetFileMtime(fullPath)
-			if err != nil {
-				return ans, err
-			}
-			mTimeString := mTime.Format("2006-01-02T15:04:05-0700")
-			size, err := fs.FileSize(fullPath)
-			if err != nil {
-				return ans, err
-			}
-			ans.LastModified = &mTimeString
-			ans.Value = fullPath
-			ans.Path = fullPath
-			ans.FileExists = true
-			ans.Size = size
-			return ans, nil
-		}
-	}
-	return ans, nil
-}
-
 // getCorpusInfo obtains misc. information about
 // a provided corpus. Errors returned by Manatee
 // are not returned by the function as they are
