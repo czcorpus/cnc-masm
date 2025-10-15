@@ -41,6 +41,7 @@ import (
 	"masm/v3/corpus"
 	"masm/v3/corpus/query"
 	"masm/v3/general"
+	"masm/v3/liveattrs"
 	"masm/v3/registry"
 	"masm/v3/root"
 )
@@ -165,6 +166,12 @@ func main() {
 	engine.GET(
 		"/registry/defaults/structure/multisep",
 		registryActions.GetStructMultisepDefaults)
+
+	laActions, err := liveattrs.NewLiveAttrsActions(ctx, conf.LiveAttrsConf)
+	engine.POST(
+		"/liveAttributes/:corpusId/data", laActions.Create)
+
+	engine.GET("/jobs/:jobId", laActions.Jobs)
 
 	cncdbActions := cncdb.NewActions(conf.CNCDB, conf.CorporaSetup, cncDB)
 	engine.POST(

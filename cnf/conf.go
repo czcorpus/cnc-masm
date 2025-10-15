@@ -21,6 +21,7 @@ package cnf
 import (
 	"encoding/json"
 	"masm/v3/corpus"
+	"masm/v3/liveattrs"
 	"os"
 	"path/filepath"
 	"time"
@@ -46,6 +47,7 @@ type Conf struct {
 	Logging                logging.LoggingConf   `json:"logging"`
 	CNCDB                  *corpus.DatabaseSetup `json:"cncDb"`
 	Language               string                `json:"language"`
+	LiveAttrsConf          liveattrs.LAConf      `json:"liveAttrsConf"`
 	srcPath                string
 }
 
