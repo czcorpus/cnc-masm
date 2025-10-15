@@ -173,6 +173,8 @@ func main() {
 
 	engine.GET("/jobs/:jobId", laActions.Jobs)
 
+	engine.GET("/jobs", laActions.Jobs)
+
 	cncdbActions := cncdb.NewActions(conf.CNCDB, conf.CorporaSetup, cncDB)
 	engine.POST(
 		"/corpora-database/:corpusId/auto-update",
