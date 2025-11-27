@@ -139,7 +139,7 @@ func (c *CNCMySQLHandler) GetSimpleQueryDefaultAttrs(corpusID string) ([]string,
 	if err != nil {
 		return nil, err
 	}
-
+	defer rows.Close()
 	var attr string
 	attrs := make([]string, 0)
 	for rows.Next() {
@@ -160,6 +160,7 @@ func (c *CNCMySQLHandler) GetCorpusTagsetAttrs(corpusID string) ([]string, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get corpus tagset attrs: %w", err)
 	}
+	defer rows.Close()
 
 	var attr string
 	attrs := make([]string, 0)
