@@ -228,6 +228,19 @@ func (la *LiveAttrsActions) Create(ctx *gin.Context) {
 		return
 	}
 
+	if resp.StatusCode >= 400 {
+		// let's try to parse the response as json first:
+		var errBody any
+		if err := json.Unmarshal(respBody, &errBody); err != nil {
+			// this is not necessarily an error - the backend might have e.g. responsed by a non-json response
+			errBody = map[string]any{
+				"message": string(respBody),
+			}
+		}
+		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, errBody, resp.StatusCode)
+		return
+	}
+
 	var respData LiveAttrsJobInfo
 	err = json.Unmarshal(respBody, &respData)
 	if err != nil {
